@@ -171,7 +171,12 @@
 }
 
 .pronounce__actions .btn {
-  flex: 1 1 0;
+  /*
+   * flex-basis を 0 にすると余白を等分するだけになり、狭い画面で
+   * 「もういちど聞く」が文字数ぶんの幅を確保できず途中で折り返す。
+   * auto にして各ボタンの文字幅を下限とし、余った幅だけを等分する。
+   */
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -191,5 +196,16 @@
 
   .pronounce__en {
     font-size: 20px;
+  }
+
+  /* 最小構成では余白と文字を詰め、2ボタンが1行のまま収まる余裕を確保する。 */
+  .pronounce__actions {
+    gap: 6px;
+  }
+
+  .pronounce__actions .btn {
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 13px;
   }
 }

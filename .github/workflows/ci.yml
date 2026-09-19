@@ -17,3 +17,9 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+
+      - name: Install Chromium for visual regression test
+        run: npx playwright install --with-deps chromium
+
+      - name: Visual regression test (pronunciation panel)
+        run: npm run test:visual

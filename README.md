@@ -89,7 +89,7 @@ pairId ごとの回答時間。
 | ビルド | Vite |
 | 言語 | TypeScript |
 | UI | HTML / CSS / DOM 直接操作 |
-| テスト | Vitest |
+| テスト | Vitest（単体）/ Playwright（表示回帰） |
 | 保存 | localStorage |
 | 公開 | GitHub Pages（GitHub Actions） |
 
@@ -132,8 +132,9 @@ npm run preview # ビルド結果の確認
 ### テスト方法
 
 ```bash
-npm test          # 1回実行
+npm test           # 単体テスト 1回実行（Vitest 133件）
 npm run test:watch # 変更を監視して実行
+npm run test:visual # 表示回帰テスト（要 npm run build。実ブラウザで描画して検証）
 ```
 
 自動テストの対象：
@@ -147,6 +148,19 @@ npm run test:watch # 変更を監視して実行
 - localStorage への保存・復旧、壊れた保存データからの復旧
 - コース選択・音声設定の保存
 - 音声非対応時にもゲームを進行できること
+
+`npm run test:visual` は、CSS レイアウトの結果でしか確認できない項目を
+実ブラウザ（Chromium）で描画して検証します。ビルド済みの `dist/` を対象にするため、
+先に `npm run build` を実行してください。対象5サイズすべてで、発音確認パネルの
+2ボタンについて次を確認します。
+
+- 「もういちど聞く」「つぎへ」がパネル内に収まる
+- 両ボタンの外接矩形が重ならない
+- 両ボタンの `scrollWidth <= clientWidth`
+- パネルに横方向の overflow がない
+- 文言が省略や折り返しなく1行で全文表示される
+- タップ領域が 44 × 44 CSS px 以上
+- 背景カードへの入力ロックが効いている
 
 ### ビルド方法
 
