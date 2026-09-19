@@ -1,0 +1,162 @@
+/* デザイントークンと共通部品。正式デザイン確定前の仮配色。 */
+:root {
+  --c-ink: #10243a;
+  --c-ink-soft: #476178;
+  --c-paper: #fdf8ee;
+  --c-paper-2: #ffffff;
+  --c-sky: #123a5e;
+  --c-sky-2: #2a6ea3;
+  --c-accent: #e2703a;
+  --c-accent-2: #f2a25c;
+  --c-ja: #f6e2c8;
+  --c-en: #d6e8f5;
+  --c-ok: #2f9e6b;
+  --c-ng: #d4564f;
+  --c-line: rgba(16, 36, 58, 0.16);
+
+  --radius: 12px;
+  --radius-lg: 18px;
+  --tap-min: 44px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  --gutter: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  /* 横スクロールはどの画面でも発生させない。 */
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--c-sky);
+  color: var(--c-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic',
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  /* dvh が使えない環境でも成立するよう vh をフォールバックに置く。 */
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* カルタ画面と世界マップは縦スクロールさせない。 */
+#app[data-route='karta'],
+#app[data-route='title'],
+#app[data-route='worldMap'] {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+h1,
+h2,
+p,
+ul {
+  margin: 0;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---- ボタン ---- */
+.btn {
+  min-height: var(--tap-min);
+  padding: 10px 16px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  color: var(--c-ink);
+  font-weight: 700;
+  line-height: 1.2;
+  transition: transform 0.08s ease, opacity 0.15s ease;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn--primary {
+  background: linear-gradient(180deg, var(--c-accent-2), var(--c-accent));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(226, 112, 58, 0.3);
+}
+
+.btn--large {
+  width: 100%;
+  min-height: 52px;
+  font-size: 17px;
+}
+
+.btn--ghost {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: transparent;
+  font-weight: 600;
+  padding: 8px 12px;
+  min-height: 40px;
+}
+
+.btn--back {
+  font-size: 13px;
+}
+
+.btn--danger {
+  background: var(--c-ng);
+  border-color: transparent;
+  color: #fff;
+}
+
+.btn--audio {
+  flex: 1;
+}
+
+.note {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+  line-height: 1.5;
+}
+
+.value-line {
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

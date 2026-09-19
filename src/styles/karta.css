@@ -1,0 +1,195 @@
+/* カルタ盤面。縦スクロールさせず、20枚でも一画面に収める。 */
+
+.screen--karta {
+  background: linear-gradient(180deg, #f6efe1, #eadfc9);
+  padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + 8px)
+    calc(var(--safe-bottom) + 6px) calc(var(--safe-left) + 8px);
+  gap: 6px;
+}
+
+.karta__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.karta__stats {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--c-ink-soft);
+  white-space: nowrap;
+}
+
+.karta__stats strong {
+  color: var(--c-ink);
+  font-size: 13px;
+}
+
+.karta__board-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.board {
+  position: absolute;
+  inset: 0;
+  /* カードは絶対配置。スロット計算で重ならないことを保証する。 */
+  touch-action: manipulation;
+}
+
+.karta__hint {
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+/* ---- カード ---- */
+.card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  margin: 0;
+  border: 1px solid rgba(16, 36, 58, 0.18);
+  border-radius: 8px;
+  background: var(--c-paper-2);
+  box-shadow: 0 2px 5px rgba(16, 36, 58, 0.18);
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.2s ease;
+  overflow: hidden;
+  line-height: 1.15;
+  font-weight: 700;
+  /* 文字は画像に焼き込まず、テキストのまま描画する。 */
+}
+
+.card--ja {
+  background: var(--c-ja);
+}
+
+.card--en {
+  background: var(--c-en);
+}
+
+.card__text {
+  display: block;
+  max-width: 100%;
+  text-align: center;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.card.is-selected {
+  transform: rotate(var(--tilt, 0deg)) scale(1.06);
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px rgba(226, 112, 58, 0.5), 0 6px 14px rgba(16, 36, 58, 0.25);
+  z-index: 3;
+}
+
+.card.is-wrong {
+  border-color: var(--c-ng);
+  box-shadow: 0 0 0 3px rgba(212, 86, 79, 0.45);
+  z-index: 3;
+}
+
+.card.is-rejected {
+  border-color: var(--c-ink-soft);
+  box-shadow: 0 0 0 3px rgba(71, 97, 120, 0.35);
+}
+
+.card.is-matched {
+  opacity: 0.32;
+  box-shadow: none;
+  border-style: dashed;
+  cursor: default;
+}
+
+/* ---- 発音確認パネル ---- */
+.overlay-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(16, 36, 58, 0.42);
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.pronounce {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--c-paper-2);
+  box-shadow: 0 12px 30px rgba(9, 32, 54, 0.32);
+  text-align: center;
+}
+
+.pronounce__ja {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.pronounce__en {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--c-sky-2);
+}
+
+.pronounce__heading {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+  margin-top: 2px;
+}
+
+.pronounce__status {
+  font-size: 11px;
+  color: var(--c-ng);
+  min-height: 15px;
+}
+
+.pronounce__actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.pronounce__actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (max-width: 340px) {
+  .karta__hint {
+    display: none;
+  }
+
+  .card {
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(16, 36, 58, 0.16);
+  }
+
+  .pronounce__ja {
+    font-size: 17px;
+  }
+
+  .pronounce__en {
+    font-size: 20px;
+  }
+}
