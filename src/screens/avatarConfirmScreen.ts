@@ -44,9 +44,8 @@ export function avatarConfirmScreen(ctx: AppContext): HTMLElement {
         el('p', { class: 'avatar-confirm__name', text: fullName(avatar) }),
         el('p', { class: 'avatar-confirm__kana', text: fullNameKana(avatar) }),
         el('p', { class: 'avatar-confirm__roman', text: avatar.romanizedName }),
-        el('p', { class: 'note', text: `${AGE_GROUP_LABEL[avatar.ageGroup]}・仮表示` }),
+        el('p', { class: 'note', text: AGE_GROUP_LABEL[avatar.ageGroup] }),
       ]),
-      el('p', { class: 'avatar-select__note', text: UI.avatar.placeholderNote }),
       el('div', { class: 'screen__footer screen__footer--stack' }, [
         button(UI.avatar.startWith, decide, { class: 'btn btn--primary btn--large' }),
         button(UI.avatar.chooseAgain, () => ctx.navigate({ name: 'avatarSelect' }), { class: 'btn' }),

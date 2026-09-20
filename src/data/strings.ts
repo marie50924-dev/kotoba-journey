@@ -75,18 +75,18 @@ export const UI = {
   avatar: {
     selectHeading: '旅するキャラクターを選ぼう',
     selectLead: '年代とコースは別です。どの年代を選んでも、学習内容は変わりません。',
-    placeholderNote:
-      'いまはキャラクターの絵が仮表示です。名前と年代の色、下の名前の1文字で見分けてください。正式な立ち絵は後の工程で入ります。',
+    // ゲーム内の案内文。開発状況（立ち絵が未納品であること）は画面に出さない。
+    selectNote: '好きなキャラクターを選んで、世界の旅へ出発しよう！',
     tabsLabel: '年代',
     filterLabel: '表示',
     filterAll: 'すべて',
     filterM: '男性',
     filterF: '女性',
-    filterNote: 'この絞り込みは人をさがすためのものです。あなた自身のことは聞いていません。',
+    filterNote: '表示するキャラクターを絞り込めます。',
     empty: '該当するキャラクターがいません。',
     chosen: 'えらんだ人',
     notChosen: 'まだ選んでいません',
-    confirm: 'このキャラクターで旅する',
+    confirm: 'この人を選ぶ',
     confirmHeading: 'このキャラクターで旅しますか？',
     change: '旅するキャラクターを変更',
     current: '旅するキャラクター',
@@ -100,7 +100,6 @@ export const UI = {
     close: 'とじる',
     later: 'あとで',
     listen: 'きく',
-    scriptedNote: 'この会話は、あらかじめ用意された台本です。',
     npcHere: 'がいます',
   },
 

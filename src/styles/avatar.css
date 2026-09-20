@@ -193,6 +193,20 @@
   padding-top: 8px;
 }
 
+/* 「この人を選ぶ」は 320px でも1行に収める。 */
+.avatar-select__confirm .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  min-height: var(--tap-min);
+  padding-inline: 14px;
+}
+
+/* 確認画面の「この人と旅をはじめる」も1行で固定する。 */
+.screen--avatar-confirm .screen__footer .btn {
+  white-space: nowrap;
+  min-height: var(--tap-min);
+}
+
 .avatar-select__chosen {
   display: flex;
   align-items: center;

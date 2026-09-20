@@ -120,7 +120,6 @@ export function chatPanel(options: ChatPanelOptions): HTMLElement {
         ]),
         log,
         choiceArea,
-        el('p', { class: 'chat__note note', text: UI.chat.scriptedNote }),
       ]),
     ],
   );

@@ -165,7 +165,7 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
       el('div', { class: 'avatar-filter', 'aria-label': UI.avatar.filterLabel }, filterButtons),
       el('p', { class: 'avatar-select__note', text: UI.avatar.filterNote }),
       grid,
-      el('p', { class: 'avatar-select__note', text: UI.avatar.placeholderNote }),
+      el('p', { class: 'avatar-select__note', text: UI.avatar.selectNote }),
       el('div', { class: 'avatar-select__confirm' }, [chosenLine, confirmButton]),
     ],
   );

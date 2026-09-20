@@ -60,7 +60,8 @@ export function avatarThumb(
     {
       class: ['avatar-thumb', `avatar-thumb--${size}`, options.class].filter(Boolean).join(' '),
       role: 'img',
-      'aria-label': options.label ?? `${fullName(avatar)}（${AGE_GROUP_LABEL[avatar.ageGroup]}・仮表示）`,
+      // 読み上げにも開発状況（仮表示）は出さない。名前と年代だけを伝える。
+      'aria-label': options.label ?? `${fullName(avatar)}（${AGE_GROUP_LABEL[avatar.ageGroup]}）`,
     },
     [
       face,
