@@ -73,7 +73,8 @@ export const UI = {
     switchToEnglish: 'えいごのキーボードに切りかえてね',
     switchToJapanese: 'にほんごのキーボードに切りかえてね',
     correct: 'せいかい！',
-    wrong: 'おしい！',
+    // 近似判定は行っていないため、惜しかったかのような文言にはしない。
+    wrong: 'ちがうよ',
     answerWas: 'こたえは',
     resultHeading: 'テストおわり',
     correctCount: '正解数',

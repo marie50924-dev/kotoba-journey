@@ -9,6 +9,7 @@ import {
 } from '../domain/waveQuiz';
 import type { QuizQuestion } from '../domain/waveQuiz';
 import { SAMPLE_PAIRS } from '../data/wordPairs';
+import { UI } from '../data/strings';
 import type { CardCount } from '../domain/types';
 
 /** 出題方向が固定なので、seed で「日→英」「英→日」を選び分けてテストする。 */
@@ -182,5 +183,23 @@ describe('確認テストの採点', () => {
   it('問題が0件なら0除算にならない', () => {
     const outcome = scoreQuiz([] as QuizQuestion[], new Map());
     expect(outcome).toEqual({ questionCount: 0, correctCount: 0, incorrectPairIds: [] });
+  });
+});
+
+describe('確認テストの文言', () => {
+  it('不正解の文言は「ちがうよ」', () => {
+    expect(UI.quiz.wrong).toBe('ちがうよ');
+  });
+
+  it('近似判定をしていないので「おしい」とは言わない', () => {
+    // 正誤は2値判定で、正解に近いかどうかは見ていない。
+    // 「おしい」と出すと、判定していない情報を伝えてしまう。
+    for (const text of Object.values(UI.quiz)) {
+      expect(text).not.toContain('おしい');
+    }
+  });
+
+  it('不正解のときに見せる正解のラベルがある', () => {
+    expect(UI.quiz.answerWas.length).toBeGreaterThan(0);
   });
 });

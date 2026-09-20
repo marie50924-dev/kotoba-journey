@@ -97,6 +97,26 @@ function visibleBox(selector) {
   };
 }
 
+/**
+ * 今その画面で操作できる（隠れておらず無効でもない）ボタンの文字。
+ * 回答確定後に「つぎへ」だけが残ることを確かめるのに使う。
+ */
+async function enabledActionLabels(page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('.screen--quiz button')]
+      .filter((b) => {
+        if (b.disabled) return false;
+        const r = b.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        const style = window.getComputedStyle(b);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        // 入力欄のクリアボタンは進行ボタンではないので除く。
+        return !b.classList.contains('quiz__clear');
+      })
+      .map((b) => b.textContent.trim()),
+  );
+}
+
 function correctAnswerFor(prompt, lang, pairs) {
   const row = pairs.find((p) => p[0] === prompt || p[1] === prompt);
   if (!row) return '';
@@ -202,6 +222,12 @@ try {
       `${label}: 文字種が違うのに案内が出ない`,
     );
 
+    // 回答前はスキップできる。
+    check(
+      (await page.locator('.quiz__skip-row:not([hidden]) .quiz__skip').count()) === 1,
+      `${label}: 回答前に「今回はスキップ」が無い`,
+    );
+
     // 大文字・前後空白つきでも正解になる。
     const typed = firstLang === 'en' ? `  ${answer.toUpperCase()}  ` : `  ${answer}  `;
     await page.locator('.quiz__input').fill(typed);
@@ -216,6 +242,17 @@ try {
       `${label}: 回答後も「こたえる」が残っている`,
     );
 
+    // 正解の確定後もスキップは消え、操作できる進行ボタンは「つぎへ」だけ。
+    check(
+      (await page.locator('.quiz__skip-row:not([hidden])').count()) === 0,
+      `${label}: 正解の確定後も「今回はスキップ」が残っている`,
+    );
+    const afterCorrectButtons = await enabledActionLabels(page);
+    check(
+      afterCorrectButtons.length === 1 && afterCorrectButtons[0] === 'つぎへ',
+      `${label}: 正解の確定後に操作できるボタンが「つぎへ」だけでない（${afterCorrectButtons.join(' / ')}）`,
+    );
+
     // 連打しても問題が飛ばない。
     const before = await page.locator('.quiz__progress').textContent();
     await page.locator('.quiz__next').click();
@@ -226,8 +263,62 @@ try {
     const shown = Number(after.split('/')[0].trim());
     check(shown === 2, `${label}: 連打で問題が飛んだ（${after}）`);
 
+    // 2問目はわざと完全に違う答えを入れ、不正解時の表示を確かめる。
+    {
+      const p = await page.locator('.quiz__prompt').textContent();
+      const l = await page.locator('.quiz__input').getAttribute('lang');
+      const expected = correctAnswerFor(p, l, PAIRS);
+      // 正解とかすりもしない文字列。近似判定をしていないことを確かめるため。
+      const nonsense = l === 'en' ? 'qqqqqqq' : 'ぬぬぬぬぬ';
+      await page.locator('.quiz__input').fill(nonsense);
+      await page.locator('.quiz__submit').click();
+      await page.waitForSelector('.quiz__feedback .quiz__verdict', { timeout: 3000 });
+
+      const verdict = (await page.locator('.quiz__verdict').textContent()).trim();
+      check(
+        verdict === 'ちがうよ',
+        `${label}: 不正解の文言が「ちがうよ」でない（${verdict}）`,
+      );
+      check(
+        !verdict.includes('おしい'),
+        `${label}: 完全に違う誤答なのに「おしい」と出ている（${verdict}）`,
+      );
+      const bodyAfterWrong = await page.evaluate(() => document.body.innerText);
+      check(
+        !bodyAfterWrong.includes('おしい'),
+        `${label}: 画面のどこかに「おしい」が残っている`,
+      );
+      const shownAnswer = (await page.locator('.quiz__answer-text').textContent()).trim();
+      check(
+        shownAnswer === expected,
+        `${label}: 不正解時に正答が出ていない（表示=${shownAnswer} / 正答=${expected}）`,
+      );
+
+      // 不正解の確定後もスキップは消え、操作できる進行ボタンは「つぎへ」だけ。
+      check(
+        (await page.locator('.quiz__skip-row:not([hidden])').count()) === 0,
+        `${label}: 不正解の確定後も「今回はスキップ」が残っている`,
+      );
+      const afterWrongButtons = await enabledActionLabels(page);
+      check(
+        afterWrongButtons.length === 1 && afterWrongButtons[0] === 'つぎへ',
+        `${label}: 不正解の確定後に操作できるボタンが「つぎへ」だけでない（${afterWrongButtons.join(' / ')}）`,
+      );
+
+      await page.locator('.quiz__next').click();
+      await page.waitForTimeout(120);
+
+      // 次の問題ではスキップが戻る。
+      if (total > 2) {
+        check(
+          (await page.locator('.quiz__skip-row:not([hidden]) .quiz__skip').count()) === 1,
+          `${label}: 次の問題で「今回はスキップ」が戻っていない`,
+        );
+      }
+    }
+
     // 残りを答え切る。
-    for (let i = 2; i <= total; i += 1) {
+    for (let i = 3; i <= total; i += 1) {
       const p = await page.locator('.quiz__prompt').textContent();
       const l = await page.locator('.quiz__input').getAttribute('lang');
       check(l === firstLang, `${label}: テストの途中で入力言語が変わった（${firstLang} → ${l}）`);
@@ -240,7 +331,10 @@ try {
 
     await page.waitForSelector('.screen--quiz-result', { timeout: 6000 });
     const score = await page.locator('.quiz-result__score .stat-tile__value').textContent();
-    check(score.trim() === `${total} / ${total}`, `${label}: 全問正解にならない（${score}）`);
+    check(
+      score.trim() === `${total - 1} / ${total}`,
+      `${label}: 1問だけ不正解の採点にならない（${score}）`,
+    );
 
     await page.getByRole('button', { name: 'つぎへ' }).click();
     await page.waitForSelector('.screen--result', { timeout: 6000 });
@@ -255,8 +349,12 @@ try {
       `${label}: 受験状態が completed になっていない`,
     );
     check(
-      stored.quizHistory[0].correctCount === total,
+      stored.quizHistory[0].correctCount === total - 1,
       `${label}: 正解数が保存されていない（${stored.quizHistory[0].correctCount}）`,
+    );
+    check(
+      stored.quizHistory[0].incorrectPairIds.length === 1,
+      `${label}: 間違えた単語が保存されていない`,
     );
     check(stored.totalPlays === 1, `${label}: 通常カルタの記録が二重加算されている`);
 
@@ -266,7 +364,9 @@ try {
     check(!hScroll, `${label}: 横スクロールが発生している`);
     check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
 
-    if (failures.length === 0) console.log(`✓ ${label} 通し操作（${total}問・全問正解）`);
+    if (failures.length === 0) {
+      console.log(`✓ ${label} 通し操作（${total}問・1問わざと不正解）`);
+    }
     await context.close();
   }
 

@@ -78,6 +78,9 @@ export function waveQuizScreen(ctx: AppContext): HTMLElement {
   });
 
   const skipButton = button(UI.actions.skipQuiz, () => skipAll(), { class: 'btn quiz__skip' });
+  // 回答を確定したあとは、進む操作を「つぎへ」1つに絞る。
+  // 回答前と案内画面ではスキップできるままにする。
+  const skipRow = el('div', { class: 'quiz__skip-row' }, [skipButton]);
 
   // フォームにしておくと、iOS のキーボード右下のキーでそのまま回答できる。
   const form = el('form', { class: 'quiz__form' }, [
@@ -102,7 +105,7 @@ export function waveQuizScreen(ctx: AppContext): HTMLElement {
     answerArea,
     feedback,
     advanceArea,
-    el('div', { class: 'quiz__skip-row' }, [skipButton]),
+    skipRow,
   ]);
 
   /**
@@ -166,6 +169,8 @@ export function waveQuizScreen(ctx: AppContext): HTMLElement {
     feedback.classList.remove('is-correct', 'is-wrong');
     answerArea.replaceChildren(form);
     advanceArea.replaceChildren();
+    // 次の問題では、まだ回答していないのでスキップを戻す。
+    skipRow.hidden = false;
     refreshInputState();
   }
 
@@ -186,9 +191,11 @@ export function waveQuizScreen(ctx: AppContext): HTMLElement {
 
     const correct = isCorrectAnswer(question, typed);
     input.disabled = true;
-    // 回答後は「こたえる」と入力中の案内を引っ込め、「つぎへ」だけを残す。
+    // 回答後は「こたえる」「今回はスキップ」と入力中の案内を引っ込め、
+    // 操作できる進行ボタンを「つぎへ」だけにする。正解でも不正解でも同じ。
     submitButton.disabled = true;
     submitButton.hidden = true;
+    skipRow.hidden = true;
     hint.textContent = '';
     hint.classList.remove('is-shown');
 

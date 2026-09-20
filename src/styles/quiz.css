@@ -221,6 +221,10 @@
   font-weight: 800;
 }
 
+.quiz__skip-row[hidden] {
+  display: none;
+}
+
 .quiz__skip-row {
   display: flex;
   justify-content: center;
