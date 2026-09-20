@@ -1,8 +1,9 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { findPair } from '../data/wordPairs';
-import { findCharacter } from '../data/characters';
-import { characterSprite } from '../components/characterSprite';
+import { findCourse } from '../data/courses';
+import { ageGroupForCourse, findAgeGroup } from '../data/characters';
+import { characterCard } from '../components/characterCard';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
@@ -14,7 +15,9 @@ import type { AppContext } from '../app/state';
 export function waveQuizResultScreen(ctx: AppContext): HTMLElement {
   const quiz = ctx.quiz;
   const outcome = quiz?.outcome;
-  const character = findCharacter(ctx.selectedCharacterId());
+  const group = findAgeGroup(
+    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.savedAgeGroup()),
+  )!;
 
   if (!outcome) {
     return screenShell({ title: UI.quiz.resultHeading }, [
@@ -33,13 +36,7 @@ export function waveQuizResultScreen(ctx: AppContext): HTMLElement {
     { title: UI.quiz.resultHeading, variant: 'screen--quiz-result' },
     [
       el('div', { class: 'quiz-result__hero' }, [
-        character
-          ? characterSprite(character, {
-              pose: outcome.correctCount === outcome.questionCount ? 'happy' : 'stand',
-              class: 'quiz-result__sprite',
-              label: '',
-            })
-          : null,
+        characterCard(group, { variant: 'plain', class: 'quiz-result__chara' }),
         el('div', { class: 'stat-tile quiz-result__score' }, [
           el('span', { class: 'stat-tile__label', text: UI.quiz.correctCount }),
           el('strong', {

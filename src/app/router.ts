@@ -2,7 +2,7 @@ import type { AppContext, Route } from './state';
 import { createSelection } from './state';
 import { titleScreen } from '../screens/titleScreen';
 import { courseEntryScreen, courseListScreen, cardCountScreen } from '../screens/courseScreens';
-import { characterSelectScreen } from '../screens/characterSelectScreen';
+import { courseCharacterScreen } from '../screens/courseCharacterScreen';
 import { worldMapScreen } from '../screens/worldMapScreen';
 import { travelScreen } from '../screens/travelScreen';
 import { countryIntroScreen } from '../screens/countryIntroScreen';
@@ -52,13 +52,10 @@ export function createApp(deps: AppDependencies): AppContext {
       render(previous);
     },
     startJourney() {
-      // 主人公が未選択なら1度だけ選択画面を挟む。選択済みならそのまま進む。
-      const chosen = deps.records.get().characterId;
-      const hasChosen = chosen !== null || deps.records.get().totalPlays > 0;
-      ctx.navigate(hasChosen ? { name: 'courseEntry' } : { name: 'characterSelect' });
+      ctx.navigate({ name: 'courseEntry' });
     },
-    selectedCharacterId() {
-      return deps.records.get().characterId;
+    savedAgeGroup() {
+      return deps.records.get().characterAgeGroup;
     },
   };
 
@@ -81,8 +78,8 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
   switch (route.name) {
     case 'title':
       return titleScreen(ctx);
-    case 'characterSelect':
-      return characterSelectScreen(ctx);
+    case 'courseCharacter':
+      return courseCharacterScreen(ctx);
     case 'courseEntry':
       return courseEntryScreen(ctx);
     case 'courseList':

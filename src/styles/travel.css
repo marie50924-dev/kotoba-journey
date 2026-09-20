@@ -1,92 +1,125 @@
 /* 主人公選択・移動演出・国紹介。 */
 
-/* ---- 仮表示スプライト ---- */
+/* ---- 年齢層キャラクターのカード ---- */
 /*
- * 置き場所の箱にあわせて縮む。viewBox + 既定の preserveAspectRatio により
- * 縦横比を保ったまま収まるので、はみ出しも引き伸ばしも起きない。
+ * 提供素材は背景込みの JPEG。人物だけ切り抜いたように見せる小細工はせず、
+ * 旅の文脈に合わせて額装して見せる。
  */
-.sprite {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-}
-
-.sprite__svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* ---- 主人公選択 ---- */
-.character-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.character-card {
+.chara-card {
+  margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 8px;
-  border: 2px solid var(--c-line);
-  border-radius: var(--radius-lg);
-  background: var(--c-paper-2);
-  box-shadow: 0 2px 8px rgba(16, 36, 58, 0.08);
-  text-align: center;
+  gap: 4px;
   min-width: 0;
 }
 
-.character-card.is-selected {
-  border-color: var(--c-accent);
-  background: #fff3e8;
+.chara-card.is-missing {
+  display: none;
 }
 
-.character-card--guide {
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-}
-
-.character-card__art {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 100%;
-  height: 118px;
+.chara-card__frame {
   overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  line-height: 0;
 }
 
-.character-card--guide .character-card__art {
-  height: 64px;
-  flex: 0 0 64px;
-}
-
-.character-card__guide-img {
+.chara-card__img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
+  /* 縦横比はそのまま。引き伸ばさない。 */
 }
 
-.character-card__text {
+.chara-card__caption {
+  font-size: 11px;
+  color: var(--c-ink-soft);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* 旅のアルバム風。白フチと薄い影。 */
+.chara-card--album .chara-card__frame {
+  border: 6px solid #fff;
+  box-shadow: 0 4px 12px rgba(16, 36, 58, 0.18);
+}
+
+/* 搭乗券風。切り取り線のような破線を添える。 */
+.chara-card--boarding .chara-card__frame {
+  border: 4px solid #fff;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(9, 32, 54, 0.25);
+}
+
+.chara-card--boarding .chara-card__caption {
+  color: rgba(255, 255, 255, 0.92);
+  border-top: 1px dashed rgba(255, 255, 255, 0.6);
+  padding-top: 4px;
+}
+
+/* 到着記念写真風。わずかに傾ける。 */
+.chara-card--photo {
+  transform: rotate(-1deg);
+}
+
+.chara-card--photo .chara-card__frame {
+  border: 7px solid #fff;
+  box-shadow: 0 5px 14px rgba(16, 36, 58, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chara-card--photo {
+    transform: none;
+  }
+}
+
+/* ---- コース別キャラクター紹介 ---- */
+.screen--characters .screen__body {
+  overflow-y: auto;
+}
+
+.chara-intro__course {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.character-card__label {
-  font-size: 14px;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 17px;
   font-weight: 800;
 }
 
-.character-card__tagline {
+.chara-intro__category {
   font-size: 11px;
-  color: var(--c-ink-soft);
-  line-height: 1.4;
+  font-weight: 700;
+  color: #fff;
+  background: var(--c-sky-2);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.chara-intro__desc {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.chara-intro__guide {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.chara-intro__guide-img {
+  flex: 0 0 52px;
+  width: 52px;
+  height: auto;
+  object-fit: contain;
+}
+
+.chara-intro__guide-text {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* ---- 移動中 ---- */
@@ -115,12 +148,11 @@
 
 .travel__sky {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 18px;
+  gap: 10px;
+  padding-top: 6px;
   overflow: hidden;
 }
 
@@ -205,21 +237,22 @@
 }
 
 .travel__cast {
-  flex: 0 0 auto;
+  /* 搭乗券カードを画面の主役にする。 */
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  gap: 12px;
-  height: 150px;
+  gap: 10px;
 }
 
-.travel__hero {
-  width: 96px;
-  height: 138px;
+.travel__ticket {
+  width: min(74%, 300px);
 }
 
 .travel__guide {
-  width: 118px;
+  flex: 0 0 auto;
+  width: 84px;
   height: auto;
   object-fit: contain;
   animation: mascot-bob 2.4s ease-in-out infinite;
@@ -290,10 +323,8 @@
   font-weight: 700;
 }
 
-.intro__hero-sprite {
-  flex: 0 0 auto;
-  width: 54px;
-  height: 78px;
+.intro__photo {
+  width: 100%;
 }
 
 .intro__cards {

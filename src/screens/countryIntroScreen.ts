@@ -2,8 +2,9 @@ import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { findCountryIntro } from '../data/countryIntros';
 import type { CountryIntro } from '../data/countryIntros';
-import { findCharacter } from '../data/characters';
-import { characterSprite } from '../components/characterSprite';
+import { findCourse } from '../data/courses';
+import { ageGroupForCourse, findAgeGroup } from '../data/characters';
+import { characterCard } from '../components/characterCard';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
@@ -14,7 +15,9 @@ import type { AppContext } from '../app/state';
  */
 export function countryIntroScreen(ctx: AppContext): HTMLElement {
   const intro = findCountryIntro(ctx.selection.destinationId ?? '');
-  const character = findCharacter(ctx.selectedCharacterId());
+  const group = findAgeGroup(
+    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.savedAgeGroup()),
+  )!;
 
   const startButton = button(UI.actions.startKaruta, () => ctx.navigate({ name: 'karta' }), {
     class: 'btn btn--primary btn--large',
@@ -38,8 +41,13 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
           el('strong', { class: 'intro__greeting-ja', text: intro.greeting.ja }),
           el('span', { class: 'intro__greeting-en', text: intro.greeting.en }),
         ]),
-        character ? characterSprite(character, { pose: 'happy', class: 'intro__hero-sprite', label: '' }) : null,
       ]),
+      // 到着記念写真のように見せる。
+      characterCard(group, {
+        variant: 'photo',
+        class: 'intro__photo',
+        caption: `${intro.nameJa}にとうちゃく`,
+      }),
       el('div', { class: 'intro__cards' }, intro.cards.map(introCard)),
       el('section', { class: 'intro__learning' }, [
         el('h2', { class: 'result-section__title', text: UI.countryIntro.learning }),

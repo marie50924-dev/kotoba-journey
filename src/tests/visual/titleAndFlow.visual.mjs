@@ -164,12 +164,22 @@ try {
 
     await page.goto(baseUrl, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: '旅をはじめる' }).click();
-
-    check(await page.locator('.screen--characters').count() === 1, `${tag}: 主人公選択が出ない`);
-    await page.getByRole('button', { name: /男の子の主人公/ }).click();
-
     await page.getByRole('button', { name: /学年別/ }).click();
     await page.getByRole('button', { name: '小学生' }).click();
+
+    // コース選択のあとに、そのコースの年齢層の2人が出る。
+    check(await page.locator('.screen--characters').count() === 1, `${tag}: コース別キャラクターが出ない`);
+    const charaSrc = await page.locator('.chara-card__img').first().getAttribute('src');
+    check(
+      charaSrc.includes('elementary'),
+      `${tag}: 小学生コースで小学生の画像が出ていない（${charaSrc}）`,
+    );
+    const charaLoaded = await page.evaluate(
+      () => document.querySelector('.chara-card__img')?.naturalWidth > 0,
+    );
+    check(charaLoaded, `${tag}: キャラクター画像が読み込めていない`);
+    await page.getByRole('button', { name: 'つぎへ' }).click();
+
     await page.getByRole('button', { name: /^6枚/ }).click();
     await page.getByRole('button', { name: '出発する' }).click();
 
@@ -234,7 +244,8 @@ try {
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('kotoba-journey/learning-record/v1')),
     );
-    check(stored.characterId === 'boy', `${tag}: 主人公の選択が保存されていない`);
+    check(stored.selectedCourseId === 'grade-elementary', `${tag}: コース選択が保存されていない`);
+    check(stored.characterAgeGroup === null, `${tag}: 年齢層は未設定のままであるべき`);
     check(stored.quizHistory.length === 1, `${tag}: テストの記録が残っていない`);
     check(
       stored.quizHistory[0].status === (quizPath === 'take' ? 'completed' : 'skipped'),
@@ -263,9 +274,9 @@ try {
     check(m.buttons.length === 3, 'reduced-motion: 表紙のボタンが欠けている');
 
     await page.getByRole('button', { name: '旅をはじめる' }).click();
-    await page.getByRole('button', { name: /女の子の主人公/ }).click();
     await page.getByRole('button', { name: /学年別/ }).click();
     await page.getByRole('button', { name: '小学生' }).click();
+    await page.getByRole('button', { name: 'つぎへ' }).click();
     await page.getByRole('button', { name: /^6枚/ }).click();
     await page.getByRole('button', { name: '出発する' }).click();
     await page.waitForSelector('.screen--travel');

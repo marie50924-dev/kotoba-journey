@@ -27,20 +27,18 @@ export const UI = {
     skipQuiz: '今回はスキップ',
     practiceAgain: 'もう一度練習する',
     nextWave: '次のウェーブへ',
-    changeCharacter: '主人公を変える',
+    changeCharacter: '表示キャラクターを変える',
   },
 
   characters: {
-    heading: 'だれと旅する？',
-    lead: 'あとから設定でいつでも変えられます。',
+    heading: 'いっしょに旅する2人',
     guideAlt: '旅行かばんの案内役',
     guideLabel: '案内役',
-    later: 'あとで選ぶ',
-    laterDetail: '案内役といっしょに進む',
-    roughNote: 'ここに出ている主人公は、外見を決めるための仮の表示です。',
-    poseStand: 'たっている',
-    poseWalk: 'あるいている',
-    poseHappy: 'よろこんでいる',
+    guideLine: 'ぼくが行き先を案内します。いっしょに行こう！',
+    ageSettingNote:
+      'このコースは年齢が決まっていないため、大人の2人を表示しています。設定画面の「表示キャラクター」で変えられます。',
+    ageSetting: '表示キャラクター',
+    ageAuto: 'コースに合わせる',
   },
 
   travel: {
@@ -143,7 +141,8 @@ export const UI = {
     heading: '設定',
     audio: '音声',
     travelAnimation: '移動の演出',
-    character: '主人公',
+    character: '表示キャラクター',
+    characterHint: '英検・TOEICのときに使います',
     audioOn: 'ON',
     audioOff: 'OFF',
     clearConfirm: '学習記録をすべて消去します。よろしいですか？',

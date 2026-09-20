@@ -13,6 +13,8 @@ import {
 } from '../storage/learningRecord';
 import type { WaveQuizRecord } from '../storage/learningRecord';
 import { createMemoryStore } from '../storage/safeStorage';
+import { ageGroupForCourse, findAgeGroup } from '../data/characters';
+import { findCourse } from '../data/courses';
 import type { PlayResult } from '../domain/types';
 
 /** Phase 0（version 1）が実際に書き出していた形。 */
@@ -97,50 +99,66 @@ describe('version 1 からの移行', () => {
   it('v2 で追加したフィールドは安全な初期値で補われる', () => {
     const record = parseRecord(JSON.stringify(V1_RECORD));
     expect(record.version).toBe(RECORD_VERSION);
-    expect(record.characterId).toBeNull();
+    expect(record.characterAgeGroup).toBeNull();
     expect(record.quizHistory).toEqual([]);
     expect(record.seenTravelIntros).toEqual([]);
     expect(record.skipTravelAnimation).toBe(false);
   });
 
-  it('主人公が未選択でも v1 のデータを読み込めて起動できる', () => {
+  it('旧データでも年齢層別キャラクター表示が壊れない', () => {
     const storage = createMemoryStore({ [STORAGE_KEY]: JSON.stringify(V1_RECORD) });
     expect(() => new LearningRecordStore(storage)).not.toThrow();
-    const store = new LearningRecordStore(storage);
-    expect(store.get().characterId).toBeNull();
-    expect(store.get().totalPlays).toBe(4);
+    const record = new LearningRecordStore(storage).get();
+    expect(record.characterAgeGroup).toBeNull();
+    expect(record.totalPlays).toBe(4);
+
+    // v1 が保存していたコース（英検3級）でも、年齢層未設定として大人へ落ちる。
+    const group = ageGroupForCourse(findCourse(record.selectedCourseId), record.characterAgeGroup);
+    expect(group).toBe('adult');
+    expect(findAgeGroup(group)).toBeDefined();
   });
 
   it('移行した記録を保存し直しても v1 の値が失われない', () => {
     const storage = createMemoryStore({ [STORAGE_KEY]: JSON.stringify(V1_RECORD) });
-    new LearningRecordStore(storage).update((r) => ({ ...r, characterId: 'girl' }));
+    new LearningRecordStore(storage).update((r) => ({ ...r, characterAgeGroup: 'junior' }));
 
     const reloaded = new LearningRecordStore(storage).get();
-    expect(reloaded.characterId).toBe('girl');
+    expect(reloaded.characterAgeGroup).toBe('junior');
     expect(reloaded.totalPlays).toBe(4);
     expect(reloaded.bestTimeMs).toEqual({ 6: 20000, 20: 90000 });
     expect(reloaded.audioEnabled).toBe(false);
   });
 });
 
-describe('主人公の保存', () => {
-  it('選んだ主人公を保存・復旧できる', () => {
+describe('年齢層の任意設定', () => {
+  it('選んだ年齢層を保存・復旧できる', () => {
     const storage = createMemoryStore();
-    new LearningRecordStore(storage).update((r) => ({ ...r, characterId: 'boy' }));
-    expect(new LearningRecordStore(storage).get().characterId).toBe('boy');
+    new LearningRecordStore(storage).update((r) => ({ ...r, characterAgeGroup: 'high' }));
+    expect(new LearningRecordStore(storage).get().characterAgeGroup).toBe('high');
   });
 
-  it('「あとで選ぶ」は null として保存される', () => {
+  it('「コースに合わせる」は null として保存される', () => {
     const storage = createMemoryStore();
     const store = new LearningRecordStore(storage);
-    store.update((r) => ({ ...r, characterId: 'girl' }));
-    store.update((r) => ({ ...r, characterId: null }));
-    expect(new LearningRecordStore(storage).get().characterId).toBeNull();
+    store.update((r) => ({ ...r, characterAgeGroup: 'elementary' }));
+    store.update((r) => ({ ...r, characterAgeGroup: null }));
+    expect(new LearningRecordStore(storage).get().characterAgeGroup).toBeNull();
   });
 
-  it('未知の主人公IDは null へ落とす', () => {
-    expect(parseRecord(JSON.stringify({ characterId: 'dragon' })).characterId).toBeNull();
-    expect(parseRecord(JSON.stringify({ characterId: 42 })).characterId).toBeNull();
+  it('未知の年齢層は null へ落とし、英検・TOEICは大人へ安全に落ちる', () => {
+    const record = parseRecord(JSON.stringify({ characterAgeGroup: 'senior' }));
+    expect(record.characterAgeGroup).toBeNull();
+    expect(ageGroupForCourse(findCourse('eiken-1'), record.characterAgeGroup)).toBe('adult');
+    expect(parseRecord(JSON.stringify({ characterAgeGroup: 42 })).characterAgeGroup).toBeNull();
+  });
+
+  it('保存された年齢層は英検・TOEICでのみ反映される', () => {
+    const storage = createMemoryStore();
+    new LearningRecordStore(storage).update((r) => ({ ...r, characterAgeGroup: 'elementary' }));
+    const saved = new LearningRecordStore(storage).get().characterAgeGroup;
+    expect(ageGroupForCourse(findCourse('toeic-500'), saved)).toBe('elementary');
+    // 学年別コースはコース側の学年が優先される。
+    expect(ageGroupForCourse(findCourse('grade-university'), saved)).toBe('university');
   });
 });
 

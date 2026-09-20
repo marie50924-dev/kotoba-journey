@@ -1,7 +1,7 @@
 import type { CardCount, MasteryLevel, PlayResult } from '../domain/types';
 import { isCardCount } from '../domain/deck';
 import { calculateAccuracy, masteryFor } from '../domain/scoring';
-import { isCharacterId, type SelectedCharacterId } from '../data/characters';
+import { isAgeGroup, type SelectedAgeGroup } from '../data/characters';
 import type { KeyValueStore } from './safeStorage';
 
 /**
@@ -60,8 +60,11 @@ export interface LearningRecord {
   audioEnabled: boolean;
 
   // ---- v2 で追加 ----
-  /** 選んだ主人公。null は「あとで選ぶ（案内役中心）」。 */
-  characterId: SelectedCharacterId;
+  /**
+   * 任意の年齢層設定。コースから年齢が決まらない英検・TOEIC でのみ使う。
+   * null なら大人へ安全に落とす。
+   */
+  characterAgeGroup: SelectedAgeGroup;
   /** 任意確認テストの履歴。受験・スキップの両方を残す。 */
   quizHistory: WaveQuizRecord[];
   /** 到着演出を見たことがある国。2回目以降は短縮できる。 */
@@ -84,7 +87,7 @@ export function createEmptyRecord(): LearningRecord {
     visitedCountryIds: [],
     history: [],
     audioEnabled: true,
-    characterId: null,
+    characterAgeGroup: null,
     quizHistory: [],
     seenTravelIntros: [],
     skipTravelAnimation: false,
@@ -203,7 +206,7 @@ export function parseRecord(raw: string | null): LearningRecord {
     audioEnabled: asBoolean(data.audioEnabled, empty.audioEnabled),
 
     // v1 の保存データには存在しないフィールド。欠けていれば初期値で補う。
-    characterId: isCharacterId(data.characterId) ? data.characterId : null,
+    characterAgeGroup: isAgeGroup(data.characterAgeGroup) ? data.characterAgeGroup : null,
     quizHistory: asQuizHistory(data.quizHistory),
     seenTravelIntros: asStringArray(data.seenTravelIntros),
     skipTravelAnimation: asBoolean(data.skipTravelAnimation, empty.skipTravelAnimation),

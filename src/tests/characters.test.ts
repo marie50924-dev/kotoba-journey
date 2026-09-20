@@ -1,33 +1,112 @@
 import { describe, expect, it } from 'vitest';
-import { CHARACTERS, findCharacter, isCharacterId } from '../data/characters';
+import {
+  AGE_GROUPS,
+  DEFAULT_AGE_GROUP,
+  ageGroupForCourse,
+  findAgeGroup,
+  isAgeGroup,
+  usesSavedAgeGroup,
+} from '../data/characters';
+import type { AgeGroup } from '../data/characters';
+import { COURSES, coursesInCategory, findCourse } from '../data/courses';
 import { COUNTRY_INTROS, findCountryIntro, hasCountryIntro } from '../data/countryIntros';
 import { DESTINATIONS, findDestination, TRAVEL_MODE_LABEL } from '../data/destinations';
 import { TITLE_ASSET_SIZES } from '../data/titleAssets';
 
-describe('主人公', () => {
-  it('男女2人を定義している', () => {
-    expect(CHARACTERS.map((c) => c.id)).toEqual(['girl', 'boy']);
+const course = (id: string) => findCourse(id);
+
+describe('年齢層キャラクター', () => {
+  it('小学生から大人まで5段階を定義している', () => {
+    expect(AGE_GROUPS.map((g) => g.id)).toEqual([
+      'elementary',
+      'junior',
+      'high',
+      'university',
+      'adult',
+    ]);
+    expect(AGE_GROUPS.map((g) => g.label)).toEqual(['小学生', '中学生', '高校生', '大学生', '大人']);
   });
 
-  it('IDは重複せず、判定関数が既定値を守る', () => {
-    expect(new Set(CHARACTERS.map((c) => c.id)).size).toBe(CHARACTERS.length);
-    expect(isCharacterId('girl')).toBe(true);
-    expect(isCharacterId('boy')).toBe(true);
-    expect(isCharacterId('other')).toBe(false);
-    expect(isCharacterId(null)).toBe(false);
-  });
-
-  it('未選択なら主人公は取得できない（案内役中心で進む）', () => {
-    expect(findCharacter(null)).toBeUndefined();
-    expect(findCharacter('girl')?.label).toBe('女の子の主人公');
-  });
-
-  it('それぞれ役割の説明を持つ', () => {
-    for (const character of CHARACTERS) {
-      expect(character.label.length).toBeGreaterThan(0);
-      expect(character.tagline.length).toBeGreaterThan(0);
-      expect(character.role.length).toBeGreaterThan(0);
+  it('各年齢層がカード画像と由来素材を持つ', () => {
+    for (const group of AGE_GROUPS) {
+      expect(group.image).toMatch(/assets\/characters\/.+\.webp$/);
+      expect(group.sourceFile.length).toBeGreaterThan(0);
+      expect(group.description.length).toBeGreaterThan(0);
     }
+  });
+
+  it('画像ファイル名は重複しない', () => {
+    expect(new Set(AGE_GROUPS.map((g) => g.image)).size).toBe(AGE_GROUPS.length);
+  });
+
+  it('年齢層IDの判定が既定値を守る', () => {
+    expect(isAgeGroup('elementary')).toBe(true);
+    expect(isAgeGroup('adult')).toBe(true);
+    expect(isAgeGroup('senior')).toBe(false);
+    expect(isAgeGroup(null)).toBe(false);
+    expect(findAgeGroup(null)).toBeUndefined();
+    expect(findAgeGroup('high')?.label).toBe('高校生');
+  });
+});
+
+describe('コースと年齢層の対応', () => {
+  it('学年別コースはその学年の年齢層になる', () => {
+    expect(ageGroupForCourse(course('grade-elementary'))).toBe('elementary');
+    expect(ageGroupForCourse(course('grade-junior'))).toBe('junior');
+    expect(ageGroupForCourse(course('grade-high'))).toBe('high');
+    expect(ageGroupForCourse(course('grade-university'))).toBe('university');
+  });
+
+  it('社会人6コースはすべて大人になる', () => {
+    const business = coursesInCategory('business');
+    expect(business).toHaveLength(6);
+    for (const c of business) {
+      expect(ageGroupForCourse(c)).toBe('adult');
+    }
+  });
+
+  it('英検・TOEICは年齢層未設定なら大人へ安全に落とす', () => {
+    const exams = COURSES.filter((c) => c.categoryId === 'exam');
+    expect(exams.length).toBeGreaterThan(0);
+    for (const c of exams) {
+      expect(ageGroupForCourse(c, null)).toBe('adult');
+      expect(ageGroupForCourse(c)).toBe(DEFAULT_AGE_GROUP);
+    }
+  });
+
+  it('英検・TOEICは年齢層が保存済みならそれを使う', () => {
+    expect(ageGroupForCourse(course('eiken-5'), 'elementary')).toBe('elementary');
+    expect(ageGroupForCourse(course('toeic-730'), 'university')).toBe('university');
+  });
+
+  it('学年別と社会人では保存済みの年齢設定より、コースの学年を優先する', () => {
+    expect(ageGroupForCourse(course('grade-elementary'), 'adult')).toBe('elementary');
+    expect(ageGroupForCourse(course('biz-business'), 'elementary')).toBe('adult');
+  });
+
+  it('コース未選択でも例外にならず既定へ落ちる', () => {
+    expect(ageGroupForCourse(undefined)).toBe('adult');
+    expect(ageGroupForCourse(undefined, 'junior')).toBe('junior');
+  });
+
+  it('全コースが必ず定義済みの年齢層へ対応する', () => {
+    const ids: AgeGroup[] = AGE_GROUPS.map((g) => g.id);
+    // 学年4 + 英検8 + TOEIC6 + 社会人6 = 24
+    expect(COURSES).toHaveLength(24);
+    expect(coursesInCategory('grade')).toHaveLength(4);
+    expect(COURSES.filter((c) => c.categoryId === 'exam')).toHaveLength(14);
+    expect(coursesInCategory('business')).toHaveLength(6);
+    for (const c of COURSES) {
+      expect(ids).toContain(ageGroupForCourse(c));
+      expect(findAgeGroup(ageGroupForCourse(c))).toBeDefined();
+    }
+  });
+
+  it('年齢設定が効くのは英検・TOEICだけ', () => {
+    expect(usesSavedAgeGroup(course('eiken-3'))).toBe(true);
+    expect(usesSavedAgeGroup(course('toeic-600'))).toBe(true);
+    expect(usesSavedAgeGroup(course('grade-high'))).toBe(false);
+    expect(usesSavedAgeGroup(course('biz-travel'))).toBe(false);
   });
 });
 
@@ -39,17 +118,11 @@ describe('国紹介データ', () => {
     expect(hasCountryIntro('paris')).toBe(false);
   });
 
-  it('カードは2〜3枚に収める', () => {
+  it('カードは2〜3枚に収め、それぞれ出典を持つ', () => {
     for (const intro of COUNTRY_INTROS) {
       expect(intro.cards.length).toBeGreaterThanOrEqual(2);
       expect(intro.cards.length).toBeLessThanOrEqual(3);
-    }
-  });
-
-  it('各カードは出典を保持できる', () => {
-    const japan = findCountryIntro('japan')!;
-    for (const card of japan.cards) {
-      expect(card.source).toBeTruthy();
+      for (const card of intro.cards) expect(card.source).toBeTruthy();
     }
   });
 
@@ -89,7 +162,6 @@ describe('行き先', () => {
 
 describe('表紙素材', () => {
   it('縦横比を保った配信サイズを記録している', () => {
-    // 引き伸ばし防止のため、幅と高さの両方を <img> へ渡している。
     expect(TITLE_ASSET_SIZES.background.width / TITLE_ASSET_SIZES.background.height)
       .toBeCloseTo(853 / 1844, 3);
     expect(TITLE_ASSET_SIZES.logo.width / TITLE_ASSET_SIZES.logo.height)

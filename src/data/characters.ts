@@ -1,82 +1,122 @@
 /**
- * メインキャラクター定義。
+ * 年齢層別メインキャラクター。
  *
- * Phase 1 では外見の採用判断を仰ぐための「ラフ」段階であり、
- * 正式なキャラクターイラストはまだ作成していない。
- * 画面に出るのは components/characterSprite.ts が描く CSS/SVG の仮表示で、
- * 承認後に正式素材へ差し替えられるよう、ここでは ID と役割だけを定義する。
+ * 画像は採用済みの Gemini 作成イラストから作った派生ファイルで、
+ * 顔・髪型・体格・年齢感・服装の基本形には一切手を加えていない。
+ * 原寸 JPEG は assets-source/characters/ に無改変で保管してある。
  *
- * 設計上の約束:
- * - 実在人物・既存作品・有名キャラクターに似せない
- * - 高校生くらいの健全な表現にとどめる
- * - 性的な強調や恋愛前提の演出を行わない
- * - 国ごとの民族衣装への安易な着せ替えをしない
+ * 表示するキャラクターの年齢層は、プレイヤーに選ばせるのではなく
+ * 選択したコースに連動させる。プレイヤー本人の性別や個人情報は尋ねない。
  */
 
-export type CharacterId = 'girl' | 'boy';
+import type { Course } from './courses';
 
-/** アバター選択の保存値。null は「あとで選ぶ（案内役中心）」。 */
-export type SelectedCharacterId = CharacterId | null;
+export type AgeGroup = 'elementary' | 'junior' | 'high' | 'university' | 'adult';
 
-export type CharacterPose = 'stand' | 'walk' | 'happy';
+/** 年齢層が未設定の状態。英検・TOEIC では大人へフォールバックする。 */
+export type SelectedAgeGroup = AgeGroup | null;
 
-/** 仮表示スプライトの配色。正式イラスト導入時にこのファイルごと差し替える。 */
-export interface CharacterVisual {
-  skin: string;
-  hair: string;
-  hairStyle: 'long' | 'short';
-  top: string;
-  bottom: string;
-  accent: string;
+/** 年齢設定がないときの既定。 */
+export const DEFAULT_AGE_GROUP: AgeGroup = 'adult';
+
+function assetUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path}`;
 }
 
-export interface GameCharacter {
-  id: CharacterId;
-  /** 表示名。正式な人物名は未確定のため、役割を表す呼称を使う。 */
+export interface AgeGroupCharacters {
+  id: AgeGroup;
+  /** 画面に出す呼称。 */
   label: string;
-  /** 一言紹介。 */
-  tagline: string;
-  /** 旅の中での役割。 */
-  role: string;
-  visual: CharacterVisual;
+  /** 男女2人の紹介。 */
+  description: string;
+  /** 配信用のカード画像。 */
+  image: string;
+  /** 由来の採用素材。報告と差し替えのために残す。 */
+  sourceFile: string;
 }
 
-export const CHARACTERS: readonly GameCharacter[] = [
+export const AGE_GROUPS: readonly AgeGroupCharacters[] = [
   {
-    id: 'girl',
-    label: '女の子の主人公',
-    tagline: 'ことばと食べものに興味しんしん',
-    role: 'あたらしいことばを見つけて、たべものの話をしてくれる',
-    visual: {
-      skin: '#f4d3b6',
-      hair: '#6b4630',
-      hairStyle: 'long',
-      top: '#e2703a',
-      bottom: '#2f6f9e',
-      accent: '#f6e2c8',
-    },
+    id: 'elementary',
+    label: '小学生',
+    description: 'ランドセルの2人と、身のまわりのことばを集めます。',
+    image: assetUrl('assets/characters/elementary.webp'),
+    sourceFile: 'character-age-groups-reference.jpeg（左上）',
   },
   {
-    id: 'boy',
-    label: '男の子の主人公',
-    tagline: '地理と歴史の豆知識がとくい',
-    role: 'その国の場所や成り立ちを、みじかく教えてくれる',
-    visual: {
-      skin: '#eccfae',
-      hair: '#2f3b45',
-      hairStyle: 'short',
-      top: '#2f8f6b',
-      bottom: '#3c4a57',
-      accent: '#d6e8f5',
-    },
+    id: 'junior',
+    label: '中学生',
+    description: '制服の2人と、学校や毎日のことばを集めます。',
+    image: assetUrl('assets/characters/junior.webp'),
+    sourceFile: 'character-age-groups-reference.jpeg（右上）',
+  },
+  {
+    id: 'high',
+    label: '高校生',
+    description: '通学路の2人と、広がっていくことばを集めます。',
+    image: assetUrl('assets/characters/high.webp'),
+    sourceFile: 'character-highschool-pair.jpeg',
+  },
+  {
+    id: 'university',
+    label: '大学生',
+    description: 'キャンパスの2人と、専門のことばまで広げます。',
+    image: assetUrl('assets/characters/university.webp'),
+    sourceFile: 'character-university-pair.jpeg',
+  },
+  {
+    id: 'adult',
+    label: '大人',
+    description: '街ではたらく2人と、仕事や旅のことばを集めます。',
+    image: assetUrl('assets/characters/adult.webp'),
+    sourceFile: 'character-age-groups-reference.jpeg（右下）',
   },
 ];
 
-export function findCharacter(id: SelectedCharacterId): GameCharacter | undefined {
+export function findAgeGroup(id: SelectedAgeGroup): AgeGroupCharacters | undefined {
   if (!id) return undefined;
-  return CHARACTERS.find((c) => c.id === id);
+  return AGE_GROUPS.find((g) => g.id === id);
 }
 
-export function isCharacterId(value: unknown): value is CharacterId {
-  return value === 'girl' || value === 'boy';
+export function isAgeGroup(value: unknown): value is AgeGroup {
+  return AGE_GROUPS.some((g) => g.id === value);
+}
+
+/** 学年コースIDと年齢層の対応。 */
+const AGE_GROUP_BY_COURSE_ID: Record<string, AgeGroup> = {
+  'grade-elementary': 'elementary',
+  'grade-junior': 'junior',
+  'grade-high': 'high',
+  'grade-university': 'university',
+};
+
+/**
+ * コースから表示する年齢層を決める。
+ *
+ * - 学年別    : その学年の年齢層
+ * - 社会人    : 大人
+ * - 英検・TOEIC: 保存済みの年齢設定があればそれ、無ければ大人へ安全に落とす
+ *
+ * course が未指定でも例外にせず、既定（大人）を返す。
+ */
+export function ageGroupForCourse(
+  course: Course | undefined,
+  savedAgeGroup: SelectedAgeGroup = null,
+): AgeGroup {
+  if (!course) return savedAgeGroup ?? DEFAULT_AGE_GROUP;
+
+  const byGrade = AGE_GROUP_BY_COURSE_ID[course.id];
+  if (byGrade) return byGrade;
+
+  if (course.categoryId === 'business') return 'adult';
+
+  // 英検・TOEIC は年齢が決まらないので、任意設定があればそれを使う。
+  return savedAgeGroup ?? DEFAULT_AGE_GROUP;
+}
+
+/** そのコースで年齢層の任意設定が効くか（英検・TOEIC のみ）。 */
+export function usesSavedAgeGroup(course: Course | undefined): boolean {
+  if (!course) return true;
+  if (AGE_GROUP_BY_COURSE_ID[course.id]) return false;
+  return course.categoryId !== 'business';
 }

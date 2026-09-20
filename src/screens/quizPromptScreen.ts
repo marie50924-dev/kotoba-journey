@@ -3,8 +3,9 @@ import { UI } from '../data/strings';
 import { SAMPLE_PAIRS } from '../data/wordPairs';
 import { buildWaveQuiz } from '../domain/waveQuiz';
 import { appendQuizRecord, toDateKey } from '../storage/learningRecord';
-import { findCharacter } from '../data/characters';
-import { characterSprite } from '../components/characterSprite';
+import { findCourse } from '../data/courses';
+import { ageGroupForCourse, findAgeGroup } from '../data/characters';
+import { characterCard } from '../components/characterCard';
 import { TITLE_ASSETS } from '../data/titleAssets';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
@@ -16,7 +17,9 @@ import type { AppContext } from '../app/state';
  * 責めるような文言も出さない。
  */
 export function quizPromptScreen(ctx: AppContext): HTMLElement {
-  const character = findCharacter(ctx.selectedCharacterId());
+  const group = findAgeGroup(
+    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.savedAgeGroup()),
+  )!;
   const wave = ctx.wave;
   const cardCount = ctx.selection.cardCount ?? 6;
 
@@ -71,7 +74,7 @@ export function quizPromptScreen(ctx: AppContext): HTMLElement {
           alt: UI.characters.guideAlt,
           decoding: 'async',
         }),
-        character ? characterSprite(character, { pose: 'stand', class: 'quiz-prompt__hero', label: '' }) : null,
+        characterCard(group, { variant: 'plain', class: 'quiz-prompt__chara' }),
       ]),
       el('p', { class: 'quiz-prompt__lead', text: UI.quiz.promptLead }),
       el('p', { class: 'note', text: UI.quiz.promptDetail }),

@@ -57,7 +57,8 @@ export function courseListScreen(ctx: AppContext, categoryId: CourseCategoryId):
         ctx.selection.categoryId = categoryId;
         ctx.selection.courseId = course.id;
         ctx.records.update((record) => ({ ...record, selectedCourseId: course.id }));
-        ctx.navigate({ name: 'cardCount' });
+        // コースが決まると表示キャラクターの年齢層も決まる。
+        ctx.navigate({ name: 'courseCharacter' });
       });
       return node;
     });

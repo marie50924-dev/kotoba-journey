@@ -1,8 +1,9 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { findDestination, TRAVEL_MODE_LABEL } from '../data/destinations';
-import { findCharacter } from '../data/characters';
-import { characterSprite } from '../components/characterSprite';
+import { findCourse } from '../data/courses';
+import { ageGroupForCourse, findAgeGroup } from '../data/characters';
+import { characterCard } from '../components/characterCard';
 import { TITLE_ASSETS } from '../data/titleAssets';
 import type { AppContext } from '../app/state';
 
@@ -18,8 +19,10 @@ const SHORT_DURATION_MS = 900;
  */
 export function travelScreen(ctx: AppContext): HTMLElement {
   const destination = findDestination(ctx.selection.destinationId);
-  const character = findCharacter(ctx.selectedCharacterId());
   const record = ctx.records.get();
+  const group = findAgeGroup(
+    ageGroupForCourse(findCourse(ctx.selection.courseId), record.characterAgeGroup),
+  )!;
 
   const seen = destination ? record.seenTravelIntros.includes(destination.id) : false;
   const duration = record.skipTravelAnimation || seen ? SHORT_DURATION_MS : TRAVEL_DURATION_MS;
@@ -67,7 +70,12 @@ export function travelScreen(ctx: AppContext): HTMLElement {
       }),
     ]),
     el('div', { class: 'travel__cast' }, [
-      character ? characterSprite(character, { pose: 'walk', class: 'travel__hero', label: '' }) : null,
+      // 提供素材は背景込みなので、切り抜いた風に見せず搭乗券カードとして額装する。
+      characterCard(group, {
+        variant: 'boarding',
+        class: 'travel__ticket',
+        caption: `${group.label}の2人 ・ ${destination?.label ?? ''}ゆき`,
+      }),
       el('img', {
         class: 'travel__guide',
         src: TITLE_ASSETS.mascot,

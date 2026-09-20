@@ -1,6 +1,6 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
-import { findCharacter } from '../data/characters';
+import { AGE_GROUPS, findAgeGroup } from '../data/characters';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
@@ -67,7 +67,21 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
   });
   renderTravelToggle();
 
-  const character = findCharacter(ctx.selectedCharacterId());
+  // 英検・TOEIC のように年齢が決まらないコース向けの任意設定。未設定でも進める。
+  const ageSelect = el('select', { class: 'setting-select', 'aria-label': UI.characters.ageSetting });
+  const autoOption = el('option', { value: '' });
+  autoOption.textContent = UI.characters.ageAuto;
+  ageSelect.append(autoOption);
+  for (const group of AGE_GROUPS) {
+    const option = el('option', { value: group.id });
+    option.textContent = group.label;
+    ageSelect.append(option);
+  }
+  ageSelect.value = ctx.savedAgeGroup() ?? '';
+  ageSelect.addEventListener('change', () => {
+    const next = findAgeGroup(ageSelect.value as never)?.id ?? null;
+    ctx.records.update((record) => ({ ...record, characterAgeGroup: next }));
+  });
 
   return screenShell({ title: UI.settings.heading, onBack: () => ctx.back() }, [
     el('div', { class: 'setting-row' }, [
@@ -80,12 +94,10 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
     ]),
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label' }, [
-        el('span', { text: UI.settings.character }),
-        el('span', { class: 'setting-row__value', text: character?.label ?? UI.characters.later }),
+        el('span', { text: UI.characters.ageSetting }),
+        el('span', { class: 'setting-row__value', text: UI.settings.characterHint }),
       ]),
-      button(UI.actions.changeCharacter, () => ctx.navigate({ name: 'characterSelect' }), {
-        class: 'btn',
-      }),
+      ageSelect,
     ]),
     !audioSupported ? el('p', { class: 'note', text: UI.settings.unsupportedAudio }) : null,
     el('div', { class: 'setting-row' }, [

@@ -1,6 +1,6 @@
 import type { CardCount, PlayResult } from '../domain/types';
 import type { CourseCategoryId } from '../data/courses';
-import type { SelectedCharacterId } from '../data/characters';
+import type { SelectedAgeGroup } from '../data/characters';
 import type { QuizOutcome, QuizQuestion } from '../domain/waveQuiz';
 import type { LearningRecordStore } from '../storage/learningRecord';
 import type { AudioService } from '../services/audioService';
@@ -9,7 +9,7 @@ import type { EntitlementService } from '../services/entitlementService';
 /** 画面遷移の状態。 */
 export type Route =
   | { name: 'title' }
-  | { name: 'characterSelect' }
+  | { name: 'courseCharacter' }
   | { name: 'courseEntry' }
   | { name: 'courseList'; categoryId: CourseCategoryId }
   | { name: 'cardCount' }
@@ -65,10 +65,10 @@ export interface AppContext {
   quiz: QuizContext | null;
   navigate(route: Route): void;
   back(): void;
-  /** 表紙の「旅をはじめる」。主人公が未選択なら選択画面を挟む。 */
+  /** 表紙の「旅をはじめる」。 */
   startJourney(): void;
-  /** 現在選ばれている主人公。 */
-  selectedCharacterId(): SelectedCharacterId;
+  /** 任意で保存された年齢層設定（英検・TOEIC のフォールバックに使う）。 */
+  savedAgeGroup(): SelectedAgeGroup;
 }
 
 export function createSelection(): PlaySelection {
