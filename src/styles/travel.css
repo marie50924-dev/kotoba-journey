@@ -57,20 +57,13 @@
   padding-top: 4px;
 }
 
-/* 到着記念写真風。わずかに傾ける。 */
-.chara-card--photo {
-  transform: rotate(-1deg);
-}
-
+/*
+ * 到着記念写真風。白フチと影だけで写真らしさを出す。
+ * 以前はわずかに傾けていたが、貼り間違いのように見えるため水平に戻した。
+ */
 .chara-card--photo .chara-card__frame {
   border: 7px solid #fff;
   box-shadow: 0 5px 14px rgba(16, 36, 58, 0.2);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chara-card--photo {
-    transform: none;
-  }
 }
 
 /* ---- コース別キャラクター紹介 ---- */
