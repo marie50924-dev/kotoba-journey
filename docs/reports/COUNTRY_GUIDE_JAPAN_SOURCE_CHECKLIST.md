@@ -348,8 +348,8 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | カテゴリー | ぶんか（マナー） |
 | 本文確認状態 | **body-checked** |
 | 本文を確認した資料 | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC TRANSPORTATION SCENE#04（公共交通機関編） |
-| そのURL | https://www.youtube.com/watch?v=syMm02MLAsg |
-| 本文中で確認した内容 | 公共交通機関編の動画本編で、降りる人を待って順番に乗ること、大きな荷物をほかの乗客のじゃまにならない場所へ置くこと、混雑した電車ではリュックを前に持つこと、妊娠している人や高齢者へ席をゆずることが説明されていることを確認した。元の「大きな声で話さない」は動画内で確認できなかったため外し、確認できた荷物の話に直した。 |
+| そのURL | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/04-30_En_1.mp4 |
+| 本文中で確認した内容 | 公共交通機関編の動画本編で、降りる人を待って順番に乗ること、大きな荷物をほかの乗客のじゃまにならない場所へ置くこと、混雑した電車ではリュックを前に持つこと、妊娠している人や高齢者へ席をゆずることが説明されていることを確認した。元の「大きな声で話さない」は動画内で確認できなかったため外し、確認できた荷物の話に直した。この資料は、観光庁公式ページの該当場面から直接リンクされている公式動画（英語版）。確認時の再生先は同じ場面の YouTube 配信版（https://www.youtube.com/watch?v=syMm02MLAsg）で、同一の場面であることを確認した。 |
 | 採用／修正／削除 | 修正のうえ採用 |
 | 確認日 | 2026-09-20 |
 
@@ -361,8 +361,8 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | カテゴリー | ぶんか（マナー） |
 | 本文確認状態 | **body-checked** |
 | 本文を確認した資料 | 観光庁「訪日外国人旅行者向けマナー啓発動画」TRADITIONAL BUILDINGS SCENE#05（神社仏閣・伝統的建築物編） |
-| そのURL | https://www.youtube.com/watch?v=IN9V-TqECfo |
-| 本文中で確認した内容 | 神社仏閣・伝統的建築物編の動画本編で、古い建物は傷つける可能性があるため触らないこと、祈っている参拝者のじゃまをしないこと、神聖な場所では写真撮影が禁止されている場合が多いことが説明されていることを確認した。元の「書かれている決まりを見てから入る」は確認できなかったため、動画で直接確認できた内容に直した。 |
+| そのURL | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/05-30_En_1.mp4 |
+| 本文中で確認した内容 | 神社仏閣・伝統的建築物編の動画本編で、古い建物は傷つける可能性があるため触らないこと、祈っている参拝者のじゃまをしないこと、神聖な場所では写真撮影が禁止されている場合が多いことが説明されていることを確認した。元の「書かれている決まりを見てから入る」は確認できなかったため、動画で直接確認できた内容に直した。この資料は、観光庁公式ページの該当場面から直接リンクされている公式動画（英語版）。確認時の再生先は同じ場面の YouTube 配信版（https://www.youtube.com/watch?v=IN9V-TqECfo）で、同一の場面であることを確認した。 |
 | 採用／修正／削除 | 修正のうえ採用 |
 | 確認日 | 2026-09-20 |
 
@@ -374,8 +374,8 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | カテゴリー | ぶんか（マナー） |
 | 本文確認状態 | **body-checked** |
 | 本文を確認した資料 | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC BATHS AND HOTELS SCENE#06（温泉・宿泊施設編） |
-| そのURL | https://www.youtube.com/watch?v=0SAQZVEjigM |
-| 本文中で確認した内容 | 温泉・宿泊施設編の動画本編で、浴槽へ入る前に体を洗うよう明確に説明されていること、タオルを湯に入れず皆で浴槽を清潔に保つことが説明されていることを確認した。元の「お風呂」は家庭の風呂まで含むように読めるため、資料が対象としている温泉・大浴場へ範囲を限定した。 |
+| そのURL | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/06-30_En_1.mp4 |
+| 本文中で確認した内容 | 温泉・宿泊施設編の動画本編で、浴槽へ入る前に体を洗うよう明確に説明されていること、タオルを湯に入れず皆で浴槽を清潔に保つことが説明されていることを確認した。元の「お風呂」は家庭の風呂まで含むように読めるため、資料が対象としている温泉・大浴場へ範囲を限定した。この資料は、観光庁公式ページの該当場面から直接リンクされている公式動画（英語版）。確認時の再生先は同じ場面の YouTube 配信版（https://www.youtube.com/watch?v=0SAQZVEjigM）で、同一の場面であることを確認した。 |
 | 採用／修正／削除 | 修正のうえ採用 |
 | 確認日 | 2026-09-20 |
 
@@ -710,19 +710,17 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | `maff-traditional-foods` | 農林水産省「にっぽん伝統食図鑑」 | https://www.maff.go.jp/j/keikaku/syokubunka/traditional-foods/index.html | 未 |
 | `webjapan-history` | Web Japan（外務省）Kids Web Japan「歴史」 | https://web-japan.org/kidsweb/explore/history/index.html | 未 |
 | `webjapan-annual-events` | Web Japan（外務省）Japan Fact Sheet「年中行事」 | https://web-japan.org/factsheet/archives/ja/pdf/J21_annual.pdf | 済 |
-| `kankocho-manners` | 観光庁「日本のマナーを知ってもらおう！　訪日外国人旅行者向けマナー啓発動画」 | https://www.mlit.go.jp/kankocho/news08_000304.html | 未 |
-| `kankocho-transport` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC TRANSPORTATION SCENE#04（公共交通機関編） | https://www.youtube.com/watch?v=syMm02MLAsg | 済 |
-| `kankocho-temples` | 観光庁「訪日外国人旅行者向けマナー啓発動画」TRADITIONAL BUILDINGS SCENE#05（神社仏閣・伝統的建築物編） | https://www.youtube.com/watch?v=IN9V-TqECfo | 済 |
-| `kankocho-baths` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC BATHS AND HOTELS SCENE#06（温泉・宿泊施設編） | https://www.youtube.com/watch?v=0SAQZVEjigM | 済 |
+| `kankocho-manners` | 観光庁「訪日外国人旅行者向けマナー啓発動画」 | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/manner_doga.html | 未 |
+| `kankocho-transport` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC TRANSPORTATION SCENE#04（公共交通機関編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/04-30_En_1.mp4 | 済 |
+| `kankocho-temples` | 観光庁「訪日外国人旅行者向けマナー啓発動画」TRADITIONAL BUILDINGS SCENE#05（神社仏閣・伝統的建築物編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/05-30_En_1.mp4 | 済 |
+| `kankocho-baths` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC BATHS AND HOTELS SCENE#06（温泉・宿泊施設編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/06-30_En_1.mp4 | 済 |
 | `bunka-fuji` | 文化庁 文化遺産オンライン「富士山―信仰の対象と芸術の源泉」 | https://online.bunka.go.jp/special_content/hlinkD | 済 |
 | `bunka-himeji` | 文化庁 文化遺産オンライン「姫路城」 | https://online.bunka.go.jp/special_content/hlink2 | 済 |
 | `bunka-kyoto` | 文化庁 文化遺産オンライン「古都京都の文化財（京都市、宇治市、大津市）」 | https://online.bunka.go.jp/special_content/hlink3 | 済 |
 
-公的機関のドメイン以外で公開されている資料は、公開主体を明示しています。
-
-- `kankocho-transport` … 観光庁が公開
-- `kankocho-temples` … 観光庁が公開
-- `kankocho-baths` … 観光庁が公開
+出典はすべて公的機関（または公的機関が運営する媒体）のドメインで配布されているものです。
+人が確認するときに別の再生先（動画配信サイトなど）を使った場合は、
+その経路を各 claim の「本文中で確認した内容」に書いてあります。根拠URLの正本は上の表です。
 
 ---
 

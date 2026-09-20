@@ -200,9 +200,19 @@ try {
       charaSrc.includes('elementary'),
       `${tag}: 小学生を選んだのに小学生の旅イラストが出ていない（${charaSrc}）`,
     );
-    const charaLoaded = await page.evaluate(
-      () => document.querySelector('.chara-card__img')?.naturalWidth > 0,
-    );
+    // 読み込みとデコードが終わるのを待ってから測る。
+    // 即座に naturalWidth を見ると、実体があっても 0 のことがある。
+    const charaLoaded = await page
+      .waitForFunction(
+        () => {
+          const img = document.querySelector('.chara-card__img');
+          return img !== null && img.complete && img.naturalWidth > 0;
+        },
+        undefined,
+        { timeout: 5000 },
+      )
+      .then(() => true)
+      .catch(() => false);
     check(charaLoaded, `${tag}: 旅の正式イラストが読み込めていない`);
     check(
       await page.locator('.travel__me .avatar-thumb').count() === 1,

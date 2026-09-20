@@ -851,22 +851,13 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('出典は公的機関のドメインか、公開主体を明示した資料に限る', () => {
-    // 公的機関が動画サイトなどで出している資料もある。
-    // その場合だけ、誰が出しているか（hostedBy）を書いたうえで認める。
+  it('出典は公的機関・公的機関が運営する媒体のドメインに限る', () => {
+    // データ内の自己申告（資料名や公開主体の記載）で例外を作らない。
+    // 公的機関の資料は、その機関のドメインで配布されているものを引く。
     const allowedHost = /\.go\.jp$|\.lg\.jp$|\.unesco\.org$|^web-japan\.org$/;
     for (const source of JAPAN.sources) {
       const host = new URL(source.sourceUrl).hostname;
-      if (allowedHost.test(host)) {
-        expect(source.hostedBy, `${source.sourceLabel} に不要な公開主体が書いてある`).toBeUndefined();
-        continue;
-      }
-      expect(source.hostedBy, `${source.sourceLabel} の公開主体が書かれていない`).toBeTruthy();
-      // 公的ドメイン以外は、人が本文を確認したものだけ認める。
-      expect(source.verification, `${source.sourceLabel} が本文未確認のまま`).toBe('body-checked');
-      expect(source.sourceLabel, `${source.sourceLabel} に公開主体の名前が無い`).toContain(
-        source.hostedBy!,
-      );
+      expect(host, `${source.sourceLabel} のドメイン`).toMatch(allowedHost);
     }
   });
 
@@ -929,6 +920,102 @@ describe('学ぶ単語と語彙データの対応', () => {
     expect(words.sourceNote).toContain('語彙データ');
     // ことばの並びは事実の主張ではないので、claim を持たない。
     expect(words.items.every((i) => i.claim === undefined)).toBe(true);
+  });
+});
+
+describe('観光庁のマナー啓発動画の出典', () => {
+  // 出典の正本は、観光庁公式ドメインで配布されている場面別動画。
+  // 人がどこで再生して確認したかは確認メモに書くが、根拠URLはこちらにする。
+  const SCENES = [
+    { sourceId: 'kankocho-transport', file: '04-30_En_1.mp4', claimId: 'jp-claim-manner-train' },
+    { sourceId: 'kankocho-temples', file: '05-30_En_1.mp4', claimId: 'jp-claim-manner-temple' },
+    { sourceId: 'kankocho-baths', file: '06-30_En_1.mp4', claimId: 'jp-claim-manner-onsen' },
+  ];
+
+  it('場面別の出典は観光庁の公式ドメインで配布されている動画を指す', () => {
+    for (const scene of SCENES) {
+      const source = findSource(JAPAN, scene.sourceId);
+      expect(source, `${scene.sourceId} が無い`).toBeDefined();
+      const url = new URL(source!.sourceUrl);
+      expect(url.hostname, `${scene.sourceId} のドメイン`).toBe('www.mlit.go.jp');
+      expect(url.pathname.startsWith('/kankocho/'), `${scene.sourceId} の経路`).toBe(true);
+      expect(url.pathname.endsWith(`/${scene.file}`), `${scene.sourceId} のファイル`).toBe(true);
+    }
+  });
+
+  it('場面別の出典はどれも本文確認済み', () => {
+    for (const scene of SCENES) {
+      expect(findSource(JAPAN, scene.sourceId)!.verification).toBe('body-checked');
+    }
+  });
+
+  it('場面別の出典は、確認済みの事実から引かれている', () => {
+    const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
+    for (const scene of SCENES) {
+      const claim = byId.get(scene.claimId);
+      expect(claim, `${scene.claimId} が無い`).toBeDefined();
+      expect(claim!.verification, `${scene.claimId} が未確認`).toBe('body-checked');
+      expect(claim!.sourceIds, `${scene.claimId} が ${scene.sourceId} を引いていない`).toContain(
+        scene.sourceId,
+      );
+    }
+  });
+
+  it('案内ページも観光庁の公式ドメインを指す', () => {
+    const page = findSource(JAPAN, 'kankocho-manners');
+    expect(page).toBeDefined();
+    expect(new URL(page!.sourceUrl).hostname).toBe('www.mlit.go.jp');
+    expect(page!.sourceUrl).toContain('manner_doga');
+  });
+
+  it('動画サイトのURLを出典の根拠にしていない', () => {
+    // 再生先として確認メモに書くのはよいが、sourceUrl の正本にはしない。
+    for (const source of JAPAN.sources) {
+      expect(new URL(source.sourceUrl).hostname, source.sourceLabel).not.toMatch(
+        /youtube\.com$|youtu\.be$/,
+      );
+    }
+  });
+
+  it('確認メモに、公式動画から確認したことが書いてある', () => {
+    const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
+    for (const scene of SCENES) {
+      expect(byId.get(scene.claimId)!.verificationNote).toContain(
+        '観光庁公式ページの該当場面から直接リンクされている公式動画',
+      );
+    }
+  });
+});
+
+describe('追補後も、確認の進み具合は変わっていない', () => {
+  it('46件の状態別件数が変わらない', () => {
+    const count = (state: string): number =>
+      allClaims(JAPAN).filter((c) => c.verification === state).length;
+    expect(allClaims(JAPAN)).toHaveLength(46);
+    expect(count('body-checked')).toBe(8);
+    expect(count('unchecked')).toBe(9);
+    expect(count('rejected')).toBe(1);
+    expect(count('withdrawn')).toBe(28);
+  });
+
+  it('日本は draft のままで、事実を1件も公開していない', () => {
+    expect(JAPAN.publicationStatus).toBe('draft');
+    expect(canPublish(JAPAN)).toBe(false);
+    expect(showsDetails(JAPAN)).toBe(false);
+    expect(renderedText(JAPAN)).toBe(UI.countryIntro.preparing);
+  });
+
+  it('気候4件には手を付けていない', () => {
+    const climateIds = [
+      'jp-claim-summary',
+      'jp-claim-climate-winter',
+      'jp-claim-climate-baiu',
+      'jp-claim-climate-seasons',
+    ];
+    const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
+    for (const id of climateIds) {
+      expect(byId.get(id)!.verification, `${id} が未確認のままでない`).toBe('unchecked');
+    }
   });
 });
 

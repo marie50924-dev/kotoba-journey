@@ -51,13 +51,6 @@ export interface InfoSource {
   /** 所在を確かめた日（YYYY-MM-DD）。本文を読んだ日ではない。 */
   checkedAt: string;
   verification: SourceVerification;
-  /**
-   * 公的機関が外部の媒体（動画サイトなど）で公開している資料のとき、
-   * その公開主体を書く。ドメインだけでは公的資料かどうか見分けられないため、
-   * 「誰が出しているか」を人の確認結果として明示しておく。
-   * 公的機関のドメインで直接公開されている資料には付けない。
-   */
-  hostedBy?: string;
 }
 
 /**
@@ -364,41 +357,43 @@ const JAPAN_SOURCES: InfoSource[] = [
     verification: 'body-checked',
   },
   {
-    // 事業そのものの案内ページ。場面別の本文は下の3件で確認した。
+    // 事業そのものの案内ページ。場面別の動画は、このページから直接リンクされている。
     id: 'kankocho-manners',
-    sourceLabel: '観光庁「日本のマナーを知ってもらおう！　訪日外国人旅行者向けマナー啓発動画」',
-    sourceUrl: 'https://www.mlit.go.jp/kankocho/news08_000304.html',
+    sourceLabel: '観光庁「訪日外国人旅行者向けマナー啓発動画」',
+    sourceUrl:
+      'https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/manner_doga.html',
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   // 観光庁のマナー啓発動画は場面ごとに内容がちがう。
   // どの場面を見て確認したのかが分かるよう、場面別に持つ。
+  // URL は案内ページから各場面の英語版として直接リンクされている公式動画。
   {
     id: 'kankocho-transport',
     sourceLabel:
       '観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC TRANSPORTATION SCENE#04（公共交通機関編）',
-    sourceUrl: 'https://www.youtube.com/watch?v=syMm02MLAsg',
+    sourceUrl:
+      'https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/04-30_En_1.mp4',
     checkedAt: '2026-09-20',
     verification: 'body-checked',
-    hostedBy: '観光庁',
   },
   {
     id: 'kankocho-temples',
     sourceLabel:
       '観光庁「訪日外国人旅行者向けマナー啓発動画」TRADITIONAL BUILDINGS SCENE#05（神社仏閣・伝統的建築物編）',
-    sourceUrl: 'https://www.youtube.com/watch?v=IN9V-TqECfo',
+    sourceUrl:
+      'https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/05-30_En_1.mp4',
     checkedAt: '2026-09-20',
     verification: 'body-checked',
-    hostedBy: '観光庁',
   },
   {
     id: 'kankocho-baths',
     sourceLabel:
       '観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC BATHS AND HOTELS SCENE#06（温泉・宿泊施設編）',
-    sourceUrl: 'https://www.youtube.com/watch?v=0SAQZVEjigM',
+    sourceUrl:
+      'https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/06-30_En_1.mp4',
     checkedAt: '2026-09-20',
     verification: 'body-checked',
-    hostedBy: '観光庁',
   },
   // 文化庁の世界遺産一覧から、各資産名を開いたときの詳細解説ページ。
   // 一覧だけでは、登録の有無より先の説明を裏づけられないため個別に持つ。
@@ -714,21 +709,21 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
         'jp-claim-manner-train',
         '電車では、大きな荷物がほかの人のじゃまにならないように持ちましょう。',
         ['kankocho-transport'],
-        '公共交通機関編の動画本編で、降りる人を待って順番に乗ること、大きな荷物をほかの乗客のじゃまにならない場所へ置くこと、混雑した電車ではリュックを前に持つこと、妊娠している人や高齢者へ席をゆずることが説明されていることを確認した。元の「大きな声で話さない」は動画内で確認できなかったため外し、確認できた荷物の話に直した。',
+        '公共交通機関編の動画本編で、降りる人を待って順番に乗ること、大きな荷物をほかの乗客のじゃまにならない場所へ置くこと、混雑した電車ではリュックを前に持つこと、妊娠している人や高齢者へ席をゆずることが説明されていることを確認した。元の「大きな声で話さない」は動画内で確認できなかったため外し、確認できた荷物の話に直した。この資料は、観光庁公式ページの該当場面から直接リンクされている公式動画（英語版）。確認時の再生先は同じ場面の YouTube 配信版（https://www.youtube.com/watch?v=syMm02MLAsg）で、同一の場面であることを確認した。',
         '2026-09-20',
       ),
       confirmed(
         'jp-claim-manner-temple',
         'お寺や神社では、祈っている人のじゃまをせず、古い建物にさわらないようにしましょう。',
         ['kankocho-temples'],
-        '神社仏閣・伝統的建築物編の動画本編で、古い建物は傷つける可能性があるため触らないこと、祈っている参拝者のじゃまをしないこと、神聖な場所では写真撮影が禁止されている場合が多いことが説明されていることを確認した。元の「書かれている決まりを見てから入る」は確認できなかったため、動画で直接確認できた内容に直した。',
+        '神社仏閣・伝統的建築物編の動画本編で、古い建物は傷つける可能性があるため触らないこと、祈っている参拝者のじゃまをしないこと、神聖な場所では写真撮影が禁止されている場合が多いことが説明されていることを確認した。元の「書かれている決まりを見てから入る」は確認できなかったため、動画で直接確認できた内容に直した。この資料は、観光庁公式ページの該当場面から直接リンクされている公式動画（英語版）。確認時の再生先は同じ場面の YouTube 配信版（https://www.youtube.com/watch?v=IN9V-TqECfo）で、同一の場面であることを確認した。',
         '2026-09-20',
       ),
       confirmed(
         'jp-claim-manner-onsen',
         '温泉や大浴場では、体を洗ってから湯ぶねに入りましょう。',
         ['kankocho-baths'],
-        '温泉・宿泊施設編の動画本編で、浴槽へ入る前に体を洗うよう明確に説明されていること、タオルを湯に入れず皆で浴槽を清潔に保つことが説明されていることを確認した。元の「お風呂」は家庭の風呂まで含むように読めるため、資料が対象としている温泉・大浴場へ範囲を限定した。',
+        '温泉・宿泊施設編の動画本編で、浴槽へ入る前に体を洗うよう明確に説明されていること、タオルを湯に入れず皆で浴槽を清潔に保つことが説明されていることを確認した。元の「お風呂」は家庭の風呂まで含むように読めるため、資料が対象としている温泉・大浴場へ範囲を限定した。この資料は、観光庁公式ページの該当場面から直接リンクされている公式動画（英語版）。確認時の再生先は同じ場面の YouTube 配信版（https://www.youtube.com/watch?v=0SAQZVEjigM）で、同一の場面であることを確認した。',
         '2026-09-20',
       ),
     ],
