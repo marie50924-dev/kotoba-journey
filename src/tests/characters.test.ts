@@ -122,8 +122,10 @@ describe('国紹介データ', () => {
     const japan = findCountryIntro('japan')!;
     expect(japan.countryNameJa).toBe('日本');
     expect(japan.countryNameEn).toBe('Japan');
-    expect(japan.greeting.ja.length).toBeGreaterThan(0);
-    expect(japan.greeting.en.length).toBeGreaterThan(0);
+    // あいさつは任意項目だが、日本は持っている。
+    expect(japan.greeting).toBeDefined();
+    expect(japan.greeting?.ja).toBe('こんにちは');
+    expect(japan.greeting?.en).toBe('Hello');
     expect(japan.learning.length).toBeGreaterThan(0);
   });
 

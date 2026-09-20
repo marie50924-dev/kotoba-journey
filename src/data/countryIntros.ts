@@ -162,8 +162,14 @@ export interface CountryIntro {
   /** 「首都は◯◯です。」の1文。 */
   capitalLine: FactClaim;
 
-  /** あいさつ。日本語と英語の対応そのものを学習情報として確認する。 */
-  greeting: Greeting;
+  /**
+   * あいさつ。日本語と英語の対応そのものを学習情報として確認する。
+   *
+   * 任意にしてある。人が本文を確認した結果あいさつを不採用にしたときは、
+   * この項目ごと外し、元の claim を retiredClaims へ1件だけ残す。
+   * ダミーのあいさつを置かずに表示対象から完全に外すための形。
+   */
+  greeting?: Greeting;
   /** 到着直後に出す短い紹介文。 */
   summary: FactClaim;
   /** 到着直後に1件だけ出す「有名なもの」。 */
@@ -812,7 +818,8 @@ export function findSource(intro: CountryIntro, sourceId: string): InfoSource | 
 export function displayDataClaims(intro: CountryIntro): FactClaim[] {
   return [
     // 画面に出る順に並べる。あいさつが最初。
-    intro.greeting.claim,
+    // あいさつを不採用にした国では greeting ごと無くなるので、ここにも入らない。
+    ...(intro.greeting ? [intro.greeting.claim] : []),
     intro.summary,
     intro.capitalLine,
     ...claimsOf([intro.capital, intro.highlight]),

@@ -15,7 +15,13 @@ import {
   uncheckedClaims,
   visibleClaims,
 } from '../data/countryIntros';
-import type { CountryIntro, DetailSectionId, FactClaim, NamedItem } from '../data/countryIntros';
+import type {
+  CountryIntro,
+  DetailSectionId,
+  FactClaim,
+  Greeting,
+  NamedItem,
+} from '../data/countryIntros';
 import { SAMPLE_PAIRS, findPair } from '../data/wordPairs';
 import { UI } from '../data/strings';
 import { DESTINATIONS } from '../data/destinations';
@@ -45,6 +51,19 @@ function allItems(intro: CountryIntro): NamedItem[] {
 }
 
 /**
+ * あいさつを取り出す。
+ *
+ * greeting は任意（不採用にした国では項目ごと消える）なので、
+ * 「日本にはある」という前提が崩れたらそこで止める。
+ * 型アサーションは使わない。実際に有無を見て分岐する。
+ */
+function greetingOf(intro: CountryIntro): Greeting {
+  const greeting = intro.greeting;
+  if (greeting === undefined) throw new Error(`${intro.countryId} にあいさつが無い`);
+  return greeting;
+}
+
+/**
  * 本文確認が終わった状態の複製。公開できる形を試すのに使う。
  *
  * 確認済みの事実は必ず裏づけ資料を持つので、
@@ -69,7 +88,9 @@ function asVerified(intro: CountryIntro): CountryIntro {
   return {
     ...intro,
     publicationStatus: 'verified',
-    greeting: { ...intro.greeting, claim: check(intro.greeting.claim) },
+    greeting: intro.greeting
+      ? { ...intro.greeting, claim: check(intro.greeting.claim) }
+      : undefined,
     summary: check(intro.summary),
     capitalLine: check(intro.capitalLine),
     capital: checkItem(intro.capital),
@@ -101,7 +122,9 @@ function renderedText(intro: CountryIntro): string {
     c === undefined || c.verification !== 'rejected';
 
   const head = [
-    shown(intro.greeting.claim) ? `${intro.greeting.ja} ${intro.greeting.en}` : '',
+    intro.greeting && shown(intro.greeting.claim)
+      ? `${intro.greeting.ja} ${intro.greeting.en}`
+      : '',
     shown(intro.capital.claim) ? intro.capital.name : '',
     shown(intro.highlight.claim) ? `${intro.highlight.name}${intro.highlight.note ?? ''}` : '',
     shown(intro.summary) ? intro.summary.text : '',
@@ -125,8 +148,11 @@ describe('国紹介の必須項目', () => {
       expect(intro.countryNameJa.length).toBeGreaterThan(0);
       expect(intro.countryNameEn.length).toBeGreaterThan(0);
       expect(intro.capital.name.length).toBeGreaterThan(0);
-      expect(intro.greeting.ja.length).toBeGreaterThan(0);
-      expect(intro.greeting.en.length).toBeGreaterThan(0);
+      // あいさつは任意。持っているなら中身が空であってはならない。
+      if (intro.greeting) {
+        expect(intro.greeting.ja.length).toBeGreaterThan(0);
+        expect(intro.greeting.en.length).toBeGreaterThan(0);
+      }
       expect(intro.summary.text.length).toBeGreaterThan(0);
       expect(intro.highlight.name.length).toBeGreaterThan(0);
       expect(intro.specialtiesNote.text.length).toBeGreaterThan(0);
@@ -480,11 +506,12 @@ describe('あいさつ', () => {
 
   /** あいさつの claim だけを差し替えた複製。 */
   function withGreeting(intro: CountryIntro, patch: Partial<FactClaim>): CountryIntro {
-    return { ...intro, greeting: { ...intro.greeting, claim: { ...intro.greeting.claim, ...patch } } };
+    const greeting = greetingOf(intro);
+    return { ...intro, greeting: { ...greeting, claim: { ...greeting.claim, ...patch } } };
   }
 
   it('claimId が固定されている', () => {
-    expect(JAPAN.greeting.claim.id).toBe('jp-claim-greeting-hello');
+    expect(greetingOf(JAPAN).claim.id).toBe('jp-claim-greeting-hello');
   });
 
   it('claimId が他の事実と重複しない', () => {
@@ -495,13 +522,13 @@ describe('あいさつ', () => {
 
   it('画面に出す語と、確認する文章が食い違わない', () => {
     // 文章は ja / en から組み立てるので、二重に書いてずれることがない。
-    const { ja, en, claim } = JAPAN.greeting;
+    const { ja, en, claim } = greetingOf(JAPAN);
     expect(claim.text).toContain(ja);
     expect(claim.text).toContain(en);
   });
 
   it('本文未確認のまま、出典を割り当てていない', () => {
-    const claim = JAPAN.greeting.claim;
+    const claim = greetingOf(JAPAN).claim;
     expect(claim.verification).toBe('unchecked');
     expect(claim.sourceIds).toEqual([]);
     expect(claim.candidateSourceIds).toEqual([]);
@@ -539,7 +566,7 @@ describe('あいさつ', () => {
 
   it('本文確認が済んで公開条件を満たしたときだけ表示対象になる', () => {
     const verified = asVerified(JAPAN);
-    expect(verified.greeting.claim.verification).toBe('body-checked');
+    expect(greetingOf(verified).claim.verification).toBe('body-checked');
     expect(showsDetails(verified)).toBe(true);
     expect(visibleClaims(verified).map((c) => c.id)).toContain('jp-claim-greeting-hello');
     expect(renderedText(verified)).toContain('こんにちは');
@@ -565,22 +592,62 @@ describe('あいさつ', () => {
     expect(showsDetails(rejected)).toBe(false);
   });
 
-  it('不採用にして retiredClaims へ移せば、公開を妨げない', () => {
-    // あいさつを出さない国にする場合の形。表示対象から外し、監査記録だけ残す。
+  it('不採用にして retiredClaims へ移せば、表示対象から完全に消え、公開を妨げない', () => {
+    // あいさつを出さない国にする場合の形。
+    // greeting の項目ごと外し、元の claim を監査記録として1件だけ残す。
+    // ダミーのあいさつも、ダミーの claim も作らない。
     const verified = asVerified(JAPAN);
+    const original = greetingOf(verified).claim;
+
+    // 1〜3. greeting を外し、元の claim を rejected にして retiredClaims へ入れる。
     const retired: FactClaim = {
-      ...verified.greeting.claim,
+      ...original,
       verification: 'rejected',
       sourceIds: [],
+      verificationNote: '（テスト用）本文を読んだ結果、あいさつを不採用にした',
     };
     const withoutGreeting: CountryIntro = {
       ...verified,
-      greeting: { ...verified.greeting, ja: '', en: '', claim: retired },
-      retiredClaims: [retired],
+      greeting: undefined,
+      retiredClaims: [...verified.retiredClaims, retired],
     };
-    // 表示対象からは外れている（空文字のあいさつは画面に出す語を持たない）。
-    expect(renderedText(withoutGreeting)).not.toContain('こんにちは');
-    expect(allClaims(withoutGreeting).filter((c) => c.id === retired.id).length).toBeGreaterThan(0);
+
+    // 4. 表示対象に元の claimId が無い。
+    expect(displayDataClaims(withoutGreeting).map((c) => c.id)).not.toContain(original.id);
+    // 5. 描かれる事実にも無い。
+    expect(visibleClaims(withoutGreeting).map((c) => c.id)).not.toContain(original.id);
+    // 6. 監査記録には1件だけ残る。
+    expect(allClaims(withoutGreeting).filter((c) => c.id === original.id)).toHaveLength(1);
+    // 7. 二重保持していない（allClaims の中で claimId が重複しない）。
+    const ids = allClaims(withoutGreeting).map((c) => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    // あいさつの分だけ表示対象が減り、総数は変わらない。
+    expect(displayDataClaims(withoutGreeting)).toHaveLength(
+      displayDataClaims(verified).length - 1,
+    );
+    expect(allClaims(withoutGreeting)).toHaveLength(allClaims(verified).length);
+
+    // 8. 他の表示対象がすべて body-checked なので公開できる。
+    expect(rejectedInDisplayData(withoutGreeting)).toHaveLength(0);
+    expect(uncheckedClaims(withoutGreeting)).toHaveLength(0);
+    expect(canPublish(withoutGreeting)).toBe(true);
+    // 9. verified なので詳細は出る。
+    expect(withoutGreeting.publicationStatus).toBe('verified');
+    expect(showsDetails(withoutGreeting)).toBe(true);
+    // 10. それでも、あいさつの語も文章も画面へは出ない。
+    const drawn = renderedText(withoutGreeting);
+    expect(drawn).not.toContain(greetingOf(verified).ja);
+    expect(drawn).not.toContain(greetingOf(verified).en);
+    expect(drawn).not.toContain(original.text);
+    // 他の事実は変わらず出ている（あいさつだけを外したことの確認）。
+    expect(drawn).toContain(verified.summary.text);
+  });
+
+  it('不採用にしても、監査記録の文章はチェックリストと同じまま', () => {
+    // claimId と文章を書き換えずに移すので、人が表で追える。
+    const original = greetingOf(JAPAN).claim;
+    expect(checklist).toContain(original.id);
+    expect(checklist).toContain(original.text);
   });
 
   it('下書きのままでもカルタへ進める（あいさつを隠しても進行は止まらない）', () => {

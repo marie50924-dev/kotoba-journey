@@ -87,8 +87,9 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
         // 国旗は行き先を見分けるための目じるしなので、準備中でも出す。
         flagNode(intro),
         // あいさつは「この国ではこう言う」という学習情報なので、
-        // 本文確認が終わるまで出さない。不採用にしたものも描かない。
-        showDetails && isShown(intro.greeting.claim)
+        // 本文確認が終わるまで出さない。不採用にして項目ごと外した国と、
+        // rejected のまま残っている場合のどちらでも描かない。
+        showDetails && intro.greeting !== undefined && isShown(intro.greeting.claim)
           ? el('div', { class: 'intro__greeting' }, [
               el('span', { class: 'intro__greeting-label', text: UI.countryIntro.greeting }),
               el('strong', { class: 'intro__greeting-ja', text: intro.greeting.ja }),
