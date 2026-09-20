@@ -1,7 +1,7 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { avatarThumb } from './avatarThumb';
-import { displayName, type AvatarDefinition } from '../data/avatars';
+import { displayName, firstPerson, type AvatarDefinition } from '../data/avatars';
 import type { DialogueChoice, DialogueLine, DialogueScript } from '../data/dialogues';
 import type { AudioService } from '../services/audioService';
 
@@ -35,8 +35,13 @@ export function chatPanel(options: ChatPanelOptions): HTMLElement {
   let closed = false;
 
   function resolveText(text: string): string {
-    // 名前はハードコードせず、名簿から引いた下の名前で置き換える。
-    return text.replace(/\{npc\}/g, displayName(npc)).replace(/\{me\}/g, displayName(me));
+    // 名前も一人称もハードコードせず、名簿から引いた値で置き換える。
+    // 一人称は年代と表示分類で変わるため、台本側は {npcI} / {meI} と書く。
+    return text
+      .replace(/\{npcI\}/g, firstPerson(npc))
+      .replace(/\{meI\}/g, firstPerson(me))
+      .replace(/\{npc\}/g, displayName(npc))
+      .replace(/\{me\}/g, displayName(me));
   }
 
   function appendLine(line: DialogueLine): void {

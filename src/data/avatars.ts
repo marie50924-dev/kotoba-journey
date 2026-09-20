@@ -145,6 +145,28 @@ export function avatarsByAgeGroup(ageGroup: AvatarAgeGroup): AvatarDefinition[] 
   return AVATARS.filter((a) => a.ageGroup === ageGroup && a.enabled);
 }
 
+/**
+ * 会話で使う一人称。
+ *
+ * 台本は80人共通のテンプレートなので、そのままだと全員が同じ一人称で話してしまう。
+ * 名簿の年代と表示分類から引いて、台本側の {npcI} / {meI} へ差し込む。
+ *
+ * 表記は学習アプリとして落ち着いた言葉づかいに寄せ、
+ * 乱暴に聞こえる言い方は使わない。
+ * 個別台本を作る工程になったら、この表より台本側の指定を優先させる。
+ */
+const FIRST_PERSON: Record<AvatarAgeGroup, Record<AvatarPresentation, string>> = {
+  elementary: { m: 'ぼく', f: 'わたし' },
+  middle: { m: 'ぼく', f: 'わたし' },
+  high: { m: 'ぼく', f: 'わたし' },
+  university: { m: 'ぼく', f: 'わたし' },
+  adult: { m: 'わたし', f: 'わたし' },
+};
+
+export function firstPerson(avatar: AvatarDefinition): string {
+  return FIRST_PERSON[avatar.ageGroup][avatar.presentation];
+}
+
 /** 会話では下の名前を使う。 */
 export function displayName(avatar: AvatarDefinition): string {
   return avatar.givenName;

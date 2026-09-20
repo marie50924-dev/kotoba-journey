@@ -59,13 +59,23 @@ describe('台本データ', () => {
     }
   });
 
-  it('置換記号は {npc} と {me} だけ', () => {
+  it('置換記号は名前と一人称の4種類だけ', () => {
     for (const script of DIALOGUE_SCRIPTS) {
       const all = [...script.opening, ...script.choices.flatMap((c) => c.reply)]
         .map((l) => l.text)
         .join('\n');
       for (const token of all.match(/\{[a-zA-Z]+\}/g) ?? []) {
-        expect(['{npc}', '{me}']).toContain(token);
+        expect(['{npc}', '{me}', '{npcI}', '{meI}']).toContain(token);
+      }
+    }
+  });
+
+  it('一人称を台本へ直接書かない（性別で食い違うため）', () => {
+    // 「ぼく」などを台本に直書きすると、女性キャラクターもそう話してしまう。
+    // 一人称は {npcI} / {meI} で書き、名簿から引く。
+    for (const script of DIALOGUE_SCRIPTS) {
+      for (const line of [...script.opening, ...script.choices.flatMap((c) => c.reply)]) {
+        expect(line.text).not.toMatch(/ぼく|ボク|僕|おれ|オレ|俺/);
       }
     }
   });

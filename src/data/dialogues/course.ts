@@ -7,7 +7,7 @@ export const courseScripts: readonly DialogueScript[] = [
     trigger: 'course',
     opening: [
       { id: 'o1', role: 'npc', text: 'こんにちは、{me}さん。今日はどのコースにする？' },
-      { id: 'o2', role: 'npc', text: 'ぼくは{npc}。いっしょにことばを集めよう。' },
+      { id: 'o2', role: 'npc', text: '{npcI}は{npc}。いっしょにことばを集めよう。' },
     ],
     choices: [
       {

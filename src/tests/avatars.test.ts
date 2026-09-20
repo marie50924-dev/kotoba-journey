@@ -6,6 +6,7 @@ import {
   AVATAR_AGE_GROUPS,
   ROSTER_VERSION,
   avatarsByAgeGroup,
+  firstPerson,
   displayName,
   enabledAvatars,
   findAvatar,
@@ -124,6 +125,37 @@ describe('名簿の参照', () => {
     for (const age of AVATAR_AGE_GROUPS) {
       expect(AGE_GROUP_LABEL[age as AvatarAgeGroup].length).toBeGreaterThan(0);
       expect(AGE_GROUP_COLOR[age as AvatarAgeGroup]).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+});
+
+describe('会話の一人称', () => {
+  it('80人全員に一人称がある', () => {
+    for (const avatar of AVATARS) {
+      expect(firstPerson(avatar).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('女性キャラクターが「ぼく」と話さない', () => {
+    for (const avatar of AVATARS.filter((a) => a.presentation === 'f')) {
+      expect(firstPerson(avatar)).toBe('わたし');
+    }
+  });
+
+  it('年代と表示分類だけで決まる（個人差を持ち込まない）', () => {
+    for (const avatar of AVATARS) {
+      const sameKind = AVATARS.filter(
+        (a) => a.ageGroup === avatar.ageGroup && a.presentation === avatar.presentation,
+      );
+      for (const other of sameKind) {
+        expect(firstPerson(other)).toBe(firstPerson(avatar));
+      }
+    }
+  });
+
+  it('乱暴に聞こえる言い方は使わない', () => {
+    for (const avatar of AVATARS) {
+      expect(firstPerson(avatar)).not.toMatch(/おれ|オレ|俺/);
     }
   });
 });
