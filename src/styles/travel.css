@@ -247,7 +247,24 @@
 }
 
 .travel__ticket {
-  width: min(74%, 300px);
+  width: min(62%, 260px);
+}
+
+/* 自分のキャラクター。立ち絵が入ったら avatarThumb 側だけが変わる。 */
+.travel__me {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.travel__me-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
 }
 
 .travel__guide {
@@ -325,6 +342,34 @@
 
 .intro__photo {
   width: 100%;
+}
+
+/* 到着記念の並び。自分のキャラクターと同行 NPC の置き場所。 */
+.intro__cast {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.intro__cast-me,
+.intro__cast-npc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.intro__cast-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-ink);
+  white-space: nowrap;
 }
 
 .intro__cards {

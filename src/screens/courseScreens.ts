@@ -62,8 +62,9 @@ export function courseListScreen(ctx: AppContext, categoryId: CourseCategoryId):
         ctx.selection.categoryId = categoryId;
         ctx.selection.courseId = course.id;
         ctx.records.update((record) => ({ ...record, selectedCourseId: course.id }));
-        // コースが決まると表示キャラクターの年齢層も決まる。
-        ctx.navigate({ name: 'courseCharacter' });
+        // 主人公は80人から選んだキャラクターに固定なので、
+        // コース決定後はそのまま枚数選択へ進む。
+        ctx.navigate({ name: 'cardCount' });
       });
       return node;
     });

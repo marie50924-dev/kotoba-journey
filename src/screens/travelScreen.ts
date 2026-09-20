@@ -1,9 +1,10 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { findDestination, TRAVEL_MODE_LABEL } from '../data/destinations';
-import { findCourse } from '../data/courses';
-import { ageGroupForCourse, findAgeGroup } from '../data/characters';
+import { ageGroupFromAvatarAgeGroup, findAgeGroup } from '../data/characters';
+import { findAvatar, displayName } from '../data/avatars';
 import { characterCard } from '../components/characterCard';
+import { avatarThumb } from '../components/avatarThumb';
 import { TITLE_ASSETS } from '../data/titleAssets';
 import type { AppContext } from '../app/state';
 
@@ -14,15 +15,18 @@ const SHORT_DURATION_MS = 900;
 
 /**
  * 移動中の画面。
- * 主人公と案内役、経路に合う移動表現、出発地と到着地、短い進行アニメを見せる。
+ * 自分のキャラクターと案内役、経路に合う移動表現、出発地と到着地、
+ * 短い進行アニメを見せる。
  * いつでもスキップでき、一度見た国は設定や既訪問により短縮される。
+ *
+ * 搭乗券の絵は正式採用済みの旅の情景イラスト。コースではなく
+ * 「選んだキャラクターの年代」に合わせて選ぶ。
  */
 export function travelScreen(ctx: AppContext): HTMLElement {
   const destination = findDestination(ctx.selection.destinationId);
   const record = ctx.records.get();
-  const group = findAgeGroup(
-    ageGroupForCourse(findCourse(ctx.selection.courseId), record.characterAgeGroup),
-  )!;
+  const me = findAvatar(record.selectedAvatarId);
+  const group = findAgeGroup(ageGroupFromAvatarAgeGroup(me?.ageGroup))!;
 
   const seen = destination ? record.seenTravelIntros.includes(destination.id) : false;
   const duration = record.skipTravelAnimation || seen ? SHORT_DURATION_MS : TRAVEL_DURATION_MS;
@@ -74,8 +78,16 @@ export function travelScreen(ctx: AppContext): HTMLElement {
       characterCard(group, {
         variant: 'boarding',
         class: 'travel__ticket',
-        caption: `${group.label}の2人 ・ ${destination?.label ?? ''}ゆき`,
+        caption: `${destination?.label ?? ''}ゆき`,
+        label: `${destination?.label ?? ''}へむかう旅の風景`,
       }),
+      // 自分のキャラクター。立ち絵が納品されたら avatarThumb の中だけが差し替わる。
+      me
+        ? el('div', { class: 'travel__me' }, [
+            avatarThumb(me, { size: 'md' }),
+            el('span', { class: 'travel__me-name', text: displayName(me) }),
+          ])
+        : null,
       el('img', {
         class: 'travel__guide',
         src: TITLE_ASSETS.mascot,

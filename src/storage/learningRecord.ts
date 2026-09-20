@@ -12,8 +12,15 @@ import type { KeyValueStore } from './safeStorage';
  */
 export const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
 
-/** 保存形式の世代。両ブランチの version 2 をこの時点で合流させている。 */
-export const RECORD_VERSION = 2;
+/**
+ * 保存形式の世代。
+ *
+ * - version 1 : Phase 0 公開版
+ * - version 2 : Phase 1 の2ブランチが、別々の内容で同じ番号を使ってしまった世代
+ *               （title-tour 版＝旅・国紹介・確認テスト、avatar-chat 版＝80人方式）
+ * - version 3 : 統合版。両方の version 2 を取り込み、今後はこれだけを書き込む。
+ */
+export const RECORD_VERSION = 3;
 
 const HISTORY_LIMIT = 10;
 /** 確認テストの履歴上限。localStorage が無制限に増えないようにする。 */
@@ -24,6 +31,9 @@ export const MET_AVATAR_LIMIT = 80;
 /**
  * 各ウェーブ後の任意確認テストの記録。
  * 通常カルタの集計（正解率・ベストタイム）とは別フィールドで保持する。
+ *
+ * Phase 1 統合時点では選択式テストを通常導線から外している（FEATURES.waveQuiz）。
+ * 既存の記録を失わないために、保存形式はそのまま保持する。
  */
 export interface WaveQuizRecord {
   date: string;
@@ -66,10 +76,14 @@ export interface LearningRecord {
   history: PlayHistoryEntry[];
   audioEnabled: boolean;
 
-  // ---- v2（title-tour）で追加 ----
+  // ---- title-tour 版 version 2 由来 ----
   /**
-   * 任意の年齢層設定。コースから年齢が決まらない英検・TOEIC でのみ使う。
-   * null なら大人へ安全に落とす。
+   * 旧「コース連動の年齢層別キャラクター」方式の任意設定。
+   *
+   * 80人方式へ統一したため、この値を読む画面はもう無い。
+   * ただし過去の保存データを削らない方針のため、読み書きだけは維持する。
+   * 年齢層は1人のキャラクターを一意に決められないので、
+   * この値から selectedAvatarId を推測することはしない。
    */
   characterAgeGroup: SelectedAgeGroup;
   /** 任意確認テストの履歴。受験・スキップの両方を残す。 */
@@ -79,7 +93,7 @@ export interface LearningRecord {
   /** 設定：移動演出を毎回スキップする。 */
   skipTravelAnimation: boolean;
 
-  // ---- v2（avatar-chat）で追加 ----
+  // ---- avatar-chat 版 version 2 由来 ----
   /**
    * 自分が選んだキャラクターのID。未選択なら null。
    * 保存の主キーは名前ではなく不変のID。
@@ -113,6 +127,56 @@ export function createEmptyRecord(): LearningRecord {
     metAvatarIds: [],
     recentNpcAvatarIds: [],
   };
+}
+
+// ---- 保存形式の判別 -------------------------------------------------------
+
+/**
+ * 読み込んだ生データがどの世代・どちらのブランチの形かを判別する。
+ *
+ * version 番号だけでは version 2 の2種類を区別できないため、
+ * フィールドの「形」で見分ける。移行そのものは形に関係なく安全に動くが、
+ * どの入力から来たのかをテストと完了報告で確かめられるようにしている。
+ */
+export type RecordShape =
+  | 'empty'
+  | 'v1'
+  | 'v2-title-tour'
+  | 'v2-avatar-chat'
+  | 'v2-mixed'
+  | 'v3'
+  | 'unknown';
+
+/** title-tour 版 version 2 だけが持つフィールド。 */
+const TITLE_TOUR_KEYS = ['characterAgeGroup', 'quizHistory', 'seenTravelIntros', 'skipTravelAnimation'];
+/** avatar-chat 版 version 2 だけが持つフィールド。 */
+const AVATAR_CHAT_KEYS = ['selectedAvatarId', 'metAvatarIds', 'recentNpcAvatarIds'];
+
+function hasAnyKey(data: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.some((key) => Object.prototype.hasOwnProperty.call(data, key));
+}
+
+export function detectRecordShape(raw: string | null): RecordShape {
+  if (!raw) return 'empty';
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return 'unknown';
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return 'unknown';
+
+  const data = parsed as Record<string, unknown>;
+  if (data.version === 3) return 'v3';
+
+  const titleTour = hasAnyKey(data, TITLE_TOUR_KEYS);
+  const avatarChat = hasAnyKey(data, AVATAR_CHAT_KEYS);
+  if (titleTour && avatarChat) return 'v2-mixed';
+  if (titleTour) return 'v2-title-tour';
+  if (avatarChat) return 'v2-avatar-chat';
+  if (data.version === 1 || typeof data.totalPlays === 'number') return 'v1';
+  return 'unknown';
 }
 
 // ---- 安全なパース ---------------------------------------------------------
@@ -205,7 +269,11 @@ function asHistory(value: unknown): PlayHistoryEntry[] {
 }
 
 /**
- * 保存データを検証しながら読み込む。
+ * 保存データを検証しながら読み込み、version 3 へ移行する。
+ *
+ * version 1 / title-tour 版 version 2 / avatar-chat 版 version 2 /
+ * 両方が混ざった version 2 のいずれから来ても、
+ * 存在する値はすべて引き継ぎ、無いフィールドだけ初期値で補う。
  * JSON が壊れていても、型が想定外でも、例外を投げずに初期値へ復旧する。
  */
 export function parseRecord(raw: string | null): LearningRecord {
@@ -239,13 +307,16 @@ export function parseRecord(raw: string | null): LearningRecord {
     history: asHistory(data.history),
     audioEnabled: asBoolean(data.audioEnabled, empty.audioEnabled),
 
-    // v1 の保存データには存在しないフィールド。欠けていれば初期値で補う。
+    // title-tour 版 version 2 のフィールド。v1 や avatar-chat 版には無いので初期値で補う。
     characterAgeGroup: isAgeGroup(data.characterAgeGroup) ? data.characterAgeGroup : null,
     quizHistory: asQuizHistory(data.quizHistory),
     seenTravelIntros: asStringArray(data.seenTravelIntros),
     skipTravelAnimation: asBoolean(data.skipTravelAnimation, empty.skipTravelAnimation),
 
+    // avatar-chat 版 version 2 のフィールド。
     // 名簿に無いID・無効化されたIDは null / 除去して安全に復旧する。
+    // 旧方式の characterAgeGroup からは1人を一意に決められないため、
+    // ここでは推測せず null のままにして、選択画面へ誘導する。
     selectedAvatarId: isValidAvatarId(data.selectedAvatarId) ? data.selectedAvatarId : null,
     metAvatarIds: asAvatarIdArray(data.metAvatarIds).slice(0, MET_AVATAR_LIMIT),
     recentNpcAvatarIds: asAvatarIdArray(data.recentNpcAvatarIds).slice(0, RECENT_WINDOW),
@@ -399,9 +470,13 @@ export function isNewBestTime(record: LearningRecord, cardCount: CardCount, elap
 
 export class LearningRecordStore {
   private record: LearningRecord;
+  /** 読み込んだ時点の保存形式。移行の確認と完了報告に使う。 */
+  readonly sourceShape: RecordShape;
 
   constructor(private readonly storage: KeyValueStore) {
-    this.record = parseRecord(this.readRaw());
+    const raw = this.readRaw();
+    this.sourceShape = detectRecordShape(raw);
+    this.record = parseRecord(raw);
   }
 
   private readRaw(): string | null {
@@ -433,7 +508,8 @@ export class LearningRecordStore {
 
   private persist(): void {
     try {
-      this.storage.setItem(STORAGE_KEY, JSON.stringify(this.record));
+      // 移行後は version 3 だけを書き込む。
+      this.storage.setItem(STORAGE_KEY, JSON.stringify({ ...this.record, version: RECORD_VERSION }));
     } catch {
       /* 保存に失敗してもゲーム進行は止めない */
     }

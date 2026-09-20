@@ -3,7 +3,6 @@ import { createSelection } from './state';
 import { titleScreen } from '../screens/titleScreen';
 import { avatarSelectScreen } from '../screens/avatarSelectScreen';
 import { avatarConfirmScreen } from '../screens/avatarConfirmScreen';
-import { courseCharacterScreen } from '../screens/courseCharacterScreen';
 import { createSeed } from '../domain/random';
 import { courseEntryScreen, courseListScreen, cardCountScreen } from '../screens/courseScreens';
 import { worldMapScreen } from '../screens/worldMapScreen';
@@ -64,9 +63,6 @@ export function createApp(deps: AppDependencies): AppContext {
       const chosen = deps.records.get().selectedAvatarId;
       ctx.navigate(chosen ? { name: 'courseEntry' } : { name: 'avatarSelect' });
     },
-    savedAgeGroup() {
-      return deps.records.get().characterAgeGroup;
-    },
   };
 
   function render(route: Route): void {
@@ -88,8 +84,6 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
   switch (route.name) {
     case 'title':
       return titleScreen(ctx);
-    case 'courseCharacter':
-      return courseCharacterScreen(ctx);
     case 'avatarSelect':
       return avatarSelectScreen(ctx);
     case 'avatarConfirm':
@@ -110,6 +104,8 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
       return kartaScreen(ctx);
     case 'result':
       return resultScreen(ctx);
+    // 以下3画面は FEATURES.waveQuiz = false のため通常導線からは到達しない。
+    // Phase 1-C2 の直接入力テストへ差し替えるための境界として残す。
     case 'quizPrompt':
       return quizPromptScreen(ctx);
     case 'quiz':

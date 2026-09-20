@@ -1,15 +1,20 @@
 import type { CardCount, PlayResult } from '../domain/types';
 import type { CourseCategoryId } from '../data/courses';
-import type { SelectedAgeGroup } from '../data/characters';
 import type { QuizOutcome, QuizQuestion } from '../domain/waveQuiz';
 import type { LearningRecordStore } from '../storage/learningRecord';
 import type { AudioService } from '../services/audioService';
 import type { EntitlementService } from '../services/entitlementService';
 
-/** 画面遷移の状態。両ブランチの画面をいったん合流させた状態。 */
+/**
+ * 画面遷移の状態。
+ *
+ * quizPrompt / quiz / quizResult は Phase 1 の選択式確認テストの名残。
+ * 最終仕様（スマートフォンのキーボードから直接入力する方式）と異なるため、
+ * FEATURES.waveQuiz = false で通常導線から外してある。
+ * Phase 1-C2 で直接入力テストへ差し替える境界として残す。
+ */
 export type Route =
   | { name: 'title' }
-  | { name: 'courseCharacter' }
   | { name: 'avatarSelect' }
   | { name: 'avatarConfirm' }
   | { name: 'courseEntry' }
@@ -44,7 +49,7 @@ export interface WaveContext {
   seed: number;
 }
 
-/** 確認テストの進行状態。 */
+/** 確認テストの進行状態。Phase 1-C2 の直接入力テストで置き換える。 */
 export interface QuizContext {
   questions: QuizQuestion[];
   answers: Map<string, number>;
@@ -63,7 +68,7 @@ export interface AppContext {
   lastResultWasBest: boolean;
   /** 進行中のウェーブ。カルタ開始時に設定する。 */
   wave: WaveContext | null;
-  /** 進行中の確認テスト。 */
+  /** 進行中の確認テスト。通常導線では使わない。 */
   quiz: QuizContext | null;
   /** 確定前に選んでいるキャラクター。確定するまで保存しない。 */
   pendingAvatarId: string | null;
@@ -75,8 +80,6 @@ export interface AppContext {
   canGoBack(): boolean;
   /** 表紙の「旅をはじめる」。未選択ならキャラクター選択を挟む。 */
   startJourney(): void;
-  /** 任意で保存された年齢層設定（英検・TOEIC のフォールバックに使う）。 */
-  savedAgeGroup(): SelectedAgeGroup;
 }
 
 export function createSelection(): PlaySelection {

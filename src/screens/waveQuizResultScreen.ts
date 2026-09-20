@@ -16,7 +16,7 @@ export function waveQuizResultScreen(ctx: AppContext): HTMLElement {
   const quiz = ctx.quiz;
   const outcome = quiz?.outcome;
   const group = findAgeGroup(
-    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.savedAgeGroup()),
+    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.records.get().characterAgeGroup),
   )!;
 
   if (!outcome) {

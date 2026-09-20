@@ -1,12 +1,15 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
-import { AGE_GROUPS, findAgeGroup } from '../data/characters';
 import { findAvatar, fullName } from '../data/avatars';
 import { avatarThumb } from '../components/avatarThumb';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
-/** 設定画面。両ブランチの設定項目をいったん合流させた状態。 */
+/**
+ * 設定画面。
+ * キャラクター変更・音声ON/OFF・移動演出・学習記録の消去だけを置く。
+ * 旧「コース連動の年齢層設定」は80人方式へ統一したため廃止した。
+ */
 export function settingsScreen(ctx: AppContext): HTMLElement {
   const status = el('p', { class: 'note', role: 'status' });
   const audioSupported = ctx.audio.isSupported();
@@ -69,22 +72,6 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
   });
   renderTravelToggle();
 
-  // 英検・TOEIC のように年齢が決まらないコース向けの任意設定。未設定でも進める。
-  const ageSelect = el('select', { class: 'setting-select', 'aria-label': UI.characters.ageSetting });
-  const autoOption = el('option', { value: '' });
-  autoOption.textContent = UI.characters.ageAuto;
-  ageSelect.append(autoOption);
-  for (const group of AGE_GROUPS) {
-    const option = el('option', { value: group.id });
-    option.textContent = group.label;
-    ageSelect.append(option);
-  }
-  ageSelect.value = ctx.savedAgeGroup() ?? '';
-  ageSelect.addEventListener('change', () => {
-    const next = findAgeGroup(ageSelect.value as never)?.id ?? null;
-    ctx.records.update((record) => ({ ...record, characterAgeGroup: next }));
-  });
-
   const me = findAvatar(ctx.records.get().selectedAvatarId);
 
   return screenShell({ title: UI.settings.heading, onBack: () => ctx.back() }, [
@@ -106,13 +93,6 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.settings.travelAnimation }),
       travelToggle,
-    ]),
-    el('div', { class: 'setting-row' }, [
-      el('span', { class: 'setting-row__label' }, [
-        el('span', { text: UI.characters.ageSetting }),
-        el('span', { class: 'setting-row__value', text: UI.settings.characterHint }),
-      ]),
-      ageSelect,
     ]),
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.actions.clearRecord }),

@@ -18,7 +18,7 @@ import type { AppContext } from '../app/state';
  */
 export function quizPromptScreen(ctx: AppContext): HTMLElement {
   const group = findAgeGroup(
-    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.savedAgeGroup()),
+    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.records.get().characterAgeGroup),
   )!;
   const wave = ctx.wave;
   const cardCount = ctx.selection.cardCount ?? 6;

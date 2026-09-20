@@ -5,8 +5,9 @@
  * 顔・髪型・体格・年齢感・服装の基本形には一切手を加えていない。
  * 原寸 JPEG は assets-source/characters/ に無改変で保管してある。
  *
- * 表示するキャラクターの年齢層は、プレイヤーに選ばせるのではなく
- * 選択したコースに連動させる。プレイヤー本人の性別や個人情報は尋ねない。
+ * Phase 1 統合以降、主人公は80人名簿から選ぶ方式に一本化した。
+ * ここに残る年齢層は「旅の情景イラスト」を選ぶためだけに使い、
+ * コースとは連動させない。プレイヤー本人の性別や個人情報は尋ねない。
  */
 
 import type { Course } from './courses';
@@ -119,4 +120,24 @@ export function usesSavedAgeGroup(course: Course | undefined): boolean {
   if (!course) return true;
   if (AGE_GROUP_BY_COURSE_ID[course.id]) return false;
   return course.categoryId !== 'business';
+}
+
+/**
+ * 80人方式の年代IDから、旅の情景イラストの年代を引く。
+ *
+ * Phase 1 統合で主人公は80人から選ぶ方式へ変わったため、
+ * 旅の移動画面と国紹介で使う正式イラストは、コースではなく
+ * 「選んだキャラクターの年代」に合わせて選ぶ。
+ * 名簿側は 'middle'、イラスト側は 'junior' と呼び名が違うのでここで橋渡しする。
+ */
+const AGE_GROUP_BY_AVATAR_AGE: Record<string, AgeGroup> = {
+  elementary: 'elementary',
+  middle: 'junior',
+  high: 'high',
+  university: 'university',
+  adult: 'adult',
+};
+
+export function ageGroupFromAvatarAgeGroup(avatarAgeGroup: string | undefined): AgeGroup {
+  return AGE_GROUP_BY_AVATAR_AGE[avatarAgeGroup ?? ''] ?? DEFAULT_AGE_GROUP;
 }
