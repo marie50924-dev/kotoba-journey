@@ -62,6 +62,7 @@ export const UI = {
     moreClose: 'とじる',
     moreLead: '出発する前に、この国のことをもう少し見てみましょう。',
     collectWords: 'この国でことばを集める',
+    preparing: 'この国の紹介は準備中です。',
     close: 'とじる',
   },
 

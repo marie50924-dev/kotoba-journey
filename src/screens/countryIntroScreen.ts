@@ -1,11 +1,6 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
-import {
-  UNVERIFIED_SOURCE_NOTE,
-  buildDetailSections,
-  findCountryIntro,
-  hasUnverifiedSource,
-} from '../data/countryIntros';
+import { buildDetailSections, findCountryIntro, showsDetails } from '../data/countryIntros';
 import type { CountryIntro, DetailSection, InfoSource, NamedItem } from '../data/countryIntros';
 import { ageGroupFromAvatarAgeGroup, findAgeGroup } from '../data/characters';
 import { findAvatar, displayName, AVATARS } from '../data/avatars';
@@ -17,6 +12,12 @@ import type { AppContext } from '../app/state';
 
 /**
  * 到着後の国紹介。
+ *
+ * 事実の本文確認が終わっていない国（publicationStatus が 'draft'）では、
+ * 首都・都市・自然・気候・名所・食・歴史・文化の文章を一切出さず、
+ * 「準備中」とだけ短く案内する。「もっと知る」も出さない。
+ * カルタへは変わらず進めるので、ゲームの進行は妨げない。
+ * 確認が終わって 'verified' になれば、下の二段階表示がそのまま出る。
  *
  * 二段階に分けてある。
  * 最初は「国名・国旗・首都・あいさつ・有名なもの1件・短い紹介文」だけを出し、
@@ -64,6 +65,8 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
     ]);
   }
 
+  const showDetails = showsDetails(intro);
+
   return screenShell(
     {
       title: `${intro.countryNameJa} / ${intro.countryNameEn}`,
@@ -72,6 +75,7 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
     },
     [
       // ---- 最初に見せる分 ----
+      // 国名・国旗・あいさつは事実の説明ではないので、準備中でも出す。
       el('div', { class: 'intro__hero' }, [
         flagNode(intro),
         el('div', { class: 'intro__greeting' }, [
@@ -80,11 +84,16 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
           el('span', { class: 'intro__greeting-en', text: intro.greeting.en }),
         ]),
       ]),
-      el('div', { class: 'intro__facts' }, [
-        factRow(UI.countryIntro.capital, intro.capital.name),
-        factRow(UI.countryIntro.famous, intro.highlight.name, intro.highlight.note),
-      ]),
-      el('p', { class: 'intro__summary', text: intro.summary }),
+      // 準備中のあいだは、確認の終わっていない事実を1つも出さない。
+      showDetails
+        ? el('div', { class: 'intro__facts' }, [
+            factRow(UI.countryIntro.capital, intro.capital.name),
+            factRow(UI.countryIntro.famous, intro.highlight.name, intro.highlight.note),
+          ])
+        : null,
+      showDetails
+        ? el('p', { class: 'intro__summary', text: intro.summary.text })
+        : el('p', { class: 'intro__preparing', text: UI.countryIntro.preparing }),
 
       // 到着記念写真のように見せる。
       characterCard(group, {
@@ -110,7 +119,8 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
         : null,
 
       // ---- もっと知る（任意） ----
-      moreSection(intro),
+      // 準備中の国では公開導線へ出さない。
+      showDetails ? moreSection(intro) : null,
 
       el('div', { class: 'screen__footer' }, [startButton]),
     ],
@@ -226,10 +236,6 @@ function sourcesBlock(intro: CountryIntro): HTMLElement {
     el('h3', { class: 'intro-card__heading', text: UI.countryIntro.sources }),
     toggle,
     list,
-    // 本文をまだ確認できていない出典が残っているあいだだけ出す。
-    hasUnverifiedSource(intro)
-      ? el('p', { class: 'note intro-sources__pending', text: UNVERIFIED_SOURCE_NOTE })
-      : null,
   ]);
 }
 

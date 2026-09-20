@@ -6,18 +6,24 @@
  *
  * 事実の扱い：
  * - 公的機関・一次情報で確認できた範囲だけを書く。
- * - 出典と確認日を sources に残し、画面から開けるようにする。
+ * - 画面に出す事実は1文ずつ FactClaim にし、出典と確認状態を持たせる。
  * - 本文をそのまま写さず、小学生が読める短さへ要約する。
- * - 「世界一」などの言い切りは、公的機関の資料で確認できた場合だけ使う。
+ * - 「世界一」などの言い切りは、資料の本文で確認できた場合だけ使う。
  * - 気候は地域差があるので「国全体が同じ」と読めない書き方にする。
  * - 特産物（とれるもの）と名物料理（りょうり）を混ぜない。
  * - 戦争・宗教・領土・政治は、今回必要がないので深掘りしない。
  * - ステレオタイプ、国民性の断定、観光広告のような表現は書かない。
  *
+ * 公開の扱い：
+ * publicationStatus が 'verified' の国だけ、詳細（もっと知る）を公開導線へ出す。
+ * 'draft' の国は「準備中」とだけ案内し、事実の文章は画面に出さない。
+ * ゲームの進行（カルタ）は draft でも妨げない。
+ *
  * 確認の方法について：
- * この開発環境からは各機関のページを直接取得できないため、
- * 公的ドメインに限定した検索で照合している。
- * 公開前に、sources のURLを人の目で最終確認すること。
+ * この開発環境は外向き通信が遮断されており、公的機関のページ本文を取得できない。
+ * そのため、どの FactClaim もまだ本文確認ができておらず、すべて 'unchecked'。
+ * 人が本文を読んで確認したら 'body-checked' へ変える。
+ * 手順と対象一覧は docs/reports/COUNTRY_GUIDE_JAPAN_SOURCE_CHECKLIST.md にある。
  *
  * 日本以外の国は、確認できていない情報を推測で書かない。
  * データが無い国でも、ゲームの進行は止まらない設計にしてある。
@@ -32,11 +38,7 @@ export type CountryFlag = { kind: 'japan' } | { kind: 'placeholder' };
  * 出典の確認状態。
  *
  * - 'body-checked': 資料の本文を実際に読んで内容を確認した。
- * - 'url-only'    : 公的ドメインに限定した検索で所在は特定したが、
- *                   本文は読めていない。**内容は未確定**として扱う。
- *
- * この開発環境は外向き通信が遮断されており、公的機関のページを
- * 直接取得できない。そのため現時点のすべての出典が 'url-only' である。
+ * - 'url-only'    : 所在は特定したが、本文は読めていない。
  */
 export type SourceVerification = 'body-checked' | 'url-only';
 
@@ -46,21 +48,43 @@ export interface InfoSource {
   /** 機関名と資料名。機関名だけでは資料を特定できないので、資料名まで書く。 */
   sourceLabel: string;
   sourceUrl: string;
-  /** 確認した日（YYYY-MM-DD）。 */
+  /** 所在を確かめた日（YYYY-MM-DD）。本文を読んだ日ではない。 */
   checkedAt: string;
-  /** 本文まで読めたかどうか。 */
   verification: SourceVerification;
 }
 
 /**
- * 本文を読めていない出典があるときに、画面と報告へ出す短い断り書き。
- * すべての出典が 'body-checked' になったら、この表示は消える。
+ * 事実1件の確認状態。
+ *
+ * - 'unchecked'   : まだ本文で確認していない。公開してはいけない。
+ * - 'body-checked': 下の条件をすべて満たして確認した。
+ * - 'rejected'    : 確認した結果、資料と合わないので出さないと決めた。
+ *
+ * 'body-checked' にしてよいのは、次をすべて満たしたときだけ。
+ *   1. URL を開いた
+ *   2. ページ本文を読んだ
+ *   3. 該当する文章を本文の中に確認した
+ *   4. ゲーム内の文章が資料の範囲を超えていない
+ *   5. 確認日と、本文で確認した内容のメモを残した
+ *
+ * URL が存在する、ドメインが公的機関、資料名にそれらしい語が入っている —
+ * これらはどれも 'body-checked' の根拠にならない。
  */
-export const UNVERIFIED_SOURCE_NOTE =
-  'リンク先の本文はまだ確認できていません。内容は確認中です。';
+export type ClaimVerification = 'unchecked' | 'body-checked' | 'rejected';
 
-export function hasUnverifiedSource(intro: CountryIntro): boolean {
-  return intro.sources.some((s) => s.verification !== 'body-checked');
+/** 画面に出す事実1件。 */
+export interface FactClaim {
+  /** 安定したID。文章を直してもIDは変えない。 */
+  id: string;
+  /** 画面に出す文章そのもの。 */
+  text: string;
+  /** 本文で確認できて、この文章を裏づける資料。確認できるまで空。 */
+  sourceIds: string[];
+  verification: ClaimVerification;
+  /** 本文で確認した内容のメモ、または確認待ちの理由。 */
+  verificationNote?: string;
+  /** これから本文を確認する予定の資料。確認できたら sourceIds へ移す。 */
+  candidateSourceIds?: string[];
 }
 
 /** 都市・観光地・料理・特産物など、あとから足したり並べ替えたりする項目。 */
@@ -69,6 +93,8 @@ export interface NamedItem {
   name: string;
   /** ひとこと説明。無くてもよい。 */
   note?: string;
+  /** 名前や説明が事実にあたる項目は、確認状態を持つ。 */
+  claim?: FactClaim;
 }
 
 /** 歴史の1区切り。長い年表は作らず、流れだけを短く置く。 */
@@ -77,6 +103,7 @@ export interface HistoryNote {
   /** 「むかし」「武士の時代」など、年号に頼らない見出し。 */
   era: string;
   body: string;
+  claim: FactClaim;
 }
 
 /** その国で学ぶ英単語。語彙データの pairId と対応させる。 */
@@ -95,6 +122,9 @@ export type DetailSectionId =
   | 'culture'
   | 'words';
 
+/** 公開状態。verified の国だけ詳細を公開導線へ出す。 */
+export type PublicationStatus = 'draft' | 'verified';
+
 export interface CountryIntro {
   countryId: string;
   countryNameJa: string;
@@ -103,26 +133,31 @@ export interface CountryIntro {
   /** 世界マップ上のおおよその位置 0〜1。 */
   position: { x: number; y: number };
 
+  /** 公開状態。draft のあいだ、事実の文章は画面に出さない。 */
+  publicationStatus: PublicationStatus;
+
   /** 首都。代表的な都市とは別に持つ。 */
   capital: NamedItem;
   /** 代表的な都市。首都は含めない。 */
   majorCities: NamedItem[];
+  /** 「首都は◯◯です。」の1文。 */
+  capitalLine: FactClaim;
 
   greeting: { ja: string; en: string };
   /** 到着直後に出す短い紹介文。 */
-  summary: string;
+  summary: FactClaim;
   /** 到着直後に1件だけ出す「有名なもの」。 */
   highlight: NamedItem;
 
   /** 地形・自然の特徴。 */
-  geography: string[];
+  geography: FactClaim[];
   /** 気候。地域差があるならそれが分かるように書く。 */
-  climate: string[];
+  climate: FactClaim[];
   /** 旅行時の服装の目安。 */
-  clothingTips: string[];
+  clothingTips: FactClaim[];
   /**
    * 服装の目安についての断り書き。
-   * これはゲーム内の一般的な案内であって、天気予報ではないことを示す。
+   * 事実の主張ではなくゲーム内の注意書きなので、FactClaim にはしない。
    */
   clothingNote: string;
 
@@ -132,23 +167,21 @@ export interface CountryIntro {
   foods: NamedItem[];
   /** 特産物（とれるもの）。料理とは分けて持つ。 */
   specialties: NamedItem[];
-  /** 特産物の地域差についての注意書き。 */
-  specialtiesNote: string;
+  /** 特産物の地域差についての説明。 */
+  specialtiesNote: FactClaim;
 
   history: HistoryNote[];
   /** 文化・生活習慣。 */
-  culture: string[];
+  culture: FactClaim[];
   /** 子どもにも分かる旅行マナー。 */
-  manners: string[];
+  manners: FactClaim[];
 
   /** この国で学ぶ英単語。語彙データの pairId で指す。 */
   learningWords: LearningWord[];
-  /** 「この国で学ぶこと」の案内文。 */
+  /** 「この国で学ぶこと」の案内文。ゲーム内の説明なので FactClaim にしない。 */
   learning: string;
 
   sources: InfoSource[];
-  /** セクションごとの出典。画面はこの対応表を見て出典を添える。 */
-  sectionSources: Partial<Record<DetailSectionId, string[]>>;
 }
 
 /**
@@ -157,10 +190,9 @@ export interface CountryIntro {
  * 2026-09-20 に、公的ドメインに限定した検索で所在を特定した。
  * ただし、この開発環境からは各機関のページ本文を取得できないため、
  * すべて verification: 'url-only'（本文未確認）である。
- * 本文を確認したら 'body-checked' へ変え、必要なら文章も直すこと。
+ * 本文を確認したら 'body-checked' へ変えること。
  */
 const JAPAN_SOURCES: InfoSource[] = [
-  // ---- まち ----
   {
     id: 'tokyo-profile',
     sourceLabel: '東京都「東京都プロフィール　都の概要」',
@@ -175,8 +207,6 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
-
-  // ---- しぜん ----
   {
     id: 'rinya-forest',
     sourceLabel: '林野庁「都道府県別森林率・人工林率」',
@@ -191,8 +221,6 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
-
-  // ---- きこう ----
   {
     id: 'jma-climate',
     sourceLabel: '気象庁「日本の気候」',
@@ -208,8 +236,6 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
-
-  // ---- みどころ ----
   {
     id: 'bunka-heritage',
     sourceLabel: '文化庁「日本の世界遺産一覧」',
@@ -232,8 +258,6 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
-
-  // ---- たべもの・特産物 ----
   {
     id: 'maff-washoku',
     sourceLabel: '農林水産省「『和食』がユネスコ無形文化遺産に登録されています」',
@@ -255,8 +279,6 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
-
-  // ---- れきし ----
   {
     id: 'webjapan-history',
     sourceLabel: 'Web Japan（外務省）Kids Web Japan「歴史」',
@@ -264,8 +286,6 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
-
-  // ---- ぶんか ----
   {
     id: 'webjapan-annual-events',
     sourceLabel: 'Web Japan（外務省）Japan Fact Sheet「年中行事」',
@@ -282,6 +302,32 @@ const JAPAN_SOURCES: InfoSource[] = [
   },
 ];
 
+/**
+ * 確認待ちの事実を作る補助。
+ *
+ * 本文を読めていないあいだは sourceIds を空にし、
+ * これから確かめる資料を candidateSourceIds に置く。
+ * これで「割り当てたから確認済み」と取り違えることがなくなる。
+ */
+function pending(
+  id: string,
+  text: string,
+  candidateSourceIds: string[],
+  verificationNote: string,
+): FactClaim {
+  return {
+    id,
+    text,
+    sourceIds: [],
+    verification: 'unchecked',
+    verificationNote,
+    candidateSourceIds,
+  };
+}
+
+const NOTE_NEED_BODY = '資料の本文をまだ読めていない。本文で該当箇所を確認すること。';
+const NOTE_NO_SOURCE = 'この文章を直接あつかう資料がまだ見つかっていない。資料探しから行うこと。';
+
 export const COUNTRY_INTROS: readonly CountryIntro[] = [
   {
     countryId: 'japan',
@@ -290,115 +336,374 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     flag: { kind: 'japan' },
     position: { x: 0.78, y: 0.44 },
 
-    capital: { id: 'jp-capital-tokyo', name: '東京', note: 'とうきょう' },
+    // 事実の本文確認が1件も終わっていないため、公開しない。
+    publicationStatus: 'draft',
+
+    capitalLine: pending(
+      'jp-claim-capital-line',
+      '首都は東京です。',
+      ['tokyo-profile'],
+      NOTE_NEED_BODY,
+    ),
+    capital: {
+      id: 'jp-capital-tokyo',
+      name: '東京',
+      note: 'とうきょう',
+      claim: pending('jp-claim-capital-tokyo', '東京（とうきょう）', ['tokyo-profile'], NOTE_NEED_BODY),
+    },
     majorCities: [
-      { id: 'jp-city-sapporo', name: '札幌', note: 'さっぽろ・北のまち' },
-      { id: 'jp-city-kyoto', name: '京都', note: 'きょうと・古いまちなみが残る' },
-      { id: 'jp-city-osaka', name: '大阪', note: 'おおさか・にぎやかなまち' },
-      { id: 'jp-city-fukuoka', name: '福岡', note: 'ふくおか・海に近いまち' },
-      { id: 'jp-city-naha', name: '那覇', note: 'なは・南のあたたかいまち' },
+      {
+        id: 'jp-city-sapporo',
+        name: '札幌',
+        note: 'さっぽろ・北のまち',
+        // 東京都の区市町村マップは東京都内の資料なので、根拠にしない。
+        claim: pending('jp-claim-city-sapporo', '札幌（さっぽろ・北のまち）', [], NOTE_NO_SOURCE),
+      },
+      {
+        id: 'jp-city-kyoto',
+        name: '京都',
+        note: 'きょうと・古いまちなみが残る',
+        claim: pending(
+          'jp-claim-city-kyoto',
+          '京都（きょうと・古いまちなみが残る）',
+          [],
+          NOTE_NO_SOURCE,
+        ),
+      },
+      {
+        id: 'jp-city-osaka',
+        name: '大阪',
+        note: 'おおさか・にぎやかなまち',
+        claim: pending('jp-claim-city-osaka', '大阪（おおさか・にぎやかなまち）', [], NOTE_NO_SOURCE),
+      },
+      {
+        id: 'jp-city-fukuoka',
+        name: '福岡',
+        note: 'ふくおか・海に近いまち',
+        claim: pending('jp-claim-city-fukuoka', '福岡（ふくおか・海に近いまち）', [], NOTE_NO_SOURCE),
+      },
+      {
+        id: 'jp-city-naha',
+        name: '那覇',
+        note: 'なは・南のあたたかいまち',
+        claim: pending('jp-claim-city-naha', '那覇（なは・南のあたたかいまち）', [], NOTE_NO_SOURCE),
+      },
     ],
 
     greeting: { ja: 'こんにちは', en: 'Hello' },
-    summary:
+    summary: pending(
+      'jp-claim-summary',
       'ユーラシア大陸の東にある、海にかこまれた島の国です。北から南へ細長くつづいているので、地域によって気候も食べものもちがいます。',
+      ['jma-climate'],
+      NOTE_NEED_BODY,
+    ),
     highlight: {
       id: 'jp-highlight-fuji',
       name: '富士山',
       note: '高さ3776mで、日本でいちばん高い山です。',
+      claim: pending(
+        'jp-claim-highlight-fuji',
+        '富士山は高さ3776mで、日本でいちばん高い山です。',
+        ['gsi-mountains'],
+        NOTE_NEED_BODY,
+      ),
     },
 
     geography: [
-      '海にかこまれた島の国で、山が多いのが特ちょうです。',
-      '森林が国土のおよそ3分の2をしめています。',
-      '川は短くて流れが急なものが多く、平地は海の近くに広がっています。',
+      // 山岳標高の資料だけでは「島国」「山が多い」を裏づけられない。
+      pending(
+        'jp-claim-geo-island',
+        '海にかこまれた島の国で、山が多いのが特ちょうです。',
+        [],
+        NOTE_NO_SOURCE,
+      ),
+      pending(
+        'jp-claim-geo-forest',
+        '森林が国土のおよそ3分の2をしめています。',
+        ['rinya-forest'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-geo-rivers',
+        '川は短くて流れが急なものが多く、平地は海の近くに広がっています。',
+        [],
+        NOTE_NO_SOURCE,
+      ),
     ],
     climate: [
-      '南北に長いため、北と南で気候が大きくちがいます。同じ日でも、雪の地域と半そでの地域があります。',
-      '冬は日本海側で雪やくもりの日が多く、太平洋側では晴れの日が多くなります。',
-      '春から夏へ変わるころに、雨の多い「梅雨（つゆ）」があります。沖縄や奄美では5月ごろにはじまります。',
-      '四季があり、季節によって景色が変わります。',
+      pending(
+        'jp-claim-climate-range',
+        '南北に長いため、北と南で気候が大きくちがいます。同じ日でも、雪の地域と半そでの地域があります。',
+        ['jma-climate'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-climate-winter',
+        '冬は日本海側で雪やくもりの日が多く、太平洋側では晴れの日が多くなります。',
+        ['jma-climate'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-climate-baiu',
+        '春から夏へ変わるころに、雨の多い「梅雨（つゆ）」があります。沖縄や奄美では5月ごろにはじまります。',
+        ['jma-baiu', 'jma-climate'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-climate-seasons',
+        '四季があり、季節によって景色が変わります。',
+        ['jma-climate'],
+        NOTE_NEED_BODY,
+      ),
     ],
-    // 気象情報をもとにしたゲーム内の一般的な案内。天気予報ではない。
+    clothingTips: [
+      pending(
+        'jp-claim-clothes-summer',
+        '夏（6〜8月）は暑くてしめっぽいので、すずしい服と、ぼうし・水とうがあると安心です。',
+        ['jma-climate'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-clothes-winter',
+        '冬（12〜2月）は地域差が大きいので、行き先の気温を調べてから決めましょう。北の地方や日本海側では雪の用意がいります。',
+        ['jma-climate'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-clothes-spring-autumn',
+        '春と秋は朝晩がひえることがあるので、はおるものを1まい持っていくとよいです。',
+        ['jma-climate'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-clothes-baiu',
+        '梅雨の時期は雨具があると助かります。',
+        ['jma-baiu'],
+        NOTE_NEED_BODY,
+      ),
+    ],
+    // 気候の資料をもとにしたゲーム内の案内。事実の主張ではないので claim にしない。
     clothingNote:
       '服装の目安は、公的な気候情報をもとにした一般的な案内です。天気予報ではありません。出かける前に、その日の予報をたしかめてください。',
-    clothingTips: [
-      '夏（6〜8月）は暑くてしめっぽいので、すずしい服と、ぼうし・水とうがあると安心です。',
-      '冬（12〜2月）は地域差が大きいので、行き先の気温を調べてから決めましょう。北の地方や日本海側では雪の用意がいります。',
-      '春と秋は朝晩がひえることがあるので、はおるものを1まい持っていくとよいです。',
-      '梅雨の時期は雨具があると助かります。',
-    ],
 
     landmarks: [
       {
         id: 'jp-landmark-fuji',
         name: '富士山',
         note: '世界文化遺産。昔から信仰の対象になり、絵や物語にも多く出てきます。',
+        claim: pending(
+          'jp-claim-landmark-fuji',
+          '富士山は世界文化遺産。昔から信仰の対象になり、絵や物語にも多く出てきます。',
+          ['bunka-heritage'],
+          NOTE_NEED_BODY,
+        ),
       },
       {
         id: 'jp-landmark-horyuji',
         name: '法隆寺（奈良県）',
         note: '世界文化遺産。西院の金堂・五重塔などは、今ものこる木造の建物として世界でもっとも古いものと説明されています。',
+        claim: pending(
+          'jp-claim-landmark-horyuji',
+          '法隆寺（奈良県）は世界文化遺産。西院の金堂・五重塔などは、今ものこる木造の建物として世界でもっとも古いものと説明されています。',
+          ['bunka-horyuji', 'unesco-horyuji'],
+          NOTE_NEED_BODY,
+        ),
       },
       {
         id: 'jp-landmark-himeji',
         name: '姫路城（兵庫県）',
         note: '世界文化遺産。白い天守閣で知られるお城です。',
+        claim: pending(
+          'jp-claim-landmark-himeji',
+          '姫路城（兵庫県）は世界文化遺産。白い天守閣で知られるお城です。',
+          ['bunka-heritage'],
+          NOTE_NEED_BODY,
+        ),
       },
       {
         id: 'jp-landmark-kyoto',
         name: '古都京都の文化財（京都府・滋賀県）',
         note: '世界文化遺産。お寺や神社、庭がまとまって登録されています。',
+        claim: pending(
+          'jp-claim-landmark-kyoto',
+          '古都京都の文化財（京都府・滋賀県）は世界文化遺産。お寺や神社、庭がまとまって登録されています。',
+          ['bunka-heritage'],
+          NOTE_NEED_BODY,
+        ),
       },
     ],
     foods: [
-      { id: 'jp-food-sushi', name: 'すし', note: '酢をまぜたごはんに、魚などをあわせた料理。' },
-      { id: 'jp-food-ramen', name: 'ラーメン', note: 'スープにめんを入れた料理。地域ごとに味がちがいます。' },
-      { id: 'jp-food-misoshiru', name: 'みそしる', note: 'みそでつくる、毎日の食事によく出るしる物。' },
-      { id: 'jp-food-wagashi', name: '和菓子', note: '季節の形や色にしたおかし。' },
+      {
+        id: 'jp-food-sushi',
+        name: 'すし',
+        note: '酢をまぜたごはんに、魚などをあわせた料理。',
+        claim: pending(
+          'jp-claim-food-sushi',
+          'すしは、酢をまぜたごはんに、魚などをあわせた料理。',
+          [],
+          NOTE_NO_SOURCE,
+        ),
+      },
+      {
+        id: 'jp-food-ramen',
+        name: 'ラーメン',
+        note: 'スープにめんを入れた料理。地域ごとに味がちがいます。',
+        claim: pending(
+          'jp-claim-food-ramen',
+          'ラーメンは、スープにめんを入れた料理。地域ごとに味がちがいます。',
+          [],
+          NOTE_NO_SOURCE,
+        ),
+      },
+      {
+        id: 'jp-food-misoshiru',
+        name: 'みそしる',
+        note: 'みそでつくる、毎日の食事によく出るしる物。',
+        claim: pending(
+          'jp-claim-food-misoshiru',
+          'みそしるは、みそでつくる、毎日の食事によく出るしる物。',
+          [],
+          NOTE_NO_SOURCE,
+        ),
+      },
+      {
+        id: 'jp-food-wagashi',
+        name: '和菓子',
+        note: '季節の形や色にしたおかし。',
+        claim: pending(
+          'jp-claim-food-wagashi',
+          '和菓子は、季節の形や色にしたおかし。',
+          [],
+          NOTE_NO_SOURCE,
+        ),
+      },
     ],
     specialties: [
-      { id: 'jp-spec-rice', name: 'こめ' },
-      { id: 'jp-spec-tea', name: 'おちゃ' },
-      { id: 'jp-spec-fruit', name: 'くだもの' },
-      { id: 'jp-spec-fish', name: 'さかな' },
+      {
+        id: 'jp-spec-rice',
+        name: 'こめ',
+        claim: pending('jp-claim-spec-rice', 'こめは日本の特産物。', [], NOTE_NO_SOURCE),
+      },
+      {
+        id: 'jp-spec-tea',
+        name: 'おちゃ',
+        claim: pending('jp-claim-spec-tea', 'おちゃは日本の特産物。', [], NOTE_NO_SOURCE),
+      },
+      {
+        id: 'jp-spec-fruit',
+        name: 'くだもの',
+        claim: pending('jp-claim-spec-fruit', 'くだものは日本の特産物。', [], NOTE_NO_SOURCE),
+      },
+      {
+        id: 'jp-spec-fish',
+        name: 'さかな',
+        claim: pending('jp-claim-spec-fish', 'さかなは日本の特産物。', [], NOTE_NO_SOURCE),
+      },
     ],
-    specialtiesNote:
+    specialtiesNote: pending(
+      'jp-claim-spec-note',
       '特産物は地域によって大きくちがいます。とれるものと、その土地の料理は別のものです。くわしい地域ごとの特産物は、これからの工程で足していきます。',
+      [],
+      NOTE_NO_SOURCE,
+    ),
 
     history: [
       {
         id: 'jp-hist-ancient',
         era: 'むかしのくに',
         body: 'むらがまとまって国の形ができていきました。奈良や京都には、このころに建てられた古いお寺や神社がのこっています。',
+        claim: pending(
+          'jp-claim-hist-ancient',
+          'むかしのくに：むらがまとまって国の形ができていきました。奈良や京都には、このころに建てられた古いお寺や神社がのこっています。',
+          ['webjapan-history'],
+          NOTE_NEED_BODY,
+        ),
       },
       {
         id: 'jp-hist-samurai',
         era: '武士（ぶし）の時代',
         body: '武士とよばれる人たちが力を持ち、各地にお城が建てられました。姫路城のように、今も見られるお城があります。',
+        claim: pending(
+          'jp-claim-hist-samurai',
+          '武士（ぶし）の時代：武士とよばれる人たちが力を持ち、各地にお城が建てられました。姫路城のように、今も見られるお城があります。',
+          ['webjapan-history'],
+          NOTE_NEED_BODY,
+        ),
       },
       {
         id: 'jp-hist-edo',
         era: '江戸（えど）の時代',
         body: '大きな戦いの少ない時代が長くつづき、まちに絵や芝居などの文化が広がりました。',
+        claim: pending(
+          'jp-claim-hist-edo',
+          '江戸（えど）の時代：大きな戦いの少ない時代が長くつづき、まちに絵や芝居などの文化が広がりました。',
+          ['webjapan-history'],
+          NOTE_NEED_BODY,
+        ),
       },
       {
         id: 'jp-hist-modern',
         era: '近代から今へ',
         body: '外国との行き来がふえ、鉄道や工場ができて、くらしが大きく変わりました。そのまま今の日本につながっています。',
+        claim: pending(
+          'jp-claim-hist-modern',
+          '近代から今へ：外国との行き来がふえ、鉄道や工場ができて、くらしが大きく変わりました。そのまま今の日本につながっています。',
+          ['webjapan-history'],
+          NOTE_NEED_BODY,
+        ),
       },
     ],
     culture: [
-      'あいさつのときに、おじぎをすることがあります。',
-      '家や旅館では、玄関で靴をぬいで上がります。',
-      '季節の行事が多く、春の花見や夏のお祭りなど、時期ごとの楽しみがあります。',
+      pending(
+        'jp-claim-culture-bow',
+        'あいさつのときに、おじぎをすることがあります。',
+        [],
+        NOTE_NO_SOURCE,
+      ),
+      pending(
+        'jp-claim-culture-shoes',
+        '家や旅館では、玄関で靴をぬいで上がります。',
+        ['kankocho-manners'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-culture-events',
+        '季節の行事が多く、春の花見や夏のお祭りなど、時期ごとの楽しみがあります。',
+        ['webjapan-annual-events'],
+        NOTE_NEED_BODY,
+      ),
     ],
     manners: [
-      '電車やバスの中では、大きな声で話さないようにしましょう。',
-      'ごみは決められた場所へ。持ち帰ることもあります。',
-      'お寺や神社では、書かれている決まりを見てから入りましょう。',
-      '温泉やお風呂では、体を洗ってから湯ぶねに入ります。',
-      '写真をとってよい場所かどうか、先に確かめましょう。',
+      pending(
+        'jp-claim-manner-train',
+        '電車やバスの中では、大きな声で話さないようにしましょう。',
+        ['kankocho-manners'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-manner-trash',
+        'ごみは決められた場所へ。持ち帰ることもあります。',
+        [],
+        NOTE_NO_SOURCE,
+      ),
+      pending(
+        'jp-claim-manner-temple',
+        'お寺や神社では、書かれている決まりを見てから入りましょう。',
+        ['kankocho-manners'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-manner-onsen',
+        '温泉やお風呂では、体を洗ってから湯ぶねに入ります。',
+        ['kankocho-manners'],
+        NOTE_NEED_BODY,
+      ),
+      pending(
+        'jp-claim-manner-photo',
+        '写真をとってよい場所かどうか、先に確かめましょう。',
+        [],
+        NOTE_NO_SOURCE,
+      ),
     ],
 
     learningWords: [
@@ -416,17 +721,6 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     learning: '身のまわりのことばを、日本語と英語のカルタで集めます。',
 
     sources: JAPAN_SOURCES,
-    // 事実説明を含むセクションには、その内容を直接あつかう資料を割り当てる。
-    // words はゲーム内の語彙データが正本なので、外部出典を持たない。
-    sectionSources: {
-      cities: ['tokyo-profile', 'tokyo-municipalities'],
-      nature: ['rinya-forest', 'gsi-mountains'],
-      climate: ['jma-climate', 'jma-baiu'],
-      landmarks: ['bunka-heritage', 'bunka-horyuji', 'unesco-horyuji', 'gsi-mountains'],
-      foods: ['maff-washoku', 'maff-local-food', 'maff-traditional-foods'],
-      history: ['webjapan-history'],
-      culture: ['webjapan-annual-events', 'kankocho-manners'],
-    },
   },
 ];
 
@@ -442,13 +736,57 @@ export function findSource(intro: CountryIntro, sourceId: string): InfoSource | 
   return intro.sources.find((s) => s.id === sourceId);
 }
 
+// ---- 公開判定 ---------------------------------------------------------------
+
+/** その国で画面に出す予定の事実をすべて集める。 */
+export function allClaims(intro: CountryIntro): FactClaim[] {
+  const fromItems = (items: NamedItem[]): FactClaim[] =>
+    items.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined);
+
+  return [
+    intro.summary,
+    intro.capitalLine,
+    ...fromItems([intro.capital, intro.highlight]),
+    ...fromItems(intro.majorCities),
+    ...intro.geography,
+    ...intro.climate,
+    ...intro.clothingTips,
+    ...fromItems(intro.landmarks),
+    ...fromItems(intro.foods),
+    ...fromItems(intro.specialties),
+    intro.specialtiesNote,
+    ...intro.history.map((h) => h.claim),
+    ...intro.culture,
+    ...intro.manners,
+  ];
+}
+
+/** まだ本文で確認していない事実。 */
+export function uncheckedClaims(intro: CountryIntro): FactClaim[] {
+  return allClaims(intro).filter((c) => c.verification !== 'body-checked');
+}
+
+/**
+ * 詳細を公開してよいか。
+ * 表示する事実がすべて 'body-checked' のときだけ true。
+ * 1件でも 'unchecked' か 'rejected' が残っていれば公開しない。
+ */
+export function canPublish(intro: CountryIntro): boolean {
+  return uncheckedClaims(intro).length === 0;
+}
+
+/** 実際に詳細を出すか。データの宣言と、事実の確認状態の両方を満たすときだけ。 */
+export function showsDetails(intro: CountryIntro): boolean {
+  return intro.publicationStatus === 'verified' && canPublish(intro);
+}
+
 // ---- 表示用の組み立て -------------------------------------------------------
 
 /**
  * 「もっと知る」に並べる1枚のカード。
  *
  * 画面はこの配列をそのまま描くだけにして、国ごとの画面を作らない。
- * 見出しも本文もデータ側で決まるので、国を足しても画面コードは変わらない。
+ * publicationStatus が 'verified' の国でだけ組み立てる。
  */
 export interface DetailSection {
   id: DetailSectionId;
@@ -457,25 +795,13 @@ export interface DetailSection {
   lines: string[];
   /** 名前つきの並び。都市・観光地・料理などに使う。 */
   items: NamedItem[];
-  /** このカードの出典。外部資料を使わないカードでは空になる。 */
+  /** このカードの出典。確認できた事実の出典だけが入る。 */
   sources: InfoSource[];
   /**
    * 出典欄に添える補足。
    * 外部資料を使わないカード（ことば）で、何が正本なのかを示すのに使う。
    */
   sourceNote?: string;
-}
-
-/**
- * 外部出典を持たないセクション。
- * ここに挙げたものは、ゲーム内のデータ自体が正本なので外部資料を引かない。
- * それ以外の、事実説明を含むセクションには出典が必要。
- */
-export const INTERNAL_DATA_SECTIONS: readonly DetailSectionId[] = ['words'];
-
-/** 事実説明を含む＝出典が必要なセクションか。 */
-export function needsSource(id: DetailSectionId): boolean {
-  return !INTERNAL_DATA_SECTIONS.includes(id);
 }
 
 const SECTION_HEADING: Record<DetailSectionId, string> = {
@@ -489,10 +815,26 @@ const SECTION_HEADING: Record<DetailSectionId, string> = {
   words: 'ことば',
 };
 
-function sectionSources(intro: CountryIntro, id: DetailSectionId): InfoSource[] {
-  const ids = intro.sectionSources[id] ?? [];
-  return ids
-    .map((sourceId) => findSource(intro, sourceId))
+/**
+ * 外部出典を持たないセクション。
+ * ここに挙げたものは、ゲーム内のデータ自体が正本なので外部資料を引かない。
+ */
+export const INTERNAL_DATA_SECTIONS: readonly DetailSectionId[] = ['words'];
+
+/** 事実説明を含む＝出典が必要なセクションか。 */
+export function needsSource(id: DetailSectionId): boolean {
+  return !INTERNAL_DATA_SECTIONS.includes(id);
+}
+
+function text(claims: FactClaim[]): string[] {
+  return claims.map((c) => c.text);
+}
+
+/** 事実の出典を、確認できたものだけ集める。 */
+function sourcesOf(intro: CountryIntro, claims: FactClaim[]): InfoSource[] {
+  const ids = new Set(claims.flatMap((c) => c.sourceIds));
+  return [...ids]
+    .map((id) => findSource(intro, id))
     .filter((s): s is InfoSource => s !== undefined);
 }
 
@@ -501,63 +843,87 @@ function sectionSources(intro: CountryIntro, id: DetailSectionId): InfoSource[] 
  * 中身が空のカードは作らないので、情報のそろっていない国でも破綻しない。
  */
 export function buildDetailSections(intro: CountryIntro): DetailSection[] {
+  const cityItems = [
+    {
+      ...intro.capital,
+      note: intro.capital.note ? `首都・${intro.capital.note}` : '首都',
+    },
+    ...intro.majorCities,
+  ];
+
+  const foodItems = [
+    ...intro.foods,
+    ...intro.specialties.map((s) => ({ ...s, note: s.note ?? 'とれるもの' })),
+  ];
+
   const sections: DetailSection[] = [
     {
       id: 'cities',
       heading: SECTION_HEADING.cities,
-      lines: [`首都は${intro.capital.name}です。`],
-      items: [
-        { ...intro.capital, note: intro.capital.note ? `首都・${intro.capital.note}` : '首都' },
-        ...intro.majorCities,
-      ],
-      sources: sectionSources(intro, 'cities'),
+      lines: [intro.capitalLine.text],
+      items: cityItems,
+      sources: sourcesOf(intro, [
+        intro.capitalLine,
+        ...cityItems.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined),
+      ]),
     },
     {
       id: 'nature',
       heading: SECTION_HEADING.nature,
-      lines: intro.geography,
+      lines: text(intro.geography),
       items: [],
-      sources: sectionSources(intro, 'nature'),
+      sources: sourcesOf(intro, intro.geography),
     },
     {
       id: 'climate',
       heading: SECTION_HEADING.climate,
       // 服装の目安はゲーム内の案内。最後に「天気予報ではない」と断る。
-      lines: [...intro.climate, ...intro.clothingTips, intro.clothingNote],
+      lines: [...text(intro.climate), ...text(intro.clothingTips), intro.clothingNote],
       items: [],
-      sources: sectionSources(intro, 'climate'),
+      sources: sourcesOf(intro, [...intro.climate, ...intro.clothingTips]),
     },
     {
       id: 'landmarks',
       heading: SECTION_HEADING.landmarks,
       lines: [],
       items: intro.landmarks,
-      sources: sectionSources(intro, 'landmarks'),
+      sources: sourcesOf(
+        intro,
+        intro.landmarks.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined),
+      ),
     },
     {
       id: 'foods',
       heading: SECTION_HEADING.foods,
       // 料理と特産物を混ぜない。並びも分けて出す。
-      lines: [intro.specialtiesNote],
-      items: [
-        ...intro.foods,
-        ...intro.specialties.map((s) => ({ ...s, note: s.note ?? 'とれるもの' })),
-      ],
-      sources: sectionSources(intro, 'foods'),
+      lines: [intro.specialtiesNote.text],
+      items: foodItems,
+      sources: sourcesOf(intro, [
+        intro.specialtiesNote,
+        ...foodItems.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined),
+      ]),
     },
     {
       id: 'history',
       heading: SECTION_HEADING.history,
       lines: [],
-      items: intro.history.map((h) => ({ id: h.id, name: h.era, note: h.body })),
-      sources: sectionSources(intro, 'history'),
+      items: intro.history.map((h) => ({
+        id: h.id,
+        name: h.era,
+        note: h.body,
+        claim: h.claim,
+      })),
+      sources: sourcesOf(
+        intro,
+        intro.history.map((h) => h.claim),
+      ),
     },
     {
       id: 'culture',
       heading: SECTION_HEADING.culture,
-      lines: [...intro.culture, ...intro.manners],
+      lines: [...text(intro.culture), ...text(intro.manners)],
       items: [],
-      sources: sectionSources(intro, 'culture'),
+      sources: sourcesOf(intro, [...intro.culture, ...intro.manners]),
     },
     {
       id: 'words',
@@ -575,7 +941,6 @@ export function buildDetailSections(intro: CountryIntro): DetailSection[] {
   ];
 
   // 空の行を落としてから、中身の無いカードを取り除く。
-  // 断り書きだけが入って空のカードが出る、といった事故を防ぐ。
   return sections
     .map((section) => ({ ...section, lines: section.lines.filter((l) => l.trim().length > 0) }))
     .filter((s) => s.lines.length > 0 || s.items.length > 0);
