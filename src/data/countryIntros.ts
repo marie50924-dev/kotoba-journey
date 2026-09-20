@@ -359,6 +359,29 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-20',
     verification: 'url-only',
   },
+  // 文化庁の世界遺産一覧から、各資産名を開いたときの詳細解説ページ。
+  // 一覧だけでは、登録の有無より先の説明を裏づけられないため個別に持つ。
+  {
+    id: 'bunka-fuji',
+    sourceLabel: '文化庁 文化遺産オンライン「富士山―信仰の対象と芸術の源泉」',
+    sourceUrl: 'https://online.bunka.go.jp/special_content/hlinkD',
+    checkedAt: '2026-09-20',
+    verification: 'body-checked',
+  },
+  {
+    id: 'bunka-himeji',
+    sourceLabel: '文化庁 文化遺産オンライン「姫路城」',
+    sourceUrl: 'https://online.bunka.go.jp/special_content/hlink2',
+    checkedAt: '2026-09-20',
+    verification: 'body-checked',
+  },
+  {
+    id: 'bunka-kyoto',
+    sourceLabel: '文化庁 文化遺産オンライン「古都京都の文化財（京都市、宇治市、大津市）」',
+    sourceUrl: 'https://online.bunka.go.jp/special_content/hlink3',
+    checkedAt: '2026-09-20',
+    verification: 'body-checked',
+  },
 ];
 
 /**
@@ -557,12 +580,13 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       {
         id: 'jp-landmark-fuji',
         name: '富士山',
-        note: '世界文化遺産。昔から信仰の対象になり、絵や物語にも多く出てきます。',
-        claim: pending(
+        note: '世界文化遺産。昔から信仰の対象となり、多くの絵や和歌に表されてきました。',
+        claim: confirmed(
           'jp-claim-landmark-fuji',
-          '富士山は世界文化遺産。昔から信仰の対象になり、絵や物語にも多く出てきます。',
-          ['bunka-heritage'],
-          NOTE_NEED_BODY,
+          '富士山は世界文化遺産です。昔から信仰の対象となり、多くの絵や和歌に表されてきました。',
+          ['bunka-heritage', 'bunka-fuji'],
+          '文化庁の一覧に「富士山―信仰の対象と芸術の源泉」が文化遺産として掲載。詳細解説で、古くから信仰の対象になってきたこと、葛飾北斎などの絵画に描かれたこと、「万葉集」「古今和歌集」などに富士山を詠んだ和歌が残されていることを確認した。元の「物語にも多く出てきます」は確認した本文では裏づけられなかったため外し、「絵や和歌」に直した。',
+          '2026-09-20',
         ),
       },
       {
@@ -581,23 +605,25 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       {
         id: 'jp-landmark-himeji',
         name: '姫路城（兵庫県）',
-        note: '世界文化遺産。白い天守閣で知られるお城です。',
-        claim: pending(
+        note: '世界文化遺産。白い壁で統一された美しい外観から、「白鷺城」とも呼ばれています。',
+        claim: confirmed(
           'jp-claim-landmark-himeji',
-          '姫路城（兵庫県）は世界文化遺産。白い天守閣で知られるお城です。',
-          ['bunka-heritage'],
-          NOTE_NEED_BODY,
+          '兵庫県の姫路城は世界文化遺産です。白い壁で統一された美しい外観から、「白鷺城」とも呼ばれています。',
+          ['bunka-heritage', 'bunka-himeji'],
+          '文化庁の一覧に兵庫県の文化遺産として掲載。詳細解説で、白壁で統一された優美な外観を持ち「白鷺城」の別称で広く知られていると説明されていることを確認した。元の「白い天守閣」は、本文が天守だけでなく城全体の白壁と外観を説明しているため、資料の表現範囲に合わせて直した。',
+          '2026-09-20',
         ),
       },
       {
         id: 'jp-landmark-kyoto',
         name: '古都京都の文化財（京都府・滋賀県）',
-        note: '世界文化遺産。お寺や神社、庭がまとまって登録されています。',
-        claim: pending(
+        note: '世界文化遺産。京都府と滋賀県にある17の寺や神社、城などで構成されています。',
+        claim: confirmed(
           'jp-claim-landmark-kyoto',
-          '古都京都の文化財（京都府・滋賀県）は世界文化遺産。お寺や神社、庭がまとまって登録されています。',
-          ['bunka-heritage'],
-          NOTE_NEED_BODY,
+          '「古都京都の文化財」は世界文化遺産です。京都府と滋賀県にある17の寺や神社、城などで構成されています。',
+          ['bunka-heritage', 'bunka-kyoto'],
+          '文化庁の一覧に「古都京都の文化財（京都市、宇治市、大津市）」が京都府・滋賀県の文化遺産として掲載。文化遺産オンラインで、所在地が京都府京都市・宇治市と滋賀県大津市であること、構成資産として神社・寺院・二条城を含む17件が列挙されていることを確認した。元の「庭がまとまって登録されています」は、庭そのものが独立した構成資産としてまとめて登録されているようにも読めるため、構成資産の一覧に合わせて直した。',
+          '2026-09-20',
         ),
       },
     ],

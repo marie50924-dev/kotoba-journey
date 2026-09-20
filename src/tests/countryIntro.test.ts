@@ -341,13 +341,27 @@ describe('事実（FactClaim）', () => {
     }
   });
 
-  it('本文確認が済んだ事実だけが body-checked になっている', () => {
+  it('表示対象は、本文確認済みか未確認のどちらかしかない', () => {
     // 人が資料の本文を読んだ分だけ進む。Claude の環境からは本文を取得できない。
     const checked = displayDataClaims(JAPAN).filter((c) => c.verification === 'body-checked');
-    expect(checked.map((c) => c.id)).toEqual(['jp-claim-landmark-horyuji']);
-    expect(uncheckedClaims(JAPAN).length).toBe(displayDataClaims(JAPAN).length - checked.length);
+    expect(checked.length + uncheckedClaims(JAPAN).length).toBe(displayDataClaims(JAPAN).length);
     // 取り下げた分は表示対象に入らない。
     expect(JAPAN.retiredClaims.every((c) => c.verification === 'withdrawn')).toBe(true);
+  });
+
+  it('みどころ4件は本文確認が済んでいる', () => {
+    expect(JAPAN.landmarks).toHaveLength(4);
+    for (const item of JAPAN.landmarks) {
+      expect(item.claim?.verification, `${item.id} が未確認`).toBe('body-checked');
+      expect(item.claim?.checkedAt, `${item.id} に確認日が無い`).toBe('2026-09-20');
+    }
+  });
+
+  it('表示名と、確認した文章の内容がずれていない', () => {
+    // 一覧に出す名前と説明は、確認済みの文章と同じことを言っていること。
+    for (const item of JAPAN.landmarks) {
+      expect(item.claim!.text).toContain(item.note!.replace('世界文化遺産。', ''));
+    }
   });
 
   it('本文確認した事実は、確認日と確認メモと出典を持つ', () => {
@@ -823,9 +837,15 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('本文を読んだ出典だけが body-checked になっている', () => {
-    const checked = JAPAN.sources.filter((s) => s.verification === 'body-checked').map((s) => s.id);
-    expect(checked.sort()).toEqual(['bunka-heritage', 'bunka-horyuji', 'unesco-horyuji']);
+  it('body-checked の出典は、確認済みの事実から引かれている', () => {
+    // 読んだ印だけ付いて、どの文章も支えていない出典が残らないようにする。
+    const used = new Set(
+      allClaims(JAPAN)
+        .filter((c) => c.verification === 'body-checked')
+        .flatMap((c) => c.sourceIds),
+    );
+    const marked = JAPAN.sources.filter((s) => s.verification === 'body-checked').map((s) => s.id);
+    expect(marked.sort()).toEqual([...used].sort());
   });
 
   it('body-checked の事実は、本文を読んだ出典だけを引いている', () => {
