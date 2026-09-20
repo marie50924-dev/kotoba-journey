@@ -51,9 +51,17 @@ export const UI = {
 
   countryIntro: {
     greeting: 'あいさつ',
+    capital: 'しゅと',
+    famous: '有名なもの',
     learning: 'この国で学ぶこと',
     source: '出典',
-    more: 'もっと見る',
+    sources: '情報源',
+    sourcesOpen: '情報源を見る',
+    checkedAt: '確認日',
+    more: 'もっと知る',
+    moreClose: 'とじる',
+    moreLead: '出発する前に、この国のことをもう少し見てみましょう。',
+    collectWords: 'この国でことばを集める',
     close: 'とじる',
   },
 
