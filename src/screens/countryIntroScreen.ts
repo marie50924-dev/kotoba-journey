@@ -1,7 +1,13 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { buildDetailSections, findCountryIntro, showsDetails } from '../data/countryIntros';
-import type { CountryIntro, DetailSection, InfoSource, NamedItem } from '../data/countryIntros';
+import type {
+  CountryIntro,
+  DetailSection,
+  FactClaim,
+  InfoSource,
+  NamedItem,
+} from '../data/countryIntros';
 import { ageGroupFromAvatarAgeGroup, findAgeGroup } from '../data/characters';
 import { findAvatar, displayName, AVATARS } from '../data/avatars';
 import { castNpcs } from '../domain/npcCasting';
@@ -87,13 +93,20 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
       // 準備中のあいだは、確認の終わっていない事実を1つも出さない。
       showDetails
         ? el('div', { class: 'intro__facts' }, [
-            factRow(UI.countryIntro.capital, intro.capital.name),
-            factRow(UI.countryIntro.famous, intro.highlight.name, intro.highlight.note),
+            // 不採用にした文章は、公開中の国でも念のためここで落とす。
+            isShown(intro.capital.claim)
+              ? factRow(UI.countryIntro.capital, intro.capital.name)
+              : null,
+            isShown(intro.highlight.claim)
+              ? factRow(UI.countryIntro.famous, intro.highlight.name, intro.highlight.note)
+              : null,
           ])
         : null,
-      showDetails
+      showDetails && isShown(intro.summary)
         ? el('p', { class: 'intro__summary', text: intro.summary.text })
-        : el('p', { class: 'intro__preparing', text: UI.countryIntro.preparing }),
+        : showDetails
+          ? null
+          : el('p', { class: 'intro__preparing', text: UI.countryIntro.preparing }),
 
       // 到着記念写真のように見せる。
       characterCard(group, {
@@ -125,6 +138,11 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
       el('div', { class: 'screen__footer' }, [startButton]),
     ],
   );
+}
+
+/** 不採用にした文章は画面へ出さない。 */
+function isShown(claim: FactClaim | undefined): boolean {
+  return claim === undefined || claim.verification !== 'rejected';
 }
 
 /** 「しゅと: 東京」のような1行。 */

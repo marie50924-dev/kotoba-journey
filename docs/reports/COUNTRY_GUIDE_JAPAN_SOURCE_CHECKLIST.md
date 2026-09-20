@@ -46,15 +46,56 @@ URLの所在は公的ドメイン限定の検索で特定しましたが、**本
 URL が存在する／ドメインが公的機関／資料名にそれらしい語が入っている——
 これらはどれも確認済みの根拠になりません。
 
+### 公開判定の正式仕様
+
+`verification` の3つの状態と、国全体の公開可否の関係です。
+
+| 状態 | 意味 | 画面表示 | 公開への影響 |
+|---|---|---|---|
+| `unchecked` | 未確認 | 表示不可 | 表示対象に1件でも残っていれば**公開不可** |
+| `body-checked` | 本文確認済み | 表示可能 | 妨げない |
+| `rejected` | 本文を読んだ結果の不採用 | **絶対に表示しない** | 表示対象から外してあれば妨げない |
+
+公開できる条件:
+
+- unchecked の表示対象 claim が残っていれば公開不可
+- 実際に表示する claim がすべて body-checked なら公開可能
+- rejected は不採用の監査記録としてチェックリストに残す
+- rejected は画面表示対象から必ず除外する
+- rejected が表示対象から除外されていれば国全体の公開を妨げない
+- rejected が画面データから参照されていれば公開不可
+
+判定は「すべての claim」ではなく「画面データから参照されている claim」で行います
+（`canPublish()` / `displayDataClaims()`）。
+不採用にした文章は `retiredClaims` へ移すことで、監査記録として残したまま
+表示対象から外れ、国全体の公開を妨げなくなります。
+
 ### 確認後の作業
 
-1. この表の「本文確認状態」「本文中で確認した内容」「採用／修正／削除」「確認日」を埋める
-2. `src/data/countryIntros.ts` の該当 claim を更新する
-   - 採用 → `verification: 'body-checked'`、`candidateSourceIds` を `sourceIds` へ移す
-   - 修正 → 文章を直してから同上
-   - 削除 → `verification: 'rejected'`（その文章は表示されなくなります）
-3. 全件が `body-checked` になったら `publicationStatus: 'verified'` にする
-   （1件でも未確認や rejected が残っていると、テストが公開を止めます）
+まずこの表の「本文確認状態」「本文中で確認した内容」「採用／修正／削除」「確認日」を埋め、
+そのうえで `src/data/countryIntros.ts` の該当 claim を次のように更新してください。
+
+**採用**
+
+- `verification: 'body-checked'` にする
+- `candidateSourceIds` を、確認済みの `sourceIds` へ移す
+- 本文確認メモと確認日を記録する
+
+**修正**
+
+- 文章を修正する
+- 修正後の文章が資料本文に収まることを再確認してから `body-checked` にする
+
+**不採用**
+
+- `verification: 'rejected'` にする
+- 監査記録は残す（`retiredClaims` へ移して保持する）
+- その claimId を画面表示対象データから外す
+
+**公開**
+
+- 表示対象の claim がすべて `body-checked` になったら `publicationStatus: 'verified'` にする
+- rejected は表示対象から外れている限り、公開を妨げない
 
 ---
 

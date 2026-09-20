@@ -182,6 +182,14 @@ export interface CountryIntro {
   learning: string;
 
   sources: InfoSource[];
+
+  /**
+   * 人が本文を確認した結果、不採用にして表示から外した事実。
+   *
+   * 監査記録として残すためのもので、画面には一切出ない。
+   * 表示対象から外れているので、国全体の公開は妨げない。
+   */
+  retiredClaims: FactClaim[];
 }
 
 /**
@@ -721,6 +729,8 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     learning: '身のまわりのことばを、日本語と英語のカルタで集めます。',
 
     sources: JAPAN_SOURCES,
+    // まだ本文確認をしていないので、不採用にした文章も無い。
+    retiredClaims: [],
   },
 ];
 
@@ -738,22 +748,24 @@ export function findSource(intro: CountryIntro, sourceId: string): InfoSource | 
 
 // ---- 公開判定 ---------------------------------------------------------------
 
-/** その国で画面に出す予定の事実をすべて集める。 */
-export function allClaims(intro: CountryIntro): FactClaim[] {
-  const fromItems = (items: NamedItem[]): FactClaim[] =>
-    items.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined);
-
+/**
+ * 画面データから参照されている事実。
+ *
+ * 「画面に出す並びに入っているか」で決まる。
+ * 不採用（rejected）にした文章をここから外せば、公開を妨げなくなる。
+ */
+export function displayDataClaims(intro: CountryIntro): FactClaim[] {
   return [
     intro.summary,
     intro.capitalLine,
-    ...fromItems([intro.capital, intro.highlight]),
-    ...fromItems(intro.majorCities),
+    ...claimsOf([intro.capital, intro.highlight]),
+    ...claimsOf(intro.majorCities),
     ...intro.geography,
     ...intro.climate,
     ...intro.clothingTips,
-    ...fromItems(intro.landmarks),
-    ...fromItems(intro.foods),
-    ...fromItems(intro.specialties),
+    ...claimsOf(intro.landmarks),
+    ...claimsOf(intro.foods),
+    ...claimsOf(intro.specialties),
     intro.specialtiesNote,
     ...intro.history.map((h) => h.claim),
     ...intro.culture,
@@ -761,18 +773,46 @@ export function allClaims(intro: CountryIntro): FactClaim[] {
   ];
 }
 
-/** まだ本文で確認していない事実。 */
+/**
+ * 監査記録も含めた、その国のすべての事実。
+ * 不採用にして表示から外した文章（retiredClaims）もここには残る。
+ */
+export function allClaims(intro: CountryIntro): FactClaim[] {
+  return [...displayDataClaims(intro), ...intro.retiredClaims];
+}
+
+/**
+ * 実際に画面へ描かれる事実。
+ * 不採用の文章は、画面データに残っていても描かない。
+ */
+export function visibleClaims(intro: CountryIntro): FactClaim[] {
+  return displayDataClaims(intro).filter((c) => c.verification !== 'rejected');
+}
+
+/** 画面データに残ったままの、不採用の文章。1件でもあれば公開しない。 */
+export function rejectedInDisplayData(intro: CountryIntro): FactClaim[] {
+  return displayDataClaims(intro).filter((c) => c.verification === 'rejected');
+}
+
+/**
+ * まだ本文で確認していない表示対象の事実。
+ * 監査記録として残した不採用の文章は数えない。
+ */
 export function uncheckedClaims(intro: CountryIntro): FactClaim[] {
-  return allClaims(intro).filter((c) => c.verification !== 'body-checked');
+  return displayDataClaims(intro).filter((c) => c.verification === 'unchecked');
 }
 
 /**
  * 詳細を公開してよいか。
- * 表示する事実がすべて 'body-checked' のときだけ true。
- * 1件でも 'unchecked' か 'rejected' が残っていれば公開しない。
+ *
+ * 判定は「すべての事実」ではなく「画面データから参照されている事実」で行う。
+ * - 表示対象に 'unchecked' が1件でもあれば公開しない。
+ * - 表示対象に 'rejected' が残っていれば公開しない（表示から外し忘れている）。
+ * - 不採用にして表示から外した文章（retiredClaims）は、公開を妨げない。
+ *   監査記録として残しておくためのもので、画面には出ない。
  */
 export function canPublish(intro: CountryIntro): boolean {
-  return uncheckedClaims(intro).length === 0;
+  return displayDataClaims(intro).every((c) => c.verification === 'body-checked');
 }
 
 /** 実際に詳細を出すか。データの宣言と、事実の確認状態の両方を満たすときだけ。 */
@@ -826,13 +866,31 @@ export function needsSource(id: DetailSectionId): boolean {
   return !INTERNAL_DATA_SECTIONS.includes(id);
 }
 
+/**
+ * 不採用にした文章を落とす。
+ * 監査記録としてデータに残っていても、画面へは絶対に出さない。
+ */
+function shown(claims: FactClaim[]): FactClaim[] {
+  return claims.filter((c) => c.verification !== 'rejected');
+}
+
+/** 名前つきの並びからも、不採用にした項目を落とす。 */
+function shownItems(items: NamedItem[]): NamedItem[] {
+  return items.filter((i) => i.claim === undefined || i.claim.verification !== 'rejected');
+}
+
+/** 名前つきの並びが持っている事実だけを取り出す。 */
+function claimsOf(items: NamedItem[]): FactClaim[] {
+  return items.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined);
+}
+
 function text(claims: FactClaim[]): string[] {
-  return claims.map((c) => c.text);
+  return shown(claims).map((c) => c.text);
 }
 
 /** 事実の出典を、確認できたものだけ集める。 */
 function sourcesOf(intro: CountryIntro, claims: FactClaim[]): InfoSource[] {
-  const ids = new Set(claims.flatMap((c) => c.sourceIds));
+  const ids = new Set(shown(claims).flatMap((c) => c.sourceIds));
   return [...ids]
     .map((id) => findSource(intro, id))
     .filter((s): s is InfoSource => s !== undefined);
@@ -843,29 +901,31 @@ function sourcesOf(intro: CountryIntro, claims: FactClaim[]): InfoSource[] {
  * 中身が空のカードは作らないので、情報のそろっていない国でも破綻しない。
  */
 export function buildDetailSections(intro: CountryIntro): DetailSection[] {
-  const cityItems = [
+  // 不採用にした文章は、ここで並びから落とす。
+  // 監査記録には残るが、カードの行にも一覧にも出典にも入らない。
+  const cityItems = shownItems([
     {
       ...intro.capital,
       note: intro.capital.note ? `首都・${intro.capital.note}` : '首都',
     },
     ...intro.majorCities,
-  ];
+  ]);
 
-  const foodItems = [
+  const foodItems = shownItems([
     ...intro.foods,
     ...intro.specialties.map((s) => ({ ...s, note: s.note ?? 'とれるもの' })),
-  ];
+  ]);
+
+  const landmarkItems = shownItems(intro.landmarks);
+  const historyNotes = intro.history.filter((h) => h.claim.verification !== 'rejected');
 
   const sections: DetailSection[] = [
     {
       id: 'cities',
       heading: SECTION_HEADING.cities,
-      lines: [intro.capitalLine.text],
+      lines: text([intro.capitalLine]),
       items: cityItems,
-      sources: sourcesOf(intro, [
-        intro.capitalLine,
-        ...cityItems.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined),
-      ]),
+      sources: sourcesOf(intro, [intro.capitalLine, ...claimsOf(cityItems)]),
     },
     {
       id: 'nature',
@@ -886,28 +946,22 @@ export function buildDetailSections(intro: CountryIntro): DetailSection[] {
       id: 'landmarks',
       heading: SECTION_HEADING.landmarks,
       lines: [],
-      items: intro.landmarks,
-      sources: sourcesOf(
-        intro,
-        intro.landmarks.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined),
-      ),
+      items: landmarkItems,
+      sources: sourcesOf(intro, claimsOf(landmarkItems)),
     },
     {
       id: 'foods',
       heading: SECTION_HEADING.foods,
       // 料理と特産物を混ぜない。並びも分けて出す。
-      lines: [intro.specialtiesNote.text],
+      lines: text([intro.specialtiesNote]),
       items: foodItems,
-      sources: sourcesOf(intro, [
-        intro.specialtiesNote,
-        ...foodItems.map((i) => i.claim).filter((c): c is FactClaim => c !== undefined),
-      ]),
+      sources: sourcesOf(intro, [intro.specialtiesNote, ...claimsOf(foodItems)]),
     },
     {
       id: 'history',
       heading: SECTION_HEADING.history,
       lines: [],
-      items: intro.history.map((h) => ({
+      items: historyNotes.map((h) => ({
         id: h.id,
         name: h.era,
         note: h.body,
@@ -915,7 +969,7 @@ export function buildDetailSections(intro: CountryIntro): DetailSection[] {
       })),
       sources: sourcesOf(
         intro,
-        intro.history.map((h) => h.claim),
+        historyNotes.map((h) => h.claim),
       ),
     },
     {

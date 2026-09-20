@@ -8,12 +8,16 @@ import {
   findCountryIntro,
   findSource,
   hasCountryIntro,
+  displayDataClaims,
   needsSource,
+  rejectedInDisplayData,
   showsDetails,
   uncheckedClaims,
+  visibleClaims,
 } from '../data/countryIntros';
 import type { CountryIntro, DetailSectionId, FactClaim, NamedItem } from '../data/countryIntros';
 import { SAMPLE_PAIRS, findPair } from '../data/wordPairs';
+import { UI } from '../data/strings';
 import { DESTINATIONS } from '../data/destinations';
 // チェックリストは配布物ではないので、テストからだけ生テキストとして読む。
 import checklist from '../../docs/reports/COUNTRY_GUIDE_JAPAN_SOURCE_CHECKLIST.md?raw';
@@ -81,6 +85,35 @@ function asVerified(intro: CountryIntro): CountryIntro {
     culture: intro.culture.map(check),
     manners: intro.manners.map(check),
   };
+}
+
+/**
+ * 画面へ渡す文字列をすべて集める。
+ *
+ * 画面（countryIntroScreen）が描くのは、ここに集めたものだけ。
+ * 不採用にした文章がここに出てこなければ、DOM にも出ない。
+ */
+function renderedText(intro: CountryIntro): string {
+  if (!showsDetails(intro)) return UI.countryIntro.preparing;
+
+  const shown = (c: FactClaim | undefined): boolean =>
+    c === undefined || c.verification !== 'rejected';
+
+  const head = [
+    shown(intro.capital.claim) ? intro.capital.name : '',
+    shown(intro.highlight.claim) ? `${intro.highlight.name}${intro.highlight.note ?? ''}` : '',
+    shown(intro.summary) ? intro.summary.text : '',
+  ];
+
+  const body = buildDetailSections(intro).flatMap((section) => [
+    section.heading,
+    ...section.lines,
+    ...section.items.map((i) => `${i.name}${i.note ?? ''}`),
+    ...section.sources.map((src) => src.sourceLabel),
+    section.sourceNote ?? '',
+  ]);
+
+  return [...head, ...body].join('\n');
 }
 
 describe('国紹介の必須項目', () => {
@@ -280,52 +313,162 @@ describe('事実（FactClaim）', () => {
 });
 
 describe('公開の可否', () => {
+  // 正式仕様
+  //   unchecked      未確認。表示不可。表示対象に残っていれば公開を止める。
+  //   body-checked   本文確認済み。表示してよい。
+  //   rejected       本文を読んだ結果の不採用。画面には絶対に出さない。
+  //                  監査記録として残すが、表示対象から外れていれば公開は妨げない。
+
+  /** 表示対象の claim を1件だけ差し替えた複製を作る。 */
+  function withCultureClaim(intro: CountryIntro, patch: Partial<FactClaim>): CountryIntro {
+    return {
+      ...intro,
+      culture: [{ ...intro.culture[0], ...patch }, ...intro.culture.slice(1)],
+    };
+  }
+
+  /** 不採用にした文章を、表示対象から外して監査記録へ移す。 */
+  function retireFirstCulture(intro: CountryIntro): { intro: CountryIntro; retired: FactClaim } {
+    const retired: FactClaim = {
+      ...intro.culture[0],
+      verification: 'rejected',
+      sourceIds: [],
+      verificationNote: '（テスト用）本文を読んだ結果、不採用にした',
+    };
+    return {
+      intro: {
+        ...intro,
+        culture: intro.culture.slice(1),
+        retiredClaims: [...intro.retiredClaims, retired],
+      },
+      retired,
+    };
+  }
+
   it('日本は下書きのまま', () => {
     expect(JAPAN.publicationStatus).toBe('draft');
   });
 
-  it('未確認が1件でもあれば公開できない', () => {
-    expect(canPublish(JAPAN)).toBe(false);
-    expect(showsDetails(JAPAN)).toBe(false);
-  });
-
-  it('すべて本文確認できたときだけ公開できる', () => {
+  it('未確認の表示対象claimが1件あれば公開できない', () => {
     const verified = asVerified(JAPAN);
-    expect(canPublish(verified)).toBe(true);
-    expect(showsDetails(verified)).toBe(true);
-  });
-
-  it('1件でも rejected が残れば公開できない', () => {
-    const verified = asVerified(JAPAN);
-    const withRejected: CountryIntro = {
-      ...verified,
-      culture: [
-        { ...verified.culture[0], verification: 'rejected', sourceIds: [] },
-        ...verified.culture.slice(1),
-      ],
-    };
-    expect(canPublish(withRejected)).toBe(false);
-    expect(showsDetails(withRejected)).toBe(false);
-  });
-
-  it('1件でも unchecked が残れば公開できない', () => {
-    const verified = asVerified(JAPAN);
-    const withUnchecked: CountryIntro = {
-      ...verified,
-      manners: [
-        { ...verified.manners[0], verification: 'unchecked', sourceIds: [] },
-        ...verified.manners.slice(1),
-      ],
-    };
+    const withUnchecked = withCultureClaim(verified, {
+      verification: 'unchecked',
+      sourceIds: [],
+    });
+    expect(uncheckedClaims(withUnchecked)).toHaveLength(1);
     expect(canPublish(withUnchecked)).toBe(false);
     expect(showsDetails(withUnchecked)).toBe(false);
   });
 
-  it('publicationStatus を verified にしても、未確認があれば表示しない', () => {
+  it('今の日本も、未確認の表示対象claimが残っているので公開できない', () => {
+    expect(uncheckedClaims(JAPAN).length).toBeGreaterThan(0);
+    expect(canPublish(JAPAN)).toBe(false);
+    expect(showsDetails(JAPAN)).toBe(false);
+  });
+
+  it('body-checkedの表示対象claimだけなら公開できる', () => {
+    const verified = asVerified(JAPAN);
+    expect(uncheckedClaims(verified)).toHaveLength(0);
+    expect(rejectedInDisplayData(verified)).toHaveLength(0);
+    expect(canPublish(verified)).toBe(true);
+    expect(showsDetails(verified)).toBe(true);
+  });
+
+  it('rejectedが監査記録に残っていても、表示対象から外れていれば公開できる', () => {
+    const { intro, retired } = retireFirstCulture(asVerified(JAPAN));
+
+    // 監査記録には残る。
+    expect(allClaims(intro).map((c) => c.id)).toContain(retired.id);
+    // 画面データからは参照されていない。
+    expect(displayDataClaims(intro).map((c) => c.id)).not.toContain(retired.id);
+    expect(rejectedInDisplayData(intro)).toHaveLength(0);
+
+    expect(canPublish(intro)).toBe(true);
+    expect(showsDetails(intro)).toBe(true);
+  });
+
+  it('rejectedが画面データから参照されていれば公開できない', () => {
+    const verified = asVerified(JAPAN);
+    const stillReferenced = withCultureClaim(verified, {
+      verification: 'rejected',
+      sourceIds: [],
+    });
+    expect(rejectedInDisplayData(stillReferenced)).toHaveLength(1);
+    expect(canPublish(stillReferenced)).toBe(false);
+    expect(showsDetails(stillReferenced)).toBe(false);
+  });
+
+  it('rejectedのtextが画面へ渡す文字列に出ない', () => {
+    // 画面はここで組み立てた文字列しか描かないので、
+    // これに出ていなければ DOM にも出ない。
+
+    // 1. 監査記録へ移した場合（公開できる状態）
+    const { intro, retired } = retireFirstCulture(asVerified(JAPAN));
+    expect(canPublish(intro)).toBe(true);
+    expect(renderedText(intro)).not.toContain(retired.text);
+
+    // 2. 画面データに残したまま不採用にした場合（公開は止まるが、文章も出さない）
+    const verified = asVerified(JAPAN);
+    const stillReferenced = withCultureClaim(verified, {
+      verification: 'rejected',
+      sourceIds: [],
+    });
+    expect(renderedText(stillReferenced)).not.toContain(verified.culture[0].text);
+    // 公開判定を通さず、カードの組み立てだけを見ても出てこない。
+    const culture = buildDetailSections(stillReferenced).find((s) => s.id === 'culture')!;
+    expect(culture.lines.join('\n')).not.toContain(verified.culture[0].text);
+  });
+
+  it('rejectedにした並びの項目も、名前ごと画面へ渡さない', () => {
+    const verified = asVerified(JAPAN);
+    const dropped = verified.foods[0];
+    const withRejectedFood: CountryIntro = {
+      ...verified,
+      foods: [
+        { ...dropped, claim: { ...dropped.claim!, verification: 'rejected', sourceIds: [] } },
+        ...verified.foods.slice(1),
+      ],
+    };
+    const foods = buildDetailSections(withRejectedFood).find((s) => s.id === 'foods')!;
+    expect(foods.items.map((i) => i.id)).not.toContain(dropped.id);
+    expect(renderedText(withRejectedFood)).not.toContain(dropped.name);
+  });
+
+  it('rejectedの出典は、確認済みの文章の裏づけとして残っていなければ出さない', () => {
+    // 不採用の文章だけが引いていた資料が、カードの出典欄に残らないようにする。
+    const verified = asVerified(JAPAN);
+    const lone = verified.geography[0];
+    const withLoneSource: CountryIntro = {
+      ...verified,
+      geography: [
+        { ...lone, sourceIds: ['gsi-japan-area'], verification: 'rejected' },
+        ...verified.geography.slice(1).map((c) => ({ ...c, sourceIds: [PLACEHOLDER_SOURCE_ID] })),
+      ],
+    };
+    const nature = buildDetailSections(withLoneSource).find((s) => s.id === 'nature')!;
+    expect(nature.sources.map((src) => src.id)).not.toContain('gsi-japan-area');
+  });
+
+  it('publicationStatusだけverifiedに変えても、未確認の事実は出ない', () => {
     // 宣言だけで公開できてしまわないようにする二重の歯止め。
     const declaredOnly: CountryIntro = { ...JAPAN, publicationStatus: 'verified' };
     expect(canPublish(declaredOnly)).toBe(false);
     expect(showsDetails(declaredOnly)).toBe(false);
+  });
+
+  it('下書きの日本では、準備中の案内だけが出る', () => {
+    // 画面は showsDetails が false のとき、事実を1つも組み立てずに
+    // UI.countryIntro.preparing だけを出す。
+    expect(showsDetails(JAPAN)).toBe(false);
+    expect(UI.countryIntro.preparing).toBe('この国の紹介は準備中です。');
+    // 子ども向けの画面に、技術的な説明を混ぜない。
+    expect(UI.countryIntro.preparing).not.toMatch(/未確認|確認中|draft|通信/);
+  });
+
+  it('表示対象の事実は、不採用のものを含まない', () => {
+    const { intro, retired } = retireFirstCulture(asVerified(JAPAN));
+    expect(visibleClaims(intro).map((c) => c.id)).not.toContain(retired.id);
+    expect(visibleClaims(intro).every((c) => c.verification === 'body-checked')).toBe(true);
   });
 });
 
@@ -532,5 +675,74 @@ describe('人間確認用チェックリスト', () => {
 
   it('本文を読めていない資料を確認済みとして書いていない', () => {
     expect(checklist).toContain('本文確認済み: **0件**');
+  });
+
+  it('チェックリストの公開判定が、コードの公開判定と一致している', () => {
+    const verified = asVerified(JAPAN);
+    const unchecked: CountryIntro = {
+      ...verified,
+      culture: [
+        { ...verified.culture[0], verification: 'unchecked', sourceIds: [] },
+        ...verified.culture.slice(1),
+      ],
+    };
+    const retired: CountryIntro = {
+      ...verified,
+      culture: verified.culture.slice(1),
+      retiredClaims: [{ ...verified.culture[0], verification: 'rejected', sourceIds: [] }],
+    };
+    const referenced: CountryIntro = {
+      ...verified,
+      culture: [
+        { ...verified.culture[0], verification: 'rejected', sourceIds: [] },
+        ...verified.culture.slice(1),
+      ],
+    };
+
+    // 書いてある規則と、実際の判定を1行ずつ突き合わせる。
+    const rules: { line: string; holds: boolean }[] = [
+      {
+        line: '- unchecked の表示対象 claim が残っていれば公開不可',
+        holds: canPublish(unchecked) === false,
+      },
+      {
+        line: '- 実際に表示する claim がすべて body-checked なら公開可能',
+        holds: canPublish(verified) === true,
+      },
+      {
+        line: '- rejected は不採用の監査記録としてチェックリストに残す',
+        holds: allClaims(retired).some((c) => c.verification === 'rejected'),
+      },
+      {
+        line: '- rejected は画面表示対象から必ず除外する',
+        holds: !renderedText(retired).includes(verified.culture[0].text),
+      },
+      {
+        line: '- rejected が表示対象から除外されていれば国全体の公開を妨げない',
+        holds: canPublish(retired) === true,
+      },
+      {
+        line: '- rejected が画面データから参照されていれば公開不可',
+        holds: canPublish(referenced) === false,
+      },
+    ];
+
+    for (const rule of rules) {
+      expect(checklist, `チェックリストに「${rule.line}」が無い`).toContain(rule.line);
+      expect(rule.holds, `コードが「${rule.line}」を満たしていない`).toBe(true);
+    }
+  });
+
+  it('チェックリストに古い公開判定が残っていない', () => {
+    expect(checklist).not.toContain('全件が `body-checked` になったら');
+    expect(checklist).not.toContain('1件でも未確認や rejected が残っていると');
+  });
+
+  it('確認後の作業が、採用・修正・不採用・公開の4つに分かれている', () => {
+    for (const heading of ['**採用**', '**修正**', '**不採用**', '**公開**']) {
+      expect(checklist).toContain(heading);
+    }
+    expect(checklist).toContain('`candidateSourceIds` を、確認済みの `sourceIds` へ移す');
+    expect(checklist).toContain('その claimId を画面表示対象データから外す');
   });
 });
