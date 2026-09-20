@@ -275,10 +275,13 @@ function sourceRow(source: InfoSource): HTMLElement {
 
   return el('li', { class: 'intro-sources__item' }, [
     link,
-    el('span', {
-      class: 'intro-sources__checked',
-      text: `${UI.countryIntro.checkedAt}: ${source.checkedAt}`,
-    }),
+    // 所在を確かめた日が無い資料もある。その場合は日付欄を出さない。
+    source.checkedAt
+      ? el('span', {
+          class: 'intro-sources__checked',
+          text: `${UI.countryIntro.checkedAt}: ${source.checkedAt}`,
+        })
+      : null,
   ]);
 }
 
