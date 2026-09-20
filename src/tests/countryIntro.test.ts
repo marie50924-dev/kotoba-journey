@@ -341,12 +341,33 @@ describe('事実（FactClaim）', () => {
     }
   });
 
-  it('日本の事実はまだ1件も本文確認できていない', () => {
-    // この開発環境からは公的機関のページ本文を取得できないため。
-    expect(allClaims(JAPAN).length).toBeGreaterThan(0);
-    expect(allClaims(JAPAN).some((c) => c.verification === 'body-checked')).toBe(false);
-    // 表示対象は全件が未確認のまま。取り下げた分は表示対象に入らない。
-    expect(uncheckedClaims(JAPAN).length).toBe(displayDataClaims(JAPAN).length);
+  it('本文確認が済んだ事実だけが body-checked になっている', () => {
+    // 人が資料の本文を読んだ分だけ進む。Claude の環境からは本文を取得できない。
+    const checked = displayDataClaims(JAPAN).filter((c) => c.verification === 'body-checked');
+    expect(checked.map((c) => c.id)).toEqual(['jp-claim-landmark-horyuji']);
+    expect(uncheckedClaims(JAPAN).length).toBe(displayDataClaims(JAPAN).length - checked.length);
+    // 取り下げた分は表示対象に入らない。
+    expect(JAPAN.retiredClaims.every((c) => c.verification === 'withdrawn')).toBe(true);
+  });
+
+  it('本文確認した事実は、確認日と確認メモと出典を持つ', () => {
+    for (const intro of COUNTRY_INTROS) {
+      for (const claim of allClaims(intro)) {
+        if (claim.verification !== 'body-checked') continue;
+        expect(claim.sourceIds.length, `${claim.id} に出典が無い`).toBeGreaterThan(0);
+        expect(claim.checkedAt, `${claim.id} に確認日が無い`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(claim.verificationNote, `${claim.id} に確認メモが無い`).toBeTruthy();
+      }
+    }
+  });
+
+  it('本文確認していない事実は、確認日を持たない', () => {
+    for (const intro of COUNTRY_INTROS) {
+      for (const claim of allClaims(intro)) {
+        if (claim.verification === 'body-checked') continue;
+        expect(claim.checkedAt, `${claim.id} に確認日が入っている`).toBeUndefined();
+      }
+    }
   });
 
   it('資料の見つからなかった文章は、出典を持たないまま取り下げてある', () => {
@@ -802,8 +823,24 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('日本の出典はまだ1件も本文確認できていない', () => {
-    expect(JAPAN.sources.every((s) => s.verification === 'url-only')).toBe(true);
+  it('本文を読んだ出典だけが body-checked になっている', () => {
+    const checked = JAPAN.sources.filter((s) => s.verification === 'body-checked').map((s) => s.id);
+    expect(checked.sort()).toEqual(['bunka-heritage', 'bunka-horyuji', 'unesco-horyuji']);
+  });
+
+  it('body-checked の事実は、本文を読んだ出典だけを引いている', () => {
+    // 「一覧に名前があった」だけの資料を根拠として付けない。
+    for (const intro of COUNTRY_INTROS) {
+      for (const claim of allClaims(intro)) {
+        if (claim.verification !== 'body-checked') continue;
+        for (const id of claim.sourceIds) {
+          const source = findSource(intro, id);
+          expect(source?.verification, `${claim.id} が未確認の出典 ${id} を引いている`).toBe(
+            'body-checked',
+          );
+        }
+      }
+    }
   });
 });
 
@@ -872,10 +909,22 @@ describe('詳細カードの組み立て', () => {
   });
 
   it('カードに出るのは確認できた事実の出典だけ', () => {
-    // まだ1件も本文確認できていないので、どのカードにも出典が出ない。
+    // 本文確認が済んだ事実のぶんだけ出典が出る。未確認の事実の出典は出ない。
+    const checkedSourceIds = new Set(
+      displayDataClaims(JAPAN)
+        .filter((c) => c.verification === 'body-checked')
+        .flatMap((c) => c.sourceIds),
+    );
     for (const section of buildDetailSections(JAPAN)) {
-      expect(section.sources, `${section.id} に未確認の出典が出ている`).toEqual([]);
+      for (const source of section.sources) {
+        expect(checkedSourceIds.has(source.id), `${section.id} に未確認の出典が出ている`).toBe(true);
+      }
     }
+    // みどころだけ、法隆寺の確認が済んでいるので出典が出る。
+    const withSources = buildDetailSections(JAPAN)
+      .filter((s) => s.sources.length > 0)
+      .map((s) => s.id);
+    expect(withSources).toEqual(['landmarks']);
   });
 
   it('本文確認が終われば、事実のカードに出典が出る', () => {
@@ -985,14 +1034,31 @@ describe('人間確認用チェックリスト', () => {
     expect(states.length).toBe(allClaims(JAPAN).length);
     // 確認対象は全件が未確認、取り下げた分は withdrawn として並ぶ。
     const counted = (state: string): number => states.filter((s) => s === state).length;
-    expect(counted('unchecked')).toBe(displayDataClaims(JAPAN).length);
-    expect(counted('withdrawn')).toBe(JAPAN.retiredClaims.length);
-    expect(counted('body-checked')).toBe(0);
-    expect(counted('rejected')).toBe(0);
+    const inData = (state: string): number =>
+      allClaims(JAPAN).filter((c) => c.verification === state).length;
+    for (const state of ['unchecked', 'body-checked', 'rejected', 'withdrawn']) {
+      expect(counted(state), `表の ${state} の件数がデータと違う`).toBe(inData(state));
+    }
   });
 
-  it('本文を読めていない資料を確認済みとして書いていない', () => {
-    expect(checklist).toContain('本文確認済み: **0件**');
+  it('確認済みの件数が、データと一致している', () => {
+    const done = allClaims(JAPAN).filter((c) => c.verification === 'body-checked').length;
+    const todo = allClaims(JAPAN).filter((c) => c.verification === 'unchecked').length;
+    expect(checklist).toContain(`本文確認済み: **${done}件** / 未確認: ${todo}件`);
+  });
+
+  it('確認済みの行には、本文を読んだ資料と確認日が書いてある', () => {
+    for (const claim of allClaims(JAPAN)) {
+      if (claim.verification !== 'body-checked') continue;
+      const section = checklist.slice(checklist.indexOf(`\`${claim.id}\``));
+      const row = section.slice(0, section.indexOf('###', 10));
+      expect(row, `${claim.id} の行に確認日が無い`).toContain(`| 確認日 | ${claim.checkedAt} |`);
+      expect(row, `${claim.id} の行が確認済みになっていない`).toContain('**body-checked**');
+      for (const id of claim.sourceIds) {
+        const label = findSource(JAPAN, id)!.sourceLabel;
+        expect(row, `${claim.id} の行に資料 ${label} が無い`).toContain(label);
+      }
+    }
   });
 
   it('チェックリストの公開判定が、コードの公開判定と一致している', () => {
@@ -1062,8 +1128,11 @@ describe('人間確認用チェックリスト', () => {
     expect(ids).toHaveLength(46);
     for (const id of ids) expect(checklist, `${id} がチェックリストに無い`).toContain(id);
     expect(checklist).toContain('claim 件数: 46件');
-    expect(checklist).toContain('| unchecked（未確認） | 18 |');
-    expect(checklist).toContain('| withdrawn（本文確認前の取り下げ） | 28 |');
+    const count = (state: string): number =>
+      allClaims(JAPAN).filter((c) => c.verification === state).length;
+    expect(checklist).toContain(`| unchecked（未確認） | ${count('unchecked')} |`);
+    expect(checklist).toContain(`| body-checked（確認済み） | ${count('body-checked')} |`);
+    expect(checklist).toContain(`| withdrawn（本文確認前の取り下げ） | ${count('withdrawn')} |`);
   });
 
   it('古い件数と、あいさつを確認対象外とする記述が残っていない', () => {

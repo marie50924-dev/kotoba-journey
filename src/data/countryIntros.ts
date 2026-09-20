@@ -100,6 +100,8 @@ export interface FactClaim {
   /** 本文で確認できて、この文章を裏づける資料。確認できるまで空。 */
   sourceIds: string[];
   verification: ClaimVerification;
+  /** 本文を確認した日（body-checked のときだけ入る）。 */
+  checkedAt?: string;
   /** 本文で確認した内容のメモ、または確認待ちの理由。 */
   verificationNote?: string;
   /** これから本文を確認する予定の資料。確認できたら sourceIds へ移す。 */
@@ -298,7 +300,7 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceLabel: '文化庁「日本の世界遺産一覧」',
     sourceUrl: 'https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/',
     checkedAt: '2026-09-20',
-    verification: 'url-only',
+    verification: 'body-checked',
   },
   {
     id: 'bunka-horyuji',
@@ -306,14 +308,14 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceUrl:
       'https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf',
     checkedAt: '2026-09-20',
-    verification: 'url-only',
+    verification: 'body-checked',
   },
   {
     id: 'unesco-horyuji',
     sourceLabel: 'UNESCO 世界遺産センター「法隆寺地域の仏教建造物」',
     sourceUrl: 'https://whc.unesco.org/ja/list/660',
     checkedAt: '2026-09-20',
-    verification: 'url-only',
+    verification: 'body-checked',
   },
   {
     id: 'maff-washoku',
@@ -379,6 +381,29 @@ function pending(
     verification: 'unchecked',
     verificationNote,
     candidateSourceIds,
+  };
+}
+
+/**
+ * 人が資料の本文を読んで確認できた事実。
+ *
+ * sourceIds には、本文で該当記述まで確認できた資料だけを入れる。
+ * 「一覧に名前があった」だけの資料は、その文章を支えていないなら入れない。
+ */
+function confirmed(
+  id: string,
+  text: string,
+  sourceIds: string[],
+  checkedNote: string,
+  checkedAt: string,
+): FactClaim {
+  return {
+    id,
+    text,
+    sourceIds,
+    verification: 'body-checked',
+    verificationNote: checkedNote,
+    checkedAt,
   };
 }
 
@@ -542,13 +567,15 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       },
       {
         id: 'jp-landmark-horyuji',
-        name: '法隆寺（奈良県）',
-        note: '世界文化遺産。西院の金堂・五重塔などは、今ものこる木造の建物として世界でもっとも古いものと説明されています。',
-        claim: pending(
+        // 登録名は法隆寺だけでなく法起寺も含むので、一覧の名前に合わせた。
+        name: '法隆寺地域の仏教建造物（奈良県）',
+        note: '世界文化遺産。法隆寺や法起寺には、今ものこる世界最古級の木造建築があります。',
+        claim: confirmed(
           'jp-claim-landmark-horyuji',
-          '法隆寺（奈良県）は世界文化遺産。西院の金堂・五重塔などは、今ものこる木造の建物として世界でもっとも古いものと説明されています。',
-          ['bunka-horyuji', 'unesco-horyuji'],
-          NOTE_NEED_BODY,
+          '奈良県の「法隆寺地域の仏教建造物」は世界文化遺産です。法隆寺や法起寺には、今ものこる世界最古級の木造建築があります。',
+          ['bunka-heritage', 'bunka-horyuji', 'unesco-horyuji'],
+          '文化庁の一覧に奈良県の文化遺産として掲載。詳細解説では法隆寺と法起寺の48棟から構成され、うち11棟が7世紀後半から8世紀の「現存する世界最古級の木造建築」と説明されている。UNESCO も金堂・五重塔・中門・回廊を含む建造物群を世界最古の木造建造物群と説明。元の「世界でもっとも古いもの」は断定が強いため「世界最古級」へ直し、登録名に法起寺を含めた。',
+          '2026-09-20',
         ),
       },
       {

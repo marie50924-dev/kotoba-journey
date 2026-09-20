@@ -3,14 +3,15 @@
 対象: `src/data/countryIntros.ts` の `countryId: 'japan'`
 作成日: 2026-09-20
 claim 件数: 46件（確認対象 18件 / 取り下げ 28件）
-本文確認済み: **0件**（確認対象は全件 unchecked）
+本文確認済み: **1件** / 未確認: 17件
 
 ---
 
 ## このチェックリストについて
 
 国紹介の画面に出す事実を1文ずつ `FactClaim` にし、claimId を付けて並べたものです。
-**確認対象は全件まだ本文未確認**のため、日本の `publicationStatus` は `'draft'` のままで、
+確認対象18件のうち、**1件が本文確認済み**です。
+残り17件が終わるまで日本の `publicationStatus` は `'draft'` のままで、
 「もっと知る」も事実カードも公開導線には出していません。
 
 人が読む件数を減らすため、**公的資料に明記されていない文章は、本文を読む前に取り下げました**
@@ -116,8 +117,8 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 | 状態 | 件数 |
 |---|---|
-| unchecked（未確認） | 18 |
-| body-checked（確認済み） | 0 |
+| unchecked（未確認） | 17 |
+| body-checked（確認済み） | 1 |
 | rejected（本文確認後の不採用） | 0 |
 | withdrawn（本文確認前の取り下げ） | 28 |
 
@@ -125,7 +126,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 # 確認対象（18件）
 
-この18件だけ、資料の本文を読んで判断してください。
+この18件が確認対象です。残り17件の本文を読んで判断してください。
 
 ## あいさつ（1件）
 
@@ -283,14 +284,14 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 | 項目 | 内容 |
 |---|---|
-| ゲーム内の文章 | 法隆寺（奈良県）は世界文化遺産。西院の金堂・五重塔などは、今ものこる木造の建物として世界でもっとも古いものと説明されています。 |
+| ゲーム内の文章 | 奈良県の「法隆寺地域の仏教建造物」は世界文化遺産です。法隆寺や法起寺には、今ものこる世界最古級の木造建築があります。 |
 | カテゴリー | みどころ |
-| 確認予定の資料 | 文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」 / UNESCO 世界遺産センター「法隆寺地域の仏教建造物」 |
-| URL | https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf / https://whc.unesco.org/ja/list/660 |
-| 本文確認状態 | **unchecked** |
-| 本文中で確認した内容 | （未記入） |
-| 採用／修正／削除 | （未記入） |
-| 確認日 | （未記入） |
+| 本文確認状態 | **body-checked** |
+| 本文を確認した資料 | 文化庁「日本の世界遺産一覧」 / 文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」 / UNESCO 世界遺産センター「法隆寺地域の仏教建造物」 |
+| そのURL | https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/ / https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf / https://whc.unesco.org/ja/list/660 |
+| 本文中で確認した内容 | 文化庁の一覧に奈良県の文化遺産として掲載。詳細解説では法隆寺と法起寺の48棟から構成され、うち11棟が7世紀後半から8世紀の「現存する世界最古級の木造建築」と説明されている。UNESCO も金堂・五重塔・中門・回廊を含む建造物群を世界最古の木造建造物群と説明。元の「世界でもっとも古いもの」は断定が強いため「世界最古級」へ直し、登録名に法起寺を含めた。 |
+| 採用／修正／削除 | 修正のうえ採用 |
+| 確認日 | 2026-09-20 |
 
 ### 12. `jp-claim-landmark-himeji`
 
@@ -681,28 +682,28 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ---
 
-## 参照した出典の一覧（15件・すべて本文未確認）
+## 参照した出典の一覧（15件）
 
 取り下げによって、いま使われていない出典もあります。
 将来また使うことがあるので、削除せずに残してあります。
 
-| id | 機関と資料名 | URL |
-|---|---|---|
-| `tokyo-profile` | 東京都「東京都プロフィール　都の概要」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo |
-| `tokyo-municipalities` | 東京都「都内区市町村マップ」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson |
-| `rinya-forest` | 林野庁「都道府県別森林率・人工林率」 | https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html |
-| `gsi-mountains` | 国土地理院「日本の主な山岳標高（1003山）」 | https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html |
-| `jma-climate` | 気象庁「日本の気候」 | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html |
-| `jma-baiu` | 気象庁「過去の梅雨入りと梅雨明け」 | https://www.data.jma.go.jp/cpd/baiu/index.html |
-| `bunka-heritage` | 文化庁「日本の世界遺産一覧」 | https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/ |
-| `bunka-horyuji` | 文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」 | https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf |
-| `unesco-horyuji` | UNESCO 世界遺産センター「法隆寺地域の仏教建造物」 | https://whc.unesco.org/ja/list/660 |
-| `maff-washoku` | 農林水産省「『和食』がユネスコ無形文化遺産に登録されています」 | https://www.maff.go.jp/j/keikaku/syokubunka/ich/ |
-| `maff-local-food` | 農林水産省「うちの郷土料理　次世代に伝えたい大切な味」 | https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/index.html |
-| `maff-traditional-foods` | 農林水産省「にっぽん伝統食図鑑」 | https://www.maff.go.jp/j/keikaku/syokubunka/traditional-foods/index.html |
-| `webjapan-history` | Web Japan（外務省）Kids Web Japan「歴史」 | https://web-japan.org/kidsweb/explore/history/index.html |
-| `webjapan-annual-events` | Web Japan（外務省）Japan Fact Sheet「年中行事」 | https://web-japan.org/factsheet/archives/ja/pdf/J21_annual.pdf |
-| `kankocho-manners` | 観光庁「日本のマナーを知ってもらおう！　訪日外国人旅行者向けマナー啓発動画」 | https://www.mlit.go.jp/kankocho/news08_000304.html |
+| id | 機関と資料名 | URL | 本文確認 |
+|---|---|---|---|
+| `tokyo-profile` | 東京都「東京都プロフィール　都の概要」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo | 未 |
+| `tokyo-municipalities` | 東京都「都内区市町村マップ」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson | 未 |
+| `rinya-forest` | 林野庁「都道府県別森林率・人工林率」 | https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html | 未 |
+| `gsi-mountains` | 国土地理院「日本の主な山岳標高（1003山）」 | https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html | 未 |
+| `jma-climate` | 気象庁「日本の気候」 | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html | 未 |
+| `jma-baiu` | 気象庁「過去の梅雨入りと梅雨明け」 | https://www.data.jma.go.jp/cpd/baiu/index.html | 未 |
+| `bunka-heritage` | 文化庁「日本の世界遺産一覧」 | https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/ | 済 |
+| `bunka-horyuji` | 文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」 | https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf | 済 |
+| `unesco-horyuji` | UNESCO 世界遺産センター「法隆寺地域の仏教建造物」 | https://whc.unesco.org/ja/list/660 | 済 |
+| `maff-washoku` | 農林水産省「『和食』がユネスコ無形文化遺産に登録されています」 | https://www.maff.go.jp/j/keikaku/syokubunka/ich/ | 未 |
+| `maff-local-food` | 農林水産省「うちの郷土料理　次世代に伝えたい大切な味」 | https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/index.html | 未 |
+| `maff-traditional-foods` | 農林水産省「にっぽん伝統食図鑑」 | https://www.maff.go.jp/j/keikaku/syokubunka/traditional-foods/index.html | 未 |
+| `webjapan-history` | Web Japan（外務省）Kids Web Japan「歴史」 | https://web-japan.org/kidsweb/explore/history/index.html | 未 |
+| `webjapan-annual-events` | Web Japan（外務省）Japan Fact Sheet「年中行事」 | https://web-japan.org/factsheet/archives/ja/pdf/J21_annual.pdf | 未 |
+| `kankocho-manners` | 観光庁「日本のマナーを知ってもらおう！　訪日外国人旅行者向けマナー啓発動画」 | https://www.mlit.go.jp/kankocho/news08_000304.html | 未 |
 
 ---
 
