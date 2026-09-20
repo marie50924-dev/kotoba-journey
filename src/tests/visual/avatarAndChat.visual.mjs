@@ -378,7 +378,11 @@ try {
     await page.waitForTimeout(200);
     await page.getByRole('button', { name: 'とじる' }).first().click();
 
-    // ---- 8. 結果画面 ----
+    // ---- 8. 確認テストの案内（結果画面より前）→ 結果画面 ----
+    await page.waitForSelector('.screen--quiz-prompt', { timeout: 6000 });
+    await record('確認テストの案内');
+    await page.getByRole('button', { name: '今回はスキップ' }).click();
+
     await page.waitForSelector('.screen--result', { timeout: 6000 });
     check((await page.locator('.npc-bar').count()) === 1, `${label}: 結果画面に NPC が出ない`);
     await record('結果画面');

@@ -11,9 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "test:visual": "node src/tests/visual/pronunciationPanel.visual.mjs && node src/tests/visual/titleAndFlow.visual.mjs && node src/tests/visual/avatarAndChat.visual.mjs",
+    "test:visual": "node src/tests/visual/pronunciationPanel.visual.mjs && node src/tests/visual/titleAndFlow.visual.mjs && node src/tests/visual/avatarAndChat.visual.mjs && node src/tests/visual/directInputQuiz.visual.mjs",
     "test:visual:flow": "node src/tests/visual/titleAndFlow.visual.mjs",
-    "test:visual:avatar": "node src/tests/visual/avatarAndChat.visual.mjs"
+    "test:visual:avatar": "node src/tests/visual/avatarAndChat.visual.mjs",
+    "test:visual:quiz": "node src/tests/visual/directInputQuiz.visual.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.3",

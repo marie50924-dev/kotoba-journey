@@ -241,18 +241,20 @@ try {
     await page.waitForTimeout(200);
     await page.getByRole('button', { name: 'とじる' }).first().click();
 
+    // 確認テストは結果画面より前に入る。結果画面には答えが並ぶため。
+    await page.waitForSelector('.screen--quiz-prompt', { timeout: 5000 });
+    check(
+      await page.locator('.screen--result').count() === 0,
+      `${tag}: 確認テストより先に結果画面が出ている`,
+    );
+    check(
+      await page.getByRole('button', { name: 'テストを受ける' }).count() === 1,
+      `${tag}: 確認テストへの導線が無い`,
+    );
+    // ここではスキップ経路を通す。受験経路は directInputQuiz 側で確認する。
+    await page.getByRole('button', { name: '今回はスキップ' }).click();
+
     await page.waitForSelector('.screen--result', { timeout: 5000 });
-
-    // 選択式の確認テストは通常導線から外してある。
-    check(
-      await page.getByRole('button', { name: 'テストを受ける' }).count() === 0,
-      `${tag}: 無効化したはずの確認テストへの導線が残っている`,
-    );
-    check(
-      await page.locator('.screen--quiz-prompt').count() === 0,
-      `${tag}: 確認テストの確認画面が出ている`,
-    );
-
     await page.getByRole('button', { name: '旅をつづける' }).click();
     await page.waitForSelector('.screen--map', { timeout: 5000 });
     check(await page.locator('.screen--map').count() === 1, `${tag}: 結果から世界地図へ戻れない`);
@@ -264,12 +266,20 @@ try {
     check(stored.selectedCourseId === 'grade-elementary', `${tag}: コース選択が保存されていない`);
     check(stored.selectedAvatarId === chosenId, `${tag}: 選んだキャラクターが保存されていない`);
     check(stored.characterAgeGroup === null, `${tag}: 旧年齢層設定は未設定のままであるべき`);
-    check(stored.quizHistory.length === 0, `${tag}: 無効化したテストの記録が増えている`);
+    check(stored.quizHistory.length === 1, `${tag}: 確認テストの記録が残っていない`);
+    check(
+      stored.quizHistory[0].status === 'skipped',
+      `${tag}: スキップが skipped として保存されていない`,
+    );
+    check(
+      stored.quizHistory[0].incorrectPairIds.length === 0,
+      `${tag}: スキップを不正解として数えている`,
+    );
     check(stored.seenTravelIntros.includes('japan'), `${tag}: 到着演出の既読が残っていない`);
     check(stored.totalPlays === 1, `${tag}: 通常カルタの記録が二重加算されている`);
     check(jsErrors.length === 0, `${tag}: JavaScript エラー: ${jsErrors.join(' / ')}`);
 
-    if (failures.length === 0) console.log(`✓ ${tag}（表紙→選択→旅→国紹介→カルタ→結果）`);
+    if (failures.length === 0) console.log(`✓ ${tag}（表紙→選択→旅→国紹介→カルタ→確認テスト→結果）`);
     await context.close();
   }
 
