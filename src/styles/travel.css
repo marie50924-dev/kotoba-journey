@@ -372,6 +372,153 @@
   white-space: nowrap;
 }
 
+/* ---- 到着直後に見せる分 ---- */
+.intro__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.intro__fact {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.intro__fact-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--c-ink-soft);
+  min-width: 4.5em;
+}
+
+.intro__fact-value {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.intro__fact-note {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+}
+
+.intro__summary {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* ---- もっと知る ---- */
+.intro__more-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intro__more-toggle {
+  width: 100%;
+  min-height: var(--tap-min);
+}
+
+.intro__more[hidden] {
+  display: none;
+}
+
+.intro__more {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intro__more-lead {
+  margin: 0;
+}
+
+.intro-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.intro-card__item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+}
+
+.intro-card__item-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.intro-card__item-note {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+  line-height: 1.6;
+}
+
+/* ---- 情報源 ---- */
+.intro-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.intro-sources__toggle {
+  min-height: var(--tap-min);
+}
+
+.intro-sources__list[hidden] {
+  display: none;
+}
+
+.intro-sources__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.intro-sources__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.intro-sources__link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-sky-2);
+  word-break: break-word;
+}
+
+.intro-sources__checked {
+  font-size: 11px;
+  color: var(--c-ink-soft);
+}
+
+.intro__start {
+  width: 100%;
+}
+
 .intro__cards {
   display: flex;
   flex-direction: column;
