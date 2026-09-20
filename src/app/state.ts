@@ -8,10 +8,8 @@ import type { EntitlementService } from '../services/entitlementService';
 /**
  * 画面遷移の状態。
  *
- * quizPrompt / quiz / quizResult は Phase 1 の選択式確認テストの名残。
- * 最終仕様（スマートフォンのキーボードから直接入力する方式）と異なるため、
- * FEATURES.waveQuiz = false で通常導線から外してある。
- * Phase 1-C2 で直接入力テストへ差し替える境界として残す。
+ * quizPrompt / quiz / quizResult は、キーボードから直接入力する確認テスト。
+ * カルタの直後に置き、結果画面より前に通す（結果画面には答えが並ぶため）。
  */
 export type Route =
   | { name: 'title' }
@@ -49,10 +47,10 @@ export interface WaveContext {
   seed: number;
 }
 
-/** 確認テストの進行状態。Phase 1-C2 の直接入力テストで置き換える。 */
+/** 確認テストの進行状態。answers は問題IDから入力された文字列への対応。 */
 export interface QuizContext {
   questions: QuizQuestion[];
-  answers: Map<string, number>;
+  answers: Map<string, string>;
   startedAtMs: number;
   outcome: QuizOutcome | null;
   elapsedMs: number;
@@ -68,7 +66,7 @@ export interface AppContext {
   lastResultWasBest: boolean;
   /** 進行中のウェーブ。カルタ開始時に設定する。 */
   wave: WaveContext | null;
-  /** 進行中の確認テスト。通常導線では使わない。 */
+  /** 進行中の確認テスト。 */
   quiz: QuizContext | null;
   /** 確定前に選んでいるキャラクター。確定するまで保存しない。 */
   pendingAvatarId: string | null;

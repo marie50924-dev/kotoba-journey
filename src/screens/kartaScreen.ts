@@ -14,6 +14,7 @@ import { AVATARS, findAvatar } from '../data/avatars';
 import { castNpcs, rememberCast } from '../domain/npcCasting';
 import { pickScript } from '../data/dialogues';
 import { rememberMetAvatar } from '../storage/learningRecord';
+import { FEATURES } from '../app/features';
 import type { AppContext } from '../app/state';
 import type { Card, CardCount, PlayResult } from '../domain/types';
 
@@ -230,9 +231,13 @@ export function kartaScreen(ctx: AppContext): HTMLElement {
       return { ...updated, visitedCountryIds: [...updated.visitedCountryIds, visitedId] };
     });
 
-    // ウェーブ終了。NPC が称賛したあとに結果画面へ進む。
+    // ウェーブ終了。NPC が称賛したあとに確認テストの案内へ進む。
+    // 結果画面には覚えたことばが日本語と英語で並ぶため、
+    // テストは結果画面より前に置き、答えが見えない状態で受けられるようにする。
     // 会話を閉じても記録はすでに保存済みで、進行は失われない。
-    showWaveEndChat(() => ctx.navigate({ name: 'result' }));
+    showWaveEndChat(() =>
+      ctx.navigate(FEATURES.waveQuiz ? { name: 'quizPrompt' } : { name: 'result' }),
+    );
   }
 
   /**

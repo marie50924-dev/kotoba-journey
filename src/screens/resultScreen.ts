@@ -4,7 +4,6 @@ import { findPair } from '../data/wordPairs';
 import { formatDuration, groupByMastery } from '../domain/scoring';
 import { screenShell } from '../components/screenShell';
 import { npcBar } from '../components/npcBar';
-import { FEATURES } from '../app/features';
 import type { AppContext } from '../app/state';
 import type { MasteryLevel } from '../domain/types';
 
@@ -70,16 +69,10 @@ export function resultScreen(ctx: AppContext): HTMLElement {
         courseId: ctx.selection.courseId ?? undefined,
       }),
       el('div', { class: 'screen__footer screen__footer--stack' }, [
-        // 確認テストは最終仕様（直接入力式）と異なるため、
-        // FEATURES.waveQuiz = false の間は結果画面から呼び出さない。
-        // Phase 1-C2 で直接入力テストへ差し替える。
-        FEATURES.waveQuiz
-          ? button(UI.actions.next, () => ctx.navigate({ name: 'quizPrompt' }), {
-              class: 'btn btn--primary btn--large',
-            })
-          : button(UI.actions.retry, () => ctx.navigate({ name: 'karta' }), {
-              class: 'btn btn--primary btn--large',
-            }),
+        // 確認テストはカルタの直後に済ませてあるので、ここはウェーブの締め。
+        button(UI.actions.retry, () => ctx.navigate({ name: 'karta' }), {
+          class: 'btn btn--primary btn--large',
+        }),
         el('div', { class: 'button-row' }, [
           button(UI.actions.continue, () => ctx.navigate({ name: 'worldMap' }), { class: 'btn' }),
           button(UI.actions.passport, () => ctx.navigate({ name: 'passport' }), { class: 'btn' }),

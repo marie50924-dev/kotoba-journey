@@ -21,8 +21,24 @@
   animation: mascot-bob 3s ease-in-out infinite;
 }
 
-.quiz-prompt__chara {
-  width: min(52%, 190px);
+.quiz-prompt__me,
+.quiz-result__me {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.quiz-prompt__me-name,
+.quiz-result__me-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quiz-prompt__mode {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-sky-2);
 }
 
 .quiz-prompt__lead {
@@ -35,9 +51,15 @@
   max-width: 420px;
 }
 
-/* ---- テスト本体 ---- */
+/* ---- テスト本体 ----
+   キーボードが出ると使える高さが半分近くまで減る。
+   本文をスクロール可能にしたうえで、短い画面では出題カードを圧縮して
+   入力欄と「こたえる」を必ず可視領域へ残す。 */
 .screen--quiz .screen__body {
   gap: 14px;
+  overflow-y: auto;
+  /* iOS の慣性スクロールで入力欄が飛ばないようにする。 */
+  overscroll-behavior: contain;
 }
 
 .quiz__progress {
@@ -69,51 +91,147 @@
   word-break: break-word;
 }
 
-.quiz__choices {
+/* ---- 直接入力 ----
+   ソフトウェアキーボードが出ても入力欄と「こたえる」が隠れないよう、
+   画面下部への固定はせず、出題のすぐ下に縦へ積む。
+   --keyboard-inset は visualViewport から実測した値が入る。 */
+.quiz__answer-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scroll-margin-bottom: 12px;
+}
+
+.quiz__form {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.quiz-choice {
-  min-height: var(--tap-min);
-  padding: 12px 14px;
-  border: 2px solid var(--c-line);
+.quiz__field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.quiz__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 52px;
+  padding: 10px 44px 10px 14px;
   border-radius: var(--radius);
-  background: var(--c-paper-2);
-  font-size: 16px;
+  border: 2px solid var(--c-line);
+  background: #fff;
+  color: var(--c-ink);
+  /* 16px 未満だと iOS が入力時に画面を拡大してしまう。 */
+  font-size: 20px;
   font-weight: 700;
   text-align: center;
-  transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-.quiz-choice:active {
-  transform: scale(0.98);
+.quiz__input:focus {
+  outline: none;
+  border-color: var(--c-accent);
 }
 
-.quiz-choice:disabled {
-  cursor: default;
+.quiz__input:disabled {
+  background: var(--c-paper-2);
+  opacity: 1;
 }
 
-.quiz-choice.is-correct {
-  border-color: var(--c-ok);
-  background: #e6f6ee;
-  color: var(--c-ok);
+.quiz__clear {
+  position: absolute;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-paper-2);
+  color: var(--c-ink-soft);
+  font-size: 18px;
+  line-height: 1;
 }
 
-.quiz-choice.is-wrong {
-  border-color: var(--c-ng);
-  background: #fdecea;
-  color: var(--c-ng);
+.quiz__clear[hidden] {
+  display: none;
 }
 
-/* 不正解のときは正解も示して、覚え直せるようにする。 */
-.quiz-choice.is-answer {
-  border-color: var(--c-ok);
-  background: #f1faf5;
+.quiz__hint {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--c-ink-soft);
+  text-align: center;
+  visibility: hidden;
 }
 
-/* ---- テスト結果 ---- */
+.quiz__hint.is-shown {
+  visibility: visible;
+}
+
+.quiz__advance-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.quiz__submit,
+.quiz__next {
+  width: 100%;
+}
+
+.quiz__submit[hidden] {
+  display: none;
+}
+
+.quiz__feedback {
+  min-height: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.quiz__verdict {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.quiz__feedback.is-correct .quiz__verdict {
+  color: var(--c-ok, #1b7f4b);
+}
+
+.quiz__feedback.is-wrong .quiz__verdict {
+  color: var(--c-warn, #b3391b);
+}
+
+.quiz__answer {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+}
+
+.quiz__answer-label {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+}
+
+.quiz__answer-text {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.quiz__skip-row {
+  display: flex;
+  justify-content: center;
+  /* キーボードが出ている間は、下端の「スキップ」を隠して入力欄の場所を空ける。 */
+  margin-bottom: var(--keyboard-inset, 0px);
+}
+
+.quiz__skip {
+  min-width: 160px;
+}
+
 .screen--quiz-result .screen__body {
   overflow-y: auto;
 }
@@ -124,7 +242,7 @@
   gap: 12px;
 }
 
-.quiz-result__chara {
+.quiz-result__me-block {
   flex: 0 0 132px;
   width: 132px;
 }
@@ -138,18 +256,70 @@
 }
 
 @media (max-width: 340px) {
-  .quiz-choice {
-    font-size: 15px;
-    padding: 10px 10px;
+  /* 320px ではキーボードが画面の半分近くを占める。
+     出題カードと余白を詰めて、入力欄と「こたえる」を必ず可視領域に残す。 */
+  .quiz__card {
+    padding: 12px 10px;
   }
 
-  .quiz-prompt__chara {
-    width: min(48%, 150px);
+  .quiz__prompt {
+    font-size: clamp(22px, 7.5vw, 28px);
+  }
+
+  .quiz__input {
+    min-height: 48px;
+    font-size: 18px;
+  }
+
+  .quiz-prompt__guide {
+    width: 84px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .quiz-prompt__guide {
     animation: none;
+  }
+}
+
+/* ---- キーボード表示中（画面が低いとき） ---- */
+@media (max-height: 460px) {
+  .screen--quiz .screen__body {
+    gap: 8px;
+  }
+
+  /* 見出しは進捗表示で代替できるので、高さを入力欄へ譲る。 */
+  .screen--quiz .screen__header {
+    display: none;
+  }
+
+  .quiz__progress {
+    font-size: 11px;
+  }
+
+  .quiz__card {
+    padding: 8px 10px;
+    gap: 2px;
+  }
+
+  .quiz__prompt {
+    font-size: clamp(20px, 6vw, 24px);
+  }
+
+  .quiz__input {
+    min-height: 44px;
+  }
+
+  .quiz__hint {
+    min-height: 0;
+  }
+
+  .quiz__feedback {
+    min-height: 0;
+  }
+
+  /* 「今回はスキップ」は最後に諦める。入力欄と「こたえる」を優先する。 */
+  .quiz__skip-row {
+    display: none;
   }
 }

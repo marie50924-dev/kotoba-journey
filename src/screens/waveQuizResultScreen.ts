@@ -1,9 +1,8 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { findPair } from '../data/wordPairs';
-import { findCourse } from '../data/courses';
-import { ageGroupForCourse, findAgeGroup } from '../data/characters';
-import { characterCard } from '../components/characterCard';
+import { findAvatar, displayName } from '../data/avatars';
+import { avatarThumb } from '../components/avatarThumb';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
@@ -15,15 +14,13 @@ import type { AppContext } from '../app/state';
 export function waveQuizResultScreen(ctx: AppContext): HTMLElement {
   const quiz = ctx.quiz;
   const outcome = quiz?.outcome;
-  const group = findAgeGroup(
-    ageGroupForCourse(findCourse(ctx.selection.courseId), ctx.records.get().characterAgeGroup),
-  )!;
+  const me = findAvatar(ctx.records.get().selectedAvatarId);
 
   if (!outcome) {
     return screenShell({ title: UI.quiz.resultHeading }, [
       el('p', { class: 'note', text: UI.passport.empty }),
       el('div', { class: 'screen__footer' }, [
-        button(UI.actions.nextWave, () => ctx.navigate({ name: 'worldMap' }), {
+        button(UI.actions.next, () => ctx.navigate({ name: 'result' }), {
           class: 'btn btn--primary btn--large',
         }),
       ]),
@@ -36,7 +33,12 @@ export function waveQuizResultScreen(ctx: AppContext): HTMLElement {
     { title: UI.quiz.resultHeading, variant: 'screen--quiz-result' },
     [
       el('div', { class: 'quiz-result__hero' }, [
-        characterCard(group, { variant: 'plain', class: 'quiz-result__chara' }),
+        me
+          ? el('div', { class: 'quiz-result__me' }, [
+              avatarThumb(me, { size: 'md' }),
+              el('span', { class: 'quiz-result__me-name', text: displayName(me) }),
+            ])
+          : null,
         el('div', { class: 'stat-tile quiz-result__score' }, [
           el('span', { class: 'stat-tile__label', text: UI.quiz.correctCount }),
           el('strong', {
@@ -63,10 +65,10 @@ export function waveQuizResultScreen(ctx: AppContext): HTMLElement {
       ]),
       el('p', { class: 'note', text: UI.quiz.encourage }),
       el('div', { class: 'screen__footer screen__footer--stack' }, [
-        button(UI.actions.practiceAgain, () => ctx.navigate({ name: 'karta' }), {
+        // テストのあとに結果・分析へ進む。ここで初めて覚えたことばの一覧が出る。
+        button(UI.actions.next, () => ctx.navigate({ name: 'result' }), {
           class: 'btn btn--primary btn--large',
         }),
-        button(UI.actions.nextWave, () => ctx.navigate({ name: 'worldMap' }), { class: 'btn' }),
       ]),
     ],
   );
