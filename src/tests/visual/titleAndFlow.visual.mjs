@@ -211,8 +211,15 @@ try {
     await page.getByRole('button', { name: 'スキップ' }).click();
 
     check(await page.locator('.screen--intro').count() === 1, `${tag}: 国紹介が出ない`);
-    const cardCount = await page.locator('.intro-card').count();
-    check(cardCount >= 2 && cardCount <= 3, `${tag}: 国紹介カードが2〜3枚でない（${cardCount}枚）`);
+    // 到着直後は要点だけを出し、長い説明は「もっと知る」の中に閉じてある。
+    check(
+      await page.locator('.intro__more:not([hidden])').count() === 0,
+      `${tag}: 到着直後から詳細が開いている`,
+    );
+    check(
+      await page.locator('.intro__summary').count() === 1,
+      `${tag}: 短い紹介文が出ていない`,
+    );
     // 国紹介には自分のキャラクターと NPC を置く構造が残っている。
     check(
       await page.locator('.intro__cast-me .avatar-thumb').count() === 1,
@@ -222,7 +229,7 @@ try {
     check(companions >= 1, `${tag}: 国紹介に NPC の置き場所が無い`);
     const meOnIntro = await page.locator('.intro__cast-npc [data-avatar-id]').count();
     check(meOnIntro === 0 || chosenId !== null, `${tag}: 同行者の取得に失敗`);
-    await page.getByRole('button', { name: 'カルタをはじめる' }).click();
+    await page.getByRole('button', { name: 'この国でことばを集める' }).click();
 
     await page.waitForSelector('.card');
     while ((await page.locator('.card:not(.is-matched)').count()) > 0) {

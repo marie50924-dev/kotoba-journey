@@ -111,25 +111,17 @@ describe('コースと年齢層の対応', () => {
 });
 
 describe('国紹介データ', () => {
-  it('Phase 1 では日本だけ本文を持つ', () => {
-    expect(COUNTRY_INTROS.map((c) => c.destinationId)).toEqual(['japan']);
+  it('本文を持つのは確認済みの国だけ（今は日本のみ）', () => {
+    expect(COUNTRY_INTROS.map((c) => c.countryId)).toEqual(['japan']);
     expect(hasCountryIntro('japan')).toBe(true);
     expect(hasCountryIntro('london')).toBe(false);
     expect(hasCountryIntro('paris')).toBe(false);
   });
 
-  it('カードは2〜3枚に収め、それぞれ出典を持つ', () => {
-    for (const intro of COUNTRY_INTROS) {
-      expect(intro.cards.length).toBeGreaterThanOrEqual(2);
-      expect(intro.cards.length).toBeLessThanOrEqual(3);
-      for (const card of intro.cards) expect(card.source).toBeTruthy();
-    }
-  });
-
   it('国名・あいさつ・学ぶことを持つ', () => {
     const japan = findCountryIntro('japan')!;
-    expect(japan.nameJa).toBe('日本');
-    expect(japan.nameEn).toBe('Japan');
+    expect(japan.countryNameJa).toBe('日本');
+    expect(japan.countryNameEn).toBe('Japan');
     expect(japan.greeting.ja.length).toBeGreaterThan(0);
     expect(japan.greeting.en.length).toBeGreaterThan(0);
     expect(japan.learning.length).toBeGreaterThan(0);

@@ -141,7 +141,7 @@ async function reachQuiz(page, baseUrl) {
   await page.waitForSelector('.screen--travel');
   await page.getByRole('button', { name: 'スキップ' }).click();
   await page.waitForSelector('.screen--intro');
-  await page.getByRole('button', { name: 'カルタをはじめる' }).click();
+  await page.getByRole('button', { name: 'この国でことばを集める' }).click();
 
   await page.waitForSelector('.card');
   while ((await page.locator('.card:not(.is-matched)').count()) > 0) {

@@ -83,7 +83,7 @@ async function openPronunciationPanel(page, baseUrl) {
   await page.waitForSelector('.screen--travel');
   await page.getByRole('button', { name: 'スキップ' }).click();
   await page.waitForSelector('.screen--intro');
-  await page.getByRole('button', { name: 'カルタをはじめる' }).click();
+  await page.getByRole('button', { name: 'この国でことばを集める' }).click();
   await page.waitForSelector('.card');
 
   const cardId = await page.locator('.card').first().getAttribute('data-card-id');
