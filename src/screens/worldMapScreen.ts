@@ -2,6 +2,7 @@ import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { DESTINATIONS } from '../data/destinations';
 import { screenShell } from '../components/screenShell';
+import { npcBar } from '../components/npcBar';
 import type { AppContext } from '../app/state';
 
 /**
@@ -65,6 +66,13 @@ export function worldMapScreen(ctx: AppContext): HTMLElement {
     [
       el('div', { class: 'map' }, [el('div', { class: 'map__ocean' }), ...pins]),
       el('p', { class: 'note', text: UI.worldMap.lockedNote }),
+      // 出発前の一言。国が決まっているので countryId を渡す。
+      npcBar(ctx, {
+        screen: 'arrival',
+        trigger: 'arrival',
+        countryId: ctx.selection.destinationId ?? 'japan',
+        courseId: ctx.selection.courseId ?? undefined,
+      }),
       el('div', { class: 'screen__footer' }, [departButton]),
     ],
   );

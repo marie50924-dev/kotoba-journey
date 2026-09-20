@@ -3,6 +3,7 @@ import { UI } from '../data/strings';
 import { findPair } from '../data/wordPairs';
 import { formatDuration, groupByMastery } from '../domain/scoring';
 import { screenShell } from '../components/screenShell';
+import { npcBar } from '../components/npcBar';
 import type { AppContext } from '../app/state';
 import type { MasteryLevel } from '../domain/types';
 
@@ -61,6 +62,12 @@ export function resultScreen(ctx: AppContext): HTMLElement {
         el('div', { class: 'mastery-grid' }, masteryLists),
       ]),
       mistakenSection,
+      // 結果画面では次回の案内をする。
+      npcBar(ctx, {
+        screen: 'result',
+        trigger: 'result',
+        courseId: ctx.selection.courseId ?? undefined,
+      }),
       el('div', { class: 'screen__footer screen__footer--stack' }, [
         button(UI.actions.retry, () => ctx.navigate({ name: 'karta' }), { class: 'btn btn--primary' }),
         el('div', { class: 'button-row' }, [

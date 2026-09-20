@@ -3,6 +3,7 @@ import { UI } from '../data/strings';
 import { COURSE_CATEGORIES, categoryLabel, groupedCourses } from '../data/courses';
 import type { CourseCategoryId } from '../data/courses';
 import { screenShell } from '../components/screenShell';
+import { npcBar } from '../components/npcBar';
 import type { AppContext } from '../app/state';
 
 /** コース入口。学年別 / 資格・試験 / 社会人 の3分類。 */
@@ -32,7 +33,11 @@ export function courseEntryScreen(ctx: AppContext): HTMLElement {
       lead: UI.courseEntry.lead,
       onBack: () => ctx.back(),
     },
-    [el('div', { class: 'option-grid' }, cards)],
+    [
+      el('div', { class: 'option-grid' }, cards),
+      // NPC はここで挨拶する。会話は「はなしかける」で開く。
+      npcBar(ctx, { screen: 'course', trigger: 'course' }),
+    ],
   );
 }
 

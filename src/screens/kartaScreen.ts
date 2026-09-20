@@ -9,6 +9,11 @@ import { PlaySession } from '../domain/matching';
 import { calculateAccuracy, formatDuration } from '../domain/scoring';
 import { applyPlayResult, isNewBestTime } from '../storage/learningRecord';
 import { pronunciationPanel } from '../components/pronunciationPanel';
+import { chatPanel } from '../components/chatPanel';
+import { AVATARS, findAvatar } from '../data/avatars';
+import { castNpcs, rememberCast } from '../domain/npcCasting';
+import { pickScript } from '../data/dialogues';
+import { rememberMetAvatar } from '../storage/learningRecord';
 import type { AppContext } from '../app/state';
 import type { Card, CardCount, PlayResult } from '../domain/types';
 
@@ -217,7 +222,60 @@ export function kartaScreen(ctx: AppContext): HTMLElement {
       return { ...updated, visitedCountryIds: [...updated.visitedCountryIds, visitedId] };
     });
 
-    ctx.navigate({ name: 'result' });
+    // ウェーブ終了。NPC が称賛したあとに結果画面へ進む。
+    // 会話を閉じても記録はすでに保存済みで、進行は失われない。
+    showWaveEndChat(() => ctx.navigate({ name: 'result' }));
+  }
+
+  /**
+   * ウェーブ終了時の台本式チャット。
+   * 自分のキャラクターが未選択、NPC がいない、台本が無い場合は
+   * 何も出さずにそのまま次へ進む。
+   */
+  function showWaveEndChat(next: () => void): void {
+    const record = ctx.records.get();
+    const me = findAvatar(record.selectedAvatarId);
+    if (!me) {
+      next();
+      return;
+    }
+
+    const [npc] = castNpcs(
+      {
+        screen: 'wave-end',
+        selectedAvatarId: me.id,
+        recentAvatarIds: record.recentNpcAvatarIds,
+        countryId: ctx.selection.destinationId ?? undefined,
+        courseId: ctx.selection.courseId ?? undefined,
+        seed: ctx.castSeed + session.matchedPairCount,
+      },
+      AVATARS,
+    );
+    const script = npc ? pickScript('wave-end', ctx.castSeed + npc.order) : undefined;
+    if (!npc || !script) {
+      next();
+      return;
+    }
+
+    ctx.records.update((current) =>
+      rememberMetAvatar(
+        { ...current, recentNpcAvatarIds: rememberCast(current.recentNpcAvatarIds, [npc.id]) },
+        npc.id,
+      ),
+    );
+
+    overlayHost.append(
+      chatPanel({
+        script,
+        npc,
+        me,
+        audio: ctx.audio,
+        onClose: () => {
+          overlayHost.replaceChildren();
+          next();
+        },
+      }),
+    );
   }
 
   refreshStats();
