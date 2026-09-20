@@ -208,6 +208,43 @@ try {
       checkedLabels.every((t) => /\d{4}-\d{2}-\d{2}/.test(t)),
       `${label}: 確認日が出ていない`,
     );
+    check(sourceLinks >= 8, `${label}: 情報源が少なすぎる（${sourceLinks}件）`);
+
+    // 出典が増えても最後まで開いて到達できる。
+    const lastSource = page.locator('.intro-sources__item').last();
+    await lastSource.scrollIntoViewIfNeeded();
+    const lastBox = await lastSource.boundingBox();
+    check(
+      lastBox !== null && lastBox.height > 0,
+      `${label}: 最後の情報源へ到達できない`,
+    );
+    const lastText = await lastSource.textContent();
+    check(lastText.trim().length > 0, `${label}: 最後の情報源が空`);
+
+    // 事実を書いたカードには、必ず出典が添えてある。
+    for (const id of SECTIONS.filter((s) => s !== 'words')) {
+      const notes = await page
+        .locator(`.intro-card[data-section="${id}"] .intro-card__source`)
+        .count();
+      check(notes >= 1, `${label}: 「${id}」のカードに出典が添えられていない`);
+    }
+    // ことばのカードは、外部出典ではなくゲーム内データが正本だと示す。
+    const wordsNote = await page
+      .locator('.intro-card[data-section="words"] .intro-card__source')
+      .textContent();
+    check(
+      wordsNote.includes('語彙データ'),
+      `${label}: ことばカードの正本が示されていない（${wordsNote}）`,
+    );
+
+    // 服装の目安が天気予報ではないことを断っている。
+    const climateText = await page
+      .locator('.intro-card[data-section="climate"]')
+      .textContent();
+    check(
+      climateText.includes('天気予報ではありません'),
+      `${label}: 服装の目安の断り書きが無い`,
+    );
 
     // --- 開いた状態でも、はみ出しとタップ領域を守れている ---
     const hScroll = await page.evaluate(
