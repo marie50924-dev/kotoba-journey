@@ -1,0 +1,334 @@
+/* 主人公選択・移動演出・国紹介。 */
+
+/* ---- 仮表示スプライト ---- */
+/*
+ * 置き場所の箱にあわせて縮む。viewBox + 既定の preserveAspectRatio により
+ * 縦横比を保ったまま収まるので、はみ出しも引き伸ばしも起きない。
+ */
+.sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.sprite__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- 主人公選択 ---- */
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.character-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-lg);
+  background: var(--c-paper-2);
+  box-shadow: 0 2px 8px rgba(16, 36, 58, 0.08);
+  text-align: center;
+  min-width: 0;
+}
+
+.character-card.is-selected {
+  border-color: var(--c-accent);
+  background: #fff3e8;
+}
+
+.character-card--guide {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.character-card__art {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 118px;
+  overflow: hidden;
+}
+
+.character-card--guide .character-card__art {
+  height: 64px;
+  flex: 0 0 64px;
+}
+
+.character-card__guide-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.character-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.character-card__label {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.character-card__tagline {
+  font-size: 11px;
+  color: var(--c-ink-soft);
+  line-height: 1.4;
+}
+
+/* ---- 移動中 ---- */
+.screen--travel {
+  background: linear-gradient(180deg, #2a6ea3 0%, #6fb0da 55%, #cde7f5 100%);
+  color: #fff;
+  padding: calc(var(--safe-top) + 8px) calc(var(--safe-right) + var(--gutter))
+    calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + var(--gutter));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.travel__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.travel__heading {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.travel__sky {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.travel__route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.travel__pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 800;
+  max-width: 34%;
+}
+
+.travel__pin-label {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.travel__line {
+  position: relative;
+  flex: 1 1 auto;
+  height: 40px;
+  /* 経路そのものは破線で描き、その上を移動表現が進む。 */
+  background-image: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.85) 0 10px,
+    transparent 10px 20px
+  );
+  background-size: 20px 3px;
+  background-repeat: repeat-x;
+  background-position: left center;
+}
+
+.travel__vehicle {
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  animation-name: travel-move;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+}
+
+/* 移動表現は画像を増やさず CSS のみで描く。 */
+.travel__vehicle--plane {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><path d='M4 8 L46 24 L4 40 L14 24 Z' fill='%23ffffff'/></svg>");
+}
+
+.travel__vehicle--train {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><rect x='8' y='12' width='32' height='22' rx='6' fill='%23ffffff'/><circle cx='16' cy='38' r='4' fill='%23ffffff'/><circle cx='32' cy='38' r='4' fill='%23ffffff'/></svg>");
+}
+
+.travel__vehicle--ship {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><path d='M6 30h36l-6 10H12z' fill='%23ffffff'/><path d='M24 6l12 20H24z' fill='%23ffffff'/></svg>");
+}
+
+@keyframes travel-move {
+  from {
+    left: -6%;
+  }
+  to {
+    left: 86%;
+  }
+}
+
+.travel__mode {
+  font-size: 12px;
+  opacity: 0.92;
+}
+
+.travel__cast {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  height: 150px;
+}
+
+.travel__hero {
+  width: 96px;
+  height: 138px;
+}
+
+.travel__guide {
+  width: 118px;
+  height: auto;
+  object-fit: contain;
+  animation: mascot-bob 2.4s ease-in-out infinite;
+}
+
+.travel__hint {
+  flex: 0 0 auto;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 演出を止めても、出発地・到着地・移動表現・スキップは必ず見える状態を保つ。 */
+  .travel__guide {
+    animation: none;
+  }
+
+  .travel__vehicle {
+    animation: none;
+    left: 40%;
+  }
+}
+
+/* ---- 国紹介 ---- */
+.screen--intro .screen__body {
+  overflow-y: auto;
+}
+
+.intro__hero {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intro__flag {
+  flex: 0 0 auto;
+  width: 60px;
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid var(--c-line);
+  background: #fff;
+}
+
+.intro__flag--japan {
+  background: radial-gradient(circle at 50% 50%, #bc002d 0 26%, #fff 27% 100%);
+}
+
+.intro__greeting {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.intro__greeting-label {
+  font-size: 10px;
+  color: var(--c-ink-soft);
+}
+
+.intro__greeting-ja {
+  font-size: 18px;
+}
+
+.intro__greeting-en {
+  font-size: 12px;
+  color: var(--c-sky-2);
+  font-weight: 700;
+}
+
+.intro__hero-sprite {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 78px;
+}
+
+.intro__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intro-card {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.intro-card__heading {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.intro-card__body {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.intro-card__source {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--c-ink-soft);
+}
+
+.intro__learning {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}

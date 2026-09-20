@@ -63,6 +63,7 @@ body {
 /* カルタ画面と世界マップは縦スクロールさせない。 */
 #app[data-route='karta'],
 #app[data-route='title'],
+#app[data-route='travel'],
 #app[data-route='worldMap'] {
   height: 100vh;
   height: 100dvh;

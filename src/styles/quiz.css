@@ -1,0 +1,158 @@
+/* 任意確認テスト。受験を強制せず、間違いを責めない見た目にする。 */
+
+/* ---- テスト選択 ---- */
+.screen--quiz-prompt .screen__body {
+  align-items: center;
+  text-align: center;
+}
+
+.quiz-prompt__cast {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  height: 128px;
+  margin-top: 6px;
+}
+
+.quiz-prompt__guide {
+  width: 104px;
+  height: auto;
+  object-fit: contain;
+  animation: mascot-bob 3s ease-in-out infinite;
+}
+
+.quiz-prompt__hero {
+  width: 72px;
+  height: 104px;
+}
+
+.quiz-prompt__lead {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.screen--quiz-prompt .screen__footer {
+  width: 100%;
+  max-width: 420px;
+}
+
+/* ---- テスト本体 ---- */
+.screen--quiz .screen__body {
+  gap: 14px;
+}
+
+.quiz__progress {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+  text-align: center;
+}
+
+.quiz__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.quiz__format {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+}
+
+.quiz__prompt {
+  font-size: clamp(24px, 8vw, 34px);
+  font-weight: 800;
+  text-align: center;
+  word-break: break-word;
+}
+
+.quiz__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quiz-choice {
+  min-height: var(--tap-min);
+  padding: 12px 14px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.quiz-choice:active {
+  transform: scale(0.98);
+}
+
+.quiz-choice:disabled {
+  cursor: default;
+}
+
+.quiz-choice.is-correct {
+  border-color: var(--c-ok);
+  background: #e6f6ee;
+  color: var(--c-ok);
+}
+
+.quiz-choice.is-wrong {
+  border-color: var(--c-ng);
+  background: #fdecea;
+  color: var(--c-ng);
+}
+
+/* 不正解のときは正解も示して、覚え直せるようにする。 */
+.quiz-choice.is-answer {
+  border-color: var(--c-ok);
+  background: #f1faf5;
+}
+
+/* ---- テスト結果 ---- */
+.screen--quiz-result .screen__body {
+  overflow-y: auto;
+}
+
+.quiz-result__hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quiz-result__sprite {
+  flex: 0 0 auto;
+  width: 66px;
+  height: 94px;
+}
+
+.quiz-result__score {
+  flex: 1 1 auto;
+}
+
+.quiz-result__score .stat-tile__value {
+  font-size: 26px;
+}
+
+@media (max-width: 340px) {
+  .quiz-choice {
+    font-size: 15px;
+    padding: 10px 10px;
+  }
+
+  .quiz-prompt__cast {
+    height: 104px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-prompt__guide {
+    animation: none;
+  }
+}

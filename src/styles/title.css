@@ -1,0 +1,194 @@
+/*
+ * 正式表紙。
+ * 背景・ロゴ・キャラクター・ボタンは1枚に焼き込まず、別レイヤーとして重ねる。
+ * ボタン文字は画像に含めず、DOM のテキストのまま保つ。
+ */
+
+.screen--title {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  /* 画像の読み込みに失敗しても暗い画面にならないよう、下地に空の色を置く。 */
+  background: linear-gradient(180deg, #7ec2ea 0%, #bfe0f2 45%, #e8dfc4 100%);
+  padding: calc(var(--safe-top) + 10px) calc(var(--safe-right) + var(--gutter))
+    calc(var(--safe-bottom) + 14px) calc(var(--safe-left) + var(--gutter));
+}
+
+/* ---- レイヤー1: 背景 ---- */
+.title__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* 縦横を引き伸ばさず、中央を基準に画面を覆う。 */
+  object-fit: cover;
+  object-position: center 42%;
+  z-index: 0;
+}
+
+/* ---- レイヤー2: 明度調整（文字とボタンの可読性を確保する最小限） ---- */
+.title__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(10, 40, 70, 0.22) 0%, rgba(10, 40, 70, 0) 22%),
+    linear-gradient(0deg, rgba(20, 35, 25, 0.46) 0%, rgba(20, 35, 25, 0.12) 18%, rgba(20, 35, 25, 0) 34%);
+}
+
+/* ---- レイヤー3: ロゴ ---- */
+.title__head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.title__logo {
+  display: block;
+  width: min(88%, 420px);
+  height: auto;
+  /* 透過素材なので縦横比を保って収める。 */
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(12, 35, 60, 0.32));
+  animation: title-logo-in 620ms ease-out both;
+}
+
+@keyframes title-logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 画像が読めなかった場合に出す文字だけの代替。 */
+.title__logo-fallback {
+  display: none;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(9, 32, 54, 0.5);
+}
+
+.title__logo-fallback .title__ja {
+  font-size: clamp(28px, 9vw, 40px);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.title__logo-fallback .title__en {
+  font-size: clamp(11px, 3.4vw, 14px);
+  letter-spacing: 0.32em;
+  font-weight: 700;
+}
+
+.screen--title.is-logo-missing .title__logo {
+  display: none;
+}
+
+.screen--title.is-logo-missing .title__logo-fallback {
+  display: block;
+}
+
+/* ---- レイヤー4: 旅行かばんキャラクター ---- */
+.title__stage {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-height: 0;
+  /* ボタンへ重ならないよう、下端に余白を残す。 */
+  padding: 0 2% 4px;
+  pointer-events: none;
+}
+
+.title__mascot {
+  display: block;
+  width: min(42%, 190px);
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(12, 35, 60, 0.3));
+  transform-origin: 50% 100%;
+  animation: mascot-bob 3.4s ease-in-out infinite;
+}
+
+@keyframes mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1deg);
+  }
+}
+
+/* ---- レイヤー5-6: ボタン ---- */
+.title__actions {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title__sub-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.title__sub-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--c-ink);
+  /* 表紙の主要ボタンはすべて 44x44 CSS px 以上を確保する。 */
+  min-height: var(--tap-min);
+}
+
+.title__note {
+  position: relative;
+  z-index: 3;
+  margin-top: 6px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 4px rgba(9, 32, 54, 0.6);
+}
+
+/* 低い画面ではキャラクターを控えめにして、ロゴとボタンを優先する。 */
+@media (max-height: 600px) {
+  .title__mascot {
+    width: min(34%, 140px);
+  }
+
+  .title__logo {
+    width: min(78%, 340px);
+  }
+}
+
+@media (max-width: 340px) {
+  .title__note {
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title__logo,
+  .title__mascot {
+    animation: none;
+  }
+}

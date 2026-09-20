@@ -68,10 +68,19 @@ function serveDist() {
 async function openPronunciationPanel(page, baseUrl) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: '旅をはじめる' }).click();
+  // Phase 1 で主人公選択が入った。初回のみ表示されるので、出ていれば通過する。
+  if ((await page.locator('.screen--characters').count()) > 0) {
+    await page.getByRole('button', { name: /女の子の主人公/ }).click();
+  }
   await page.getByRole('button', { name: /学年別/ }).click();
   await page.getByRole('button', { name: '小学生' }).click();
   await page.getByRole('button', { name: /^6枚/ }).click();
   await page.getByRole('button', { name: '出発する' }).click();
+  // Phase 1 で移動演出と国紹介が入った。演出はスキップして盤面まで進む。
+  await page.waitForSelector('.screen--travel');
+  await page.getByRole('button', { name: 'スキップ' }).click();
+  await page.waitForSelector('.screen--intro');
+  await page.getByRole('button', { name: 'カルタをはじめる' }).click();
   await page.waitForSelector('.card');
 
   const cardId = await page.locator('.card').first().getAttribute('data-card-id');

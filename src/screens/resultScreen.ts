@@ -62,9 +62,12 @@ export function resultScreen(ctx: AppContext): HTMLElement {
       ]),
       mistakenSection,
       el('div', { class: 'screen__footer screen__footer--stack' }, [
-        button(UI.actions.retry, () => ctx.navigate({ name: 'karta' }), { class: 'btn btn--primary' }),
+        // ウェーブ結果のあとは、任意の確認テストを受けるか選ぶ。
+        button(UI.actions.next, () => ctx.navigate({ name: 'quizPrompt' }), {
+          class: 'btn btn--primary btn--large',
+        }),
         el('div', { class: 'button-row' }, [
-          button(UI.actions.continue, () => ctx.navigate({ name: 'worldMap' }), { class: 'btn' }),
+          button(UI.actions.retry, () => ctx.navigate({ name: 'karta' }), { class: 'btn' }),
           button(UI.actions.passport, () => ctx.navigate({ name: 'passport' }), { class: 'btn' }),
         ]),
       ]),

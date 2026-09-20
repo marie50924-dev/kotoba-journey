@@ -11,7 +11,7 @@ import type { AppContext } from '../app/state';
 export function worldMapScreen(ctx: AppContext): HTMLElement {
   if (!ctx.selection.destinationId) ctx.selection.destinationId = 'japan';
 
-  const departButton = button(UI.actions.depart, () => ctx.navigate({ name: 'karta' }), {
+  const departButton = button(UI.actions.depart, () => ctx.navigate({ name: 'travel' }), {
     class: 'btn btn--primary btn--large',
   });
 

@@ -2,7 +2,13 @@ import type { AppContext, Route } from './state';
 import { createSelection } from './state';
 import { titleScreen } from '../screens/titleScreen';
 import { courseEntryScreen, courseListScreen, cardCountScreen } from '../screens/courseScreens';
+import { characterSelectScreen } from '../screens/characterSelectScreen';
 import { worldMapScreen } from '../screens/worldMapScreen';
+import { travelScreen } from '../screens/travelScreen';
+import { countryIntroScreen } from '../screens/countryIntroScreen';
+import { quizPromptScreen } from '../screens/quizPromptScreen';
+import { waveQuizScreen } from '../screens/waveQuizScreen';
+import { waveQuizResultScreen } from '../screens/waveQuizResultScreen';
 import { kartaScreen } from '../screens/kartaScreen';
 import { resultScreen } from '../screens/resultScreen';
 import { passportScreen } from '../screens/passportScreen';
@@ -34,6 +40,8 @@ export function createApp(deps: AppDependencies): AppContext {
     selection: createSelection(),
     lastResult: null,
     lastResultWasBest: false,
+    wave: null,
+    quiz: null,
     navigate(route: Route) {
       history.push(route);
       render(route);
@@ -42,6 +50,15 @@ export function createApp(deps: AppDependencies): AppContext {
       history.pop();
       const previous = history[history.length - 1] ?? { name: 'title' as const };
       render(previous);
+    },
+    startJourney() {
+      // 主人公が未選択なら1度だけ選択画面を挟む。選択済みならそのまま進む。
+      const chosen = deps.records.get().characterId;
+      const hasChosen = chosen !== null || deps.records.get().totalPlays > 0;
+      ctx.navigate(hasChosen ? { name: 'courseEntry' } : { name: 'characterSelect' });
+    },
+    selectedCharacterId() {
+      return deps.records.get().characterId;
     },
   };
 
@@ -64,6 +81,8 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
   switch (route.name) {
     case 'title':
       return titleScreen(ctx);
+    case 'characterSelect':
+      return characterSelectScreen(ctx);
     case 'courseEntry':
       return courseEntryScreen(ctx);
     case 'courseList':
@@ -72,10 +91,20 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
       return cardCountScreen(ctx);
     case 'worldMap':
       return worldMapScreen(ctx);
+    case 'travel':
+      return travelScreen(ctx);
+    case 'countryIntro':
+      return countryIntroScreen(ctx);
     case 'karta':
       return kartaScreen(ctx);
     case 'result':
       return resultScreen(ctx);
+    case 'quizPrompt':
+      return quizPromptScreen(ctx);
+    case 'quiz':
+      return waveQuizScreen(ctx);
+    case 'quizResult':
+      return waveQuizResultScreen(ctx);
     case 'passport':
       return passportScreen(ctx);
     case 'settings':

@@ -1,11 +1,34 @@
 import type { CardCount, MasteryLevel, PlayResult } from '../domain/types';
 import { isCardCount } from '../domain/deck';
 import { calculateAccuracy, masteryFor } from '../domain/scoring';
+import { isCharacterId, type SelectedCharacterId } from '../data/characters';
 import type { KeyValueStore } from './safeStorage';
 
+/**
+ * 保存キーは v1 のまま据え置き、レコード内の version で世代を管理する。
+ * キーを変えると既存プレイヤーの記録が読めなくなるため。
+ */
 export const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
-export const RECORD_VERSION = 1;
+export const RECORD_VERSION = 2;
 const HISTORY_LIMIT = 10;
+/** 確認テストの履歴上限。localStorage が無制限に増えないようにする。 */
+export const QUIZ_HISTORY_LIMIT = 20;
+
+/**
+ * 各ウェーブ後の任意確認テストの記録。
+ * 通常カルタの集計（正解率・ベストタイム）とは別フィールドで保持する。
+ */
+export interface WaveQuizRecord {
+  date: string;
+  courseId: string;
+  destinationId: string;
+  waveId: string;
+  status: 'completed' | 'skipped';
+  questionCount: number;
+  correctCount: number;
+  incorrectPairIds: number[];
+  elapsedMs: number;
+}
 
 export interface PlayHistoryEntry {
   date: string;
@@ -35,6 +58,16 @@ export interface LearningRecord {
   visitedCountryIds: string[];
   history: PlayHistoryEntry[];
   audioEnabled: boolean;
+
+  // ---- v2 で追加 ----
+  /** 選んだ主人公。null は「あとで選ぶ（案内役中心）」。 */
+  characterId: SelectedCharacterId;
+  /** 任意確認テストの履歴。受験・スキップの両方を残す。 */
+  quizHistory: WaveQuizRecord[];
+  /** 到着演出を見たことがある国。2回目以降は短縮できる。 */
+  seenTravelIntros: string[];
+  /** 設定：移動演出を毎回スキップする。 */
+  skipTravelAnimation: boolean;
 }
 
 export function createEmptyRecord(): LearningRecord {
@@ -51,6 +84,10 @@ export function createEmptyRecord(): LearningRecord {
     visitedCountryIds: [],
     history: [],
     audioEnabled: true,
+    characterId: null,
+    quizHistory: [],
+    seenTravelIntros: [],
+    skipTravelAnimation: false,
   };
 }
 
@@ -85,6 +122,29 @@ function asBestTimes(value: unknown): Partial<Record<CardCount, number>> {
     }
   }
   return result;
+}
+
+function asQuizHistory(value: unknown): WaveQuizRecord[] {
+  if (!Array.isArray(value)) return [];
+  const entries: WaveQuizRecord[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const item = raw as Record<string, unknown>;
+    if (typeof item.date !== 'string') continue;
+    if (item.status !== 'completed' && item.status !== 'skipped') continue;
+    entries.push({
+      date: item.date,
+      courseId: typeof item.courseId === 'string' ? item.courseId : '',
+      destinationId: typeof item.destinationId === 'string' ? item.destinationId : '',
+      waveId: typeof item.waveId === 'string' ? item.waveId : '',
+      status: item.status,
+      questionCount: asNumber(item.questionCount, 0),
+      correctCount: asNumber(item.correctCount, 0),
+      incorrectPairIds: asPairIdArray(item.incorrectPairIds),
+      elapsedMs: asNumber(item.elapsedMs, 0),
+    });
+  }
+  return entries.slice(0, QUIZ_HISTORY_LIMIT);
 }
 
 function asHistory(value: unknown): PlayHistoryEntry[] {
@@ -141,6 +201,12 @@ export function parseRecord(raw: string | null): LearningRecord {
     visitedCountryIds: asStringArray(data.visitedCountryIds),
     history: asHistory(data.history),
     audioEnabled: asBoolean(data.audioEnabled, empty.audioEnabled),
+
+    // v1 の保存データには存在しないフィールド。欠けていれば初期値で補う。
+    characterId: isCharacterId(data.characterId) ? data.characterId : null,
+    quizHistory: asQuizHistory(data.quizHistory),
+    seenTravelIntros: asStringArray(data.seenTravelIntros),
+    skipTravelAnimation: asBoolean(data.skipTravelAnimation, empty.skipTravelAnimation),
   };
 }
 
@@ -248,6 +314,29 @@ export function applyPlayResult(
     bestTimeMs,
     history: [entry, ...record.history].slice(0, HISTORY_LIMIT),
   };
+}
+
+/**
+ * 確認テストの記録を1件追加した新しい記録を返す純粋関数。
+ * 通常カルタの正解率・ベストタイム・習得状況には一切触れない。
+ * スキップも記録するが、不正解としては数えない。
+ */
+export function appendQuizRecord(
+  record: LearningRecord,
+  entry: WaveQuizRecord,
+): LearningRecord {
+  return {
+    ...record,
+    quizHistory: [entry, ...record.quizHistory].slice(0, QUIZ_HISTORY_LIMIT),
+  };
+}
+
+/** 受験したテストだけを対象にした通算正答率。スキップは分母に入れない。 */
+export function quizAccuracy(record: LearningRecord): number {
+  const taken = record.quizHistory.filter((q) => q.status === 'completed');
+  const total = taken.reduce((sum, q) => sum + q.questionCount, 0);
+  const correct = taken.reduce((sum, q) => sum + q.correctCount, 0);
+  return calculateAccuracy(correct, Math.max(0, total - correct));
 }
 
 export function isNewBestTime(record: LearningRecord, cardCount: CardCount, elapsedMs: number): boolean {

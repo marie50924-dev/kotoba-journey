@@ -83,117 +83,6 @@
   min-width: 0;
 }
 
-/* ---- 表紙 ---- */
-.screen--title {
-  position: relative;
-  background: linear-gradient(180deg, #1d5f96 0%, #4f9bd0 48%, #f4d9a6 100%);
-  color: #fff;
-  justify-content: center;
-  padding-bottom: calc(var(--safe-bottom) + 24px);
-}
-
-.title__sky {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
-.title__sun {
-  position: absolute;
-  top: 12%;
-  right: 16%;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #fff5cf 0%, #ffd66e 70%, rgba(255, 214, 110, 0) 100%);
-}
-
-.title__cloud {
-  position: absolute;
-  height: 26px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  filter: blur(0.4px);
-}
-
-.title__cloud--a {
-  top: 24%;
-  left: 8%;
-  width: 118px;
-}
-
-.title__cloud--b {
-  top: 36%;
-  left: 46%;
-  width: 84px;
-  height: 20px;
-}
-
-.title__ground {
-  position: absolute;
-  left: -10%;
-  right: -10%;
-  bottom: -14%;
-  height: 40%;
-  border-radius: 50% 50% 0 0;
-  background: linear-gradient(180deg, #7bbf6a, #4f9553);
-}
-
-.title__content {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  text-align: center;
-  text-shadow: 0 2px 8px rgba(9, 32, 54, 0.35);
-}
-
-.title__badge {
-  font-size: 11px;
-  white-space: nowrap;
-  background: rgba(9, 32, 54, 0.4);
-  border-radius: 999px;
-  padding: 4px 10px;
-  text-shadow: none;
-}
-
-.title__ja {
-  font-size: clamp(28px, 9vw, 40px);
-  font-weight: 900;
-  letter-spacing: 0.06em;
-}
-
-.title__en {
-  font-size: clamp(11px, 3.4vw, 14px);
-  letter-spacing: 0.32em;
-  font-weight: 700;
-}
-
-.title__tagline {
-  font-size: 13px;
-  opacity: 0.95;
-}
-
-.title__actions {
-  width: 100%;
-  max-width: 360px;
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.title__sub-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.title__sub-actions .btn {
-  flex: 1 1 0;
-  color: var(--c-ink);
-}
-
 /* ---- 選択系 ---- */
 .option-grid {
   display: grid;
@@ -531,11 +420,6 @@
     --gutter: 10px;
   }
 
-  .title__sun,
-  .title__cloud {
-    display: none;
-  }
-
   .option-card {
     min-height: 56px;
     padding: 10px 12px;
@@ -554,8 +438,3 @@
   }
 }
 
-@media (max-height: 600px) {
-  .title__tagline {
-    display: none;
-  }
-}

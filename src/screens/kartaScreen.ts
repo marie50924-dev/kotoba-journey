@@ -26,6 +26,14 @@ export function kartaScreen(ctx: AppContext): HTMLElement {
   const deck = buildDeck(SAMPLE_PAIRS, cardCount, seed);
   const session = new PlaySession(deck, performance.now());
 
+  // 1つのカルタ盤面を1ウェーブとして扱う。確認テストはこの pairIds からだけ作る。
+  ctx.wave = {
+    waveId: `${ctx.selection.destinationId ?? 'japan'}-${cardCount}-${seed}`,
+    pairIds: Array.from(new Set(deck.map((card) => card.pairId))),
+    seed,
+  };
+  ctx.quiz = null;
+
   const pairsValue = el('strong', { text: `0 / ${session.totalPairCount}` });
   const mistakesValue = el('strong', { text: '0' });
   const timeValue = el('strong', { text: '0:00' });

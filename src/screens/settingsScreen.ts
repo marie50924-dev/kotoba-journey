@@ -1,5 +1,6 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
+import { findCharacter } from '../data/characters';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
@@ -45,10 +46,46 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
     { class: 'btn btn--danger' },
   );
 
+  // 移動演出を毎回スキップするかどうか。
+  const travelToggle = el('button', {
+    type: 'button',
+    class: 'toggle',
+    'aria-pressed': String(ctx.records.get().skipTravelAnimation),
+  });
+
+  function renderTravelToggle(): void {
+    const skip = ctx.records.get().skipTravelAnimation;
+    travelToggle.textContent = skip ? UI.settings.audioOff : UI.settings.audioOn;
+    travelToggle.classList.toggle('is-on', !skip);
+    travelToggle.setAttribute('aria-pressed', String(skip));
+  }
+
+  travelToggle.addEventListener('click', () => {
+    const next = !ctx.records.get().skipTravelAnimation;
+    ctx.records.update((record) => ({ ...record, skipTravelAnimation: next }));
+    renderTravelToggle();
+  });
+  renderTravelToggle();
+
+  const character = findCharacter(ctx.selectedCharacterId());
+
   return screenShell({ title: UI.settings.heading, onBack: () => ctx.back() }, [
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.settings.audio }),
       toggle,
+    ]),
+    el('div', { class: 'setting-row' }, [
+      el('span', { class: 'setting-row__label', text: UI.settings.travelAnimation }),
+      travelToggle,
+    ]),
+    el('div', { class: 'setting-row' }, [
+      el('span', { class: 'setting-row__label' }, [
+        el('span', { text: UI.settings.character }),
+        el('span', { class: 'setting-row__value', text: character?.label ?? UI.characters.later }),
+      ]),
+      button(UI.actions.changeCharacter, () => ctx.navigate({ name: 'characterSelect' }), {
+        class: 'btn',
+      }),
     ]),
     !audioSupported ? el('p', { class: 'note', text: UI.settings.unsupportedAudio }) : null,
     el('div', { class: 'setting-row' }, [
