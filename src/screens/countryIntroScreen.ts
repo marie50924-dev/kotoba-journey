@@ -1,6 +1,11 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
-import { buildDetailSections, findCountryIntro } from '../data/countryIntros';
+import {
+  UNVERIFIED_SOURCE_NOTE,
+  buildDetailSections,
+  findCountryIntro,
+  hasUnverifiedSource,
+} from '../data/countryIntros';
 import type { CountryIntro, DetailSection, InfoSource, NamedItem } from '../data/countryIntros';
 import { ageGroupFromAvatarAgeGroup, findAgeGroup } from '../data/characters';
 import { findAvatar, displayName, AVATARS } from '../data/avatars';
@@ -176,6 +181,10 @@ function detailCard(section: DetailSection): HTMLElement {
           text: `${UI.countryIntro.source}: ${source.sourceLabel}`,
         }),
       ),
+      // 外部資料を引かないカードでは、何が正本なのかを示す。
+      section.sourceNote
+        ? el('p', { class: 'intro-card__source', text: section.sourceNote })
+        : null,
     ],
   );
 }
@@ -217,6 +226,10 @@ function sourcesBlock(intro: CountryIntro): HTMLElement {
     el('h3', { class: 'intro-card__heading', text: UI.countryIntro.sources }),
     toggle,
     list,
+    // 本文をまだ確認できていない出典が残っているあいだだけ出す。
+    hasUnverifiedSource(intro)
+      ? el('p', { class: 'note intro-sources__pending', text: UNVERIFIED_SOURCE_NOTE })
+      : null,
   ]);
 }
 

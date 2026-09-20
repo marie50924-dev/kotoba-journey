@@ -515,6 +515,11 @@
   color: var(--c-ink-soft);
 }
 
+.intro-sources__pending {
+  margin: 0;
+  font-size: 11px;
+}
+
 .intro__start {
   width: 100%;
 }

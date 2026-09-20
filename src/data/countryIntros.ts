@@ -28,14 +28,39 @@ import { findPair } from './wordPairs';
 /** 国旗の表現。正式な旗素材が入るまでは CSS で描く。 */
 export type CountryFlag = { kind: 'japan' } | { kind: 'placeholder' };
 
-/** 出典。1件ごとに確認日を持たせる。 */
+/**
+ * 出典の確認状態。
+ *
+ * - 'body-checked': 資料の本文を実際に読んで内容を確認した。
+ * - 'url-only'    : 公的ドメインに限定した検索で所在は特定したが、
+ *                   本文は読めていない。**内容は未確定**として扱う。
+ *
+ * この開発環境は外向き通信が遮断されており、公的機関のページを
+ * 直接取得できない。そのため現時点のすべての出典が 'url-only' である。
+ */
+export type SourceVerification = 'body-checked' | 'url-only';
+
+/** 出典。1件ごとに確認日と確認状態を持たせる。 */
 export interface InfoSource {
   id: string;
-  /** 機関名と資料名。 */
+  /** 機関名と資料名。機関名だけでは資料を特定できないので、資料名まで書く。 */
   sourceLabel: string;
   sourceUrl: string;
   /** 確認した日（YYYY-MM-DD）。 */
   checkedAt: string;
+  /** 本文まで読めたかどうか。 */
+  verification: SourceVerification;
+}
+
+/**
+ * 本文を読めていない出典があるときに、画面と報告へ出す短い断り書き。
+ * すべての出典が 'body-checked' になったら、この表示は消える。
+ */
+export const UNVERIFIED_SOURCE_NOTE =
+  'リンク先の本文はまだ確認できていません。内容は確認中です。';
+
+export function hasUnverifiedSource(intro: CountryIntro): boolean {
+  return intro.sources.some((s) => s.verification !== 'body-checked');
 }
 
 /** 都市・観光地・料理・特産物など、あとから足したり並べ替えたりする項目。 */
@@ -95,6 +120,11 @@ export interface CountryIntro {
   climate: string[];
   /** 旅行時の服装の目安。 */
   clothingTips: string[];
+  /**
+   * 服装の目安についての断り書き。
+   * これはゲーム内の一般的な案内であって、天気予報ではないことを示す。
+   */
+  clothingNote: string;
 
   /** 有名な建物・場所・観光地。 */
   landmarks: NamedItem[];
@@ -122,40 +152,133 @@ export interface CountryIntro {
 }
 
 /**
- * 出典。
- * 2026-09-20 に、公的ドメインに限定した検索で所在と内容を照合した。
+ * 日本の出典。
+ *
+ * 2026-09-20 に、公的ドメインに限定した検索で所在を特定した。
+ * ただし、この開発環境からは各機関のページ本文を取得できないため、
+ * すべて verification: 'url-only'（本文未確認）である。
+ * 本文を確認したら 'body-checked' へ変え、必要なら文章も直すこと。
  */
 const JAPAN_SOURCES: InfoSource[] = [
+  // ---- まち ----
+  {
+    id: 'tokyo-profile',
+    sourceLabel: '東京都「東京都プロフィール　都の概要」',
+    sourceUrl: 'https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+  {
+    id: 'tokyo-municipalities',
+    sourceLabel: '東京都「都内区市町村マップ」',
+    sourceUrl: 'https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+
+  // ---- しぜん ----
+  {
+    id: 'rinya-forest',
+    sourceLabel: '林野庁「都道府県別森林率・人工林率」',
+    sourceUrl: 'https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+  {
+    id: 'gsi-mountains',
+    sourceLabel: '国土地理院「日本の主な山岳標高（1003山）」',
+    sourceUrl: 'https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+
+  // ---- きこう ----
   {
     id: 'jma-climate',
     sourceLabel: '気象庁「日本の気候」',
     sourceUrl:
       'https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html',
     checkedAt: '2026-09-20',
+    verification: 'url-only',
   },
   {
-    id: 'gsi-mountains',
-    sourceLabel: '国土地理院「日本の主な山岳標高」',
-    sourceUrl: 'https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html',
+    id: 'jma-baiu',
+    sourceLabel: '気象庁「過去の梅雨入りと梅雨明け」',
+    sourceUrl: 'https://www.data.jma.go.jp/cpd/baiu/index.html',
     checkedAt: '2026-09-20',
+    verification: 'url-only',
   },
-  {
-    id: 'rinya-forest',
-    sourceLabel: '林野庁「都道府県別森林率・人工林率」',
-    sourceUrl: 'https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html',
-    checkedAt: '2026-09-20',
-  },
+
+  // ---- みどころ ----
   {
     id: 'bunka-heritage',
     sourceLabel: '文化庁「日本の世界遺産一覧」',
     sourceUrl: 'https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/',
     checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+  {
+    id: 'bunka-horyuji',
+    sourceLabel: '文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」',
+    sourceUrl:
+      'https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+  {
+    id: 'unesco-horyuji',
+    sourceLabel: 'UNESCO 世界遺産センター「法隆寺地域の仏教建造物」',
+    sourceUrl: 'https://whc.unesco.org/ja/list/660',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+
+  // ---- たべもの・特産物 ----
+  {
+    id: 'maff-washoku',
+    sourceLabel: '農林水産省「『和食』がユネスコ無形文化遺産に登録されています」',
+    sourceUrl: 'https://www.maff.go.jp/j/keikaku/syokubunka/ich/',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+  {
+    id: 'maff-local-food',
+    sourceLabel: '農林水産省「うちの郷土料理　次世代に伝えたい大切な味」',
+    sourceUrl: 'https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/index.html',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+  {
+    id: 'maff-traditional-foods',
+    sourceLabel: '農林水産省「にっぽん伝統食図鑑」',
+    sourceUrl: 'https://www.maff.go.jp/j/keikaku/syokubunka/traditional-foods/index.html',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+
+  // ---- れきし ----
+  {
+    id: 'webjapan-history',
+    sourceLabel: 'Web Japan（外務省）Kids Web Japan「歴史」',
+    sourceUrl: 'https://web-japan.org/kidsweb/explore/history/index.html',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
+  },
+
+  // ---- ぶんか ----
+  {
+    id: 'webjapan-annual-events',
+    sourceLabel: 'Web Japan（外務省）Japan Fact Sheet「年中行事」',
+    sourceUrl: 'https://web-japan.org/factsheet/archives/ja/pdf/J21_annual.pdf',
+    checkedAt: '2026-09-20',
+    verification: 'url-only',
   },
   {
     id: 'kankocho-manners',
-    sourceLabel: '観光庁「日本のマナーを知ってもらおう！」',
+    sourceLabel: '観光庁「日本のマナーを知ってもらおう！　訪日外国人旅行者向けマナー啓発動画」',
     sourceUrl: 'https://www.mlit.go.jp/kankocho/news08_000304.html',
     checkedAt: '2026-09-20',
+    verification: 'url-only',
   },
 ];
 
@@ -196,6 +319,9 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       '春から夏へ変わるころに、雨の多い「梅雨（つゆ）」があります。沖縄や奄美では5月ごろにはじまります。',
       '四季があり、季節によって景色が変わります。',
     ],
+    // 気象情報をもとにしたゲーム内の一般的な案内。天気予報ではない。
+    clothingNote:
+      '服装の目安は、公的な気候情報をもとにした一般的な案内です。天気予報ではありません。出かける前に、その日の予報をたしかめてください。',
     clothingTips: [
       '夏（6〜8月）は暑くてしめっぽいので、すずしい服と、ぼうし・水とうがあると安心です。',
       '冬（12〜2月）は地域差が大きいので、行き先の気温を調べてから決めましょう。北の地方や日本海側では雪の用意がいります。',
@@ -212,7 +338,7 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       {
         id: 'jp-landmark-horyuji',
         name: '法隆寺（奈良県）',
-        note: '世界文化遺産。今ものこる木造の建物として、世界でもっとも古いものと評価されています。',
+        note: '世界文化遺産。西院の金堂・五重塔などは、今ものこる木造の建物として世界でもっとも古いものと説明されています。',
       },
       {
         id: 'jp-landmark-himeji',
@@ -290,11 +416,16 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     learning: '身のまわりのことばを、日本語と英語のカルタで集めます。',
 
     sources: JAPAN_SOURCES,
+    // 事実説明を含むセクションには、その内容を直接あつかう資料を割り当てる。
+    // words はゲーム内の語彙データが正本なので、外部出典を持たない。
     sectionSources: {
+      cities: ['tokyo-profile', 'tokyo-municipalities'],
       nature: ['rinya-forest', 'gsi-mountains'],
-      climate: ['jma-climate'],
-      landmarks: ['bunka-heritage', 'gsi-mountains'],
-      culture: ['kankocho-manners'],
+      climate: ['jma-climate', 'jma-baiu'],
+      landmarks: ['bunka-heritage', 'bunka-horyuji', 'unesco-horyuji', 'gsi-mountains'],
+      foods: ['maff-washoku', 'maff-local-food', 'maff-traditional-foods'],
+      history: ['webjapan-history'],
+      culture: ['webjapan-annual-events', 'kankocho-manners'],
     },
   },
 ];
@@ -326,8 +457,25 @@ export interface DetailSection {
   lines: string[];
   /** 名前つきの並び。都市・観光地・料理などに使う。 */
   items: NamedItem[];
-  /** このカードの出典。 */
+  /** このカードの出典。外部資料を使わないカードでは空になる。 */
   sources: InfoSource[];
+  /**
+   * 出典欄に添える補足。
+   * 外部資料を使わないカード（ことば）で、何が正本なのかを示すのに使う。
+   */
+  sourceNote?: string;
+}
+
+/**
+ * 外部出典を持たないセクション。
+ * ここに挙げたものは、ゲーム内のデータ自体が正本なので外部資料を引かない。
+ * それ以外の、事実説明を含むセクションには出典が必要。
+ */
+export const INTERNAL_DATA_SECTIONS: readonly DetailSectionId[] = ['words'];
+
+/** 事実説明を含む＝出典が必要なセクションか。 */
+export function needsSource(id: DetailSectionId): boolean {
+  return !INTERNAL_DATA_SECTIONS.includes(id);
 }
 
 const SECTION_HEADING: Record<DetailSectionId, string> = {
@@ -374,7 +522,8 @@ export function buildDetailSections(intro: CountryIntro): DetailSection[] {
     {
       id: 'climate',
       heading: SECTION_HEADING.climate,
-      lines: [...intro.climate, ...intro.clothingTips],
+      // 服装の目安はゲーム内の案内。最後に「天気予報ではない」と断る。
+      lines: [...intro.climate, ...intro.clothingTips, intro.clothingNote],
       items: [],
       sources: sectionSources(intro, 'climate'),
     },
@@ -419,9 +568,15 @@ export function buildDetailSections(intro: CountryIntro): DetailSection[] {
         .map((w) => findPair(w.pairId))
         .filter((pair): pair is NonNullable<ReturnType<typeof findPair>> => pair !== undefined)
         .map((pair) => ({ id: `word-${pair.pairId}`, name: pair.ja, note: pair.en })),
-      sources: sectionSources(intro, 'words'),
+      // 外部資料は引かない。ゲーム内の語彙データが正本。
+      sources: [],
+      sourceNote: 'このカードの内容は、ゲーム内の語彙データがもとになっています。',
     },
   ];
 
-  return sections.filter((s) => s.lines.length > 0 || s.items.length > 0);
+  // 空の行を落としてから、中身の無いカードを取り除く。
+  // 断り書きだけが入って空のカードが出る、といった事故を防ぐ。
+  return sections
+    .map((section) => ({ ...section, lines: section.lines.filter((l) => l.trim().length > 0) }))
+    .filter((s) => s.lines.length > 0 || s.items.length > 0);
 }
