@@ -71,13 +71,12 @@ async function openPronunciationPanel(page, baseUrl) {
   // Phase 1-C1 で初回のキャラクター選択が入った。未選択のときだけ通過する。
   if ((await page.locator('.screen--avatar-select').count()) > 0) {
     await page.locator('.avatar-card').first().click();
-    await page.getByRole('button', { name: 'このキャラクターで旅する' }).click();
+    await page.getByRole('button', { name: 'この人を選ぶ' }).click();
     await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
   }
   await page.getByRole('button', { name: /学年別/ }).click();
   await page.getByRole('button', { name: '小学生' }).click();
-  // Phase 1 でコース別キャラクター紹介が入った。
-  await page.getByRole('button', { name: 'つぎへ' }).click();
+  // Phase 1 統合で、旧コース別キャラクター紹介は導線から外れた。
   await page.getByRole('button', { name: /^6枚/ }).click();
   await page.getByRole('button', { name: '出発する' }).click();
   // Phase 1 で移動演出と国紹介が入った。演出はスキップして盤面まで進む。

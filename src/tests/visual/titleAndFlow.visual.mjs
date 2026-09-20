@@ -154,42 +154,74 @@ try {
     await context.close();
   }
 
-  // ---- 2. 主人公選択から日本到着・国紹介・カルタまで進める ----
-  for (const quizPath of ['take', 'skip']) {
+  // ---- 2. キャラクター選択から日本到着・国紹介・カルタ・結果まで進める ----
+  {
     const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
     const page = await context.newPage();
     const jsErrors = [];
     page.on('pageerror', (e) => jsErrors.push(e.message));
-    const tag = quizPath === 'take' ? 'テストを受ける経路' : 'スキップ経路';
+    const tag = '通し操作';
 
     await page.goto(baseUrl, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: '旅をはじめる' }).click();
+
+    // 初回起動なので、80人からのキャラクター選択が挟まる。
+    await page.waitForSelector('.screen--avatar-select');
+    check(
+      await page.locator('.screen--avatar-select').count() === 1,
+      `${tag}: 初回にキャラクター選択が出ない`,
+    );
+    await page.getByRole('tab', { name: '小学生' }).click();
+    await page.locator('.avatar-card').first().click();
+    const chosenId = await page.locator('.avatar-card[aria-selected="true"]').getAttribute('data-avatar-id');
+    await page.getByRole('button', { name: 'この人を選ぶ' }).click();
+
+    await page.waitForSelector('.screen--avatar-confirm');
+    await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+
+    await page.waitForSelector('.option-card--category');
     await page.getByRole('button', { name: /学年別/ }).click();
     await page.getByRole('button', { name: '小学生' }).click();
 
-    // コース選択のあとに、そのコースの年齢層の2人が出る。
-    check(await page.locator('.screen--characters').count() === 1, `${tag}: コース別キャラクターが出ない`);
-    const charaSrc = await page.locator('.chara-card__img').first().getAttribute('src');
+    // コース選択のあとは、旧「コース連動キャラクター」画面を挟まず枚数選択へ進む。
     check(
-      charaSrc.includes('elementary'),
-      `${tag}: 小学生コースで小学生の画像が出ていない（${charaSrc}）`,
+      await page.locator('.screen--characters').count() === 0,
+      `${tag}: 廃止した旧キャラクター画面がまだ導線に残っている`,
     );
-    const charaLoaded = await page.evaluate(
-      () => document.querySelector('.chara-card__img')?.naturalWidth > 0,
-    );
-    check(charaLoaded, `${tag}: キャラクター画像が読み込めていない`);
-    await page.getByRole('button', { name: 'つぎへ' }).click();
-
     await page.getByRole('button', { name: /^6枚/ }).click();
     await page.getByRole('button', { name: '出発する' }).click();
 
     check(await page.locator('.screen--travel').count() === 1, `${tag}: 移動演出が出ない`);
     check(await page.getByRole('button', { name: 'スキップ' }).isVisible(), `${tag}: スキップできない`);
+
+    // 旅の正式イラストは、選んだキャラクターの年代に合わせて出す。
+    const charaSrc = await page.locator('.chara-card__img').first().getAttribute('src');
+    check(
+      charaSrc.includes('elementary'),
+      `${tag}: 小学生を選んだのに小学生の旅イラストが出ていない（${charaSrc}）`,
+    );
+    const charaLoaded = await page.evaluate(
+      () => document.querySelector('.chara-card__img')?.naturalWidth > 0,
+    );
+    check(charaLoaded, `${tag}: 旅の正式イラストが読み込めていない`);
+    check(
+      await page.locator('.travel__me .avatar-thumb').count() === 1,
+      `${tag}: 移動画面に自分のキャラクターが出ていない`,
+    );
     await page.getByRole('button', { name: 'スキップ' }).click();
 
     check(await page.locator('.screen--intro').count() === 1, `${tag}: 国紹介が出ない`);
     const cardCount = await page.locator('.intro-card').count();
     check(cardCount >= 2 && cardCount <= 3, `${tag}: 国紹介カードが2〜3枚でない（${cardCount}枚）`);
+    // 国紹介には自分のキャラクターと NPC を置く構造が残っている。
+    check(
+      await page.locator('.intro__cast-me .avatar-thumb').count() === 1,
+      `${tag}: 国紹介に自分のキャラクターの置き場所が無い`,
+    );
+    const companions = await page.locator('.intro__cast-npc').count();
+    check(companions >= 1, `${tag}: 国紹介に NPC の置き場所が無い`);
+    const meOnIntro = await page.locator('.intro__cast-npc [data-avatar-id]').count();
+    check(meOnIntro === 0 || chosenId !== null, `${tag}: 同行者の取得に失敗`);
     await page.getByRole('button', { name: 'カルタをはじめる' }).click();
 
     await page.waitForSelector('.card');
@@ -203,58 +235,41 @@ try {
       await page.waitForTimeout(70);
     }
 
+    // ウェーブ終了のチャットを閉じてから結果へ。
+    await page.waitForSelector('.chat', { timeout: 5000 });
+    await page.locator('.chat__choice').first().click();
+    await page.waitForTimeout(200);
+    await page.getByRole('button', { name: 'とじる' }).first().click();
+
     await page.waitForSelector('.screen--result', { timeout: 5000 });
-    await page.getByRole('button', { name: 'つぎへ' }).click();
-    await page.waitForSelector('.screen--quiz-prompt', { timeout: 5000 });
 
+    // 選択式の確認テストは通常導線から外してある。
     check(
-      await page.getByRole('button', { name: 'テストを受ける' }).isVisible(),
-      `${tag}: 「テストを受ける」が表示されない`,
+      await page.getByRole('button', { name: 'テストを受ける' }).count() === 0,
+      `${tag}: 無効化したはずの確認テストへの導線が残っている`,
     );
     check(
-      await page.getByRole('button', { name: '今回はスキップ' }).isVisible(),
-      `${tag}: 「今回はスキップ」が表示されない`,
+      await page.locator('.screen--quiz-prompt').count() === 0,
+      `${tag}: 確認テストの確認画面が出ている`,
     );
 
-    if (quizPath === 'take') {
-      await page.getByRole('button', { name: 'テストを受ける' }).click();
-      await page.waitForSelector('.screen--quiz', { timeout: 5000 });
-      let asked = 0;
-      while ((await page.locator('.screen--quiz').count()) > 0 && asked < 10) {
-        const choice = page.locator('.quiz-choice:not([disabled])').first();
-        if ((await choice.count()) === 0) break;
-        await choice.click();
-        asked += 1;
-        await page.waitForTimeout(820);
-      }
-      await page.waitForSelector('.screen--quiz-result', { timeout: 6000 });
-      check(asked >= 3 && asked <= 5, `${tag}: 出題数が3〜5問でない（${asked}問）`);
-      check(
-        await page.getByRole('button', { name: '次のウェーブへ' }).isVisible(),
-        `${tag}: テスト結果から次へ進めない`,
-      );
-      await page.getByRole('button', { name: '次のウェーブへ' }).click();
-    } else {
-      await page.getByRole('button', { name: '今回はスキップ' }).click();
-    }
-
+    await page.getByRole('button', { name: '旅をつづける' }).click();
     await page.waitForSelector('.screen--map', { timeout: 5000 });
-    check(await page.locator('.screen--map').count() === 1, `${tag}: 次へ進めていない`);
+    check(await page.locator('.screen--map').count() === 1, `${tag}: 結果から世界地図へ戻れない`);
 
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('kotoba-journey/learning-record/v1')),
     );
+    check(stored.version === 3, `${tag}: 保存が version 3 になっていない（${stored.version}）`);
     check(stored.selectedCourseId === 'grade-elementary', `${tag}: コース選択が保存されていない`);
-    check(stored.characterAgeGroup === null, `${tag}: 年齢層は未設定のままであるべき`);
-    check(stored.quizHistory.length === 1, `${tag}: テストの記録が残っていない`);
-    check(
-      stored.quizHistory[0].status === (quizPath === 'take' ? 'completed' : 'skipped'),
-      `${tag}: テストの受験状態が正しく保存されていない`,
-    );
+    check(stored.selectedAvatarId === chosenId, `${tag}: 選んだキャラクターが保存されていない`);
+    check(stored.characterAgeGroup === null, `${tag}: 旧年齢層設定は未設定のままであるべき`);
+    check(stored.quizHistory.length === 0, `${tag}: 無効化したテストの記録が増えている`);
+    check(stored.seenTravelIntros.includes('japan'), `${tag}: 到着演出の既読が残っていない`);
     check(stored.totalPlays === 1, `${tag}: 通常カルタの記録が二重加算されている`);
     check(jsErrors.length === 0, `${tag}: JavaScript エラー: ${jsErrors.join(' / ')}`);
 
-    if (failures.length === 0) console.log(`✓ ${tag} 通し操作`);
+    if (failures.length === 0) console.log(`✓ ${tag}（表紙→選択→旅→国紹介→カルタ→結果）`);
     await context.close();
   }
 
@@ -274,9 +289,13 @@ try {
     check(m.buttons.length === 3, 'reduced-motion: 表紙のボタンが欠けている');
 
     await page.getByRole('button', { name: '旅をはじめる' }).click();
+    await page.waitForSelector('.screen--avatar-select');
+    await page.locator('.avatar-card').first().click();
+    await page.getByRole('button', { name: 'この人を選ぶ' }).click();
+    await page.waitForSelector('.screen--avatar-confirm');
+    await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
     await page.getByRole('button', { name: /学年別/ }).click();
     await page.getByRole('button', { name: '小学生' }).click();
-    await page.getByRole('button', { name: 'つぎへ' }).click();
     await page.getByRole('button', { name: /^6枚/ }).click();
     await page.getByRole('button', { name: '出発する' }).click();
     await page.waitForSelector('.screen--travel');

@@ -100,6 +100,41 @@ function overflowMetrics() {
   };
 }
 
+/**
+ * ボタンの文字が1行に収まっているか。
+ * テキストノードの行ボックス数で数えるので、折り返しを直接検出できる。
+ */
+async function buttonLines(page, name) {
+  return page.evaluate((label) => {
+    const node = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent.trim() === label,
+    );
+    if (!node) return null;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const rect = node.getBoundingClientRect();
+    return {
+      lines: range.getClientRects().length,
+      height: rect.height,
+      overflow: node.scrollWidth > node.clientWidth + 1,
+    };
+  }, name);
+}
+
+/** 画面に出てはいけない開発者向けの説明。 */
+const FORBIDDEN_NOTES = [
+  '正式な立ち絵は後の工程で入ります',
+  'あなた自身のことは聞いていません',
+  'あらかじめ用意された台本です',
+];
+
+async function forbiddenNotesOnScreen(page) {
+  return page.evaluate((phrases) => {
+    const text = document.body.innerText;
+    return phrases.filter((phrase) => text.includes(phrase));
+  }, FORBIDDEN_NOTES);
+}
+
 async function clearBoard(page) {
   await page.waitForSelector('.card');
   while ((await page.locator('.card:not(.is-matched)').count()) > 0) {
@@ -169,7 +204,7 @@ try {
     await record('タブとフィルター');
 
     // ---- 3. 未選択では確定できない ----
-    const confirmBefore = await page.getByRole('button', { name: 'このキャラクターで旅する' }).isDisabled();
+    const confirmBefore = await page.getByRole('button', { name: 'この人を選ぶ' }).isDisabled();
     check(confirmBefore, `${label}: 未選択なのに確定できてしまう`);
 
     // ---- 4. 選択 -> 確認 -> 確定 ----
@@ -182,15 +217,45 @@ try {
       (await page.locator('.avatar-card[aria-selected="true"] .avatar-card__check').count()) === 1,
       `${label}: 選択中のチェック記号が出ていない（色だけに頼らない表示）`,
     );
-    const confirmAfter = await page.getByRole('button', { name: 'このキャラクターで旅する' }).isDisabled();
+    const confirmAfter = await page.getByRole('button', { name: 'この人を選ぶ' }).isDisabled();
     check(!confirmAfter, `${label}: 選択したのに確定できない`);
 
-    await page.getByRole('button', { name: 'このキャラクターで旅する' }).click();
+    // 「この人を選ぶ」は1行・44px以上・横あふれなし。
+    const selectBtn = await buttonLines(page, 'この人を選ぶ');
+    check(selectBtn !== null, `${label}: 「この人を選ぶ」が見つからない`);
+    check(selectBtn?.lines === 1, `${label}: 「この人を選ぶ」が${selectBtn?.lines}行になっている`);
+    check(selectBtn?.height >= 44, `${label}: 「この人を選ぶ」が44px未満（${selectBtn?.height.toFixed(1)}）`);
+    check(!selectBtn?.overflow, `${label}: 「この人を選ぶ」が横にあふれている`);
+
+    const notesOnSelect = await forbiddenNotesOnScreen(page);
+    check(
+      notesOnSelect.length === 0,
+      `${label}: 選択画面に開発者向けの説明が残っている（${notesOnSelect.join(' / ')}）`,
+    );
+
+    await page.getByRole('button', { name: 'この人を選ぶ' }).click();
     check(
       (await page.locator('.screen--avatar-confirm').count()) === 1,
       `${label}: 確認画面へ進めない`,
     );
     await record('キャラクター確認');
+
+    // 「この人と旅をはじめる」も1行・44px以上・横あふれなし。
+    const startBtn = await buttonLines(page, 'この人と旅をはじめる');
+    check(startBtn !== null, `${label}: 「この人と旅をはじめる」が見つからない`);
+    check(startBtn?.lines === 1, `${label}: 「この人と旅をはじめる」が${startBtn?.lines}行になっている`);
+    check(
+      startBtn?.height >= 44,
+      `${label}: 「この人と旅をはじめる」が44px未満（${startBtn?.height.toFixed(1)}）`,
+    );
+    check(!startBtn?.overflow, `${label}: 「この人と旅をはじめる」が横にあふれている`);
+
+    const notesOnConfirm = await forbiddenNotesOnScreen(page);
+    check(
+      notesOnConfirm.length === 0,
+      `${label}: 確認画面に開発者向けの説明が残っている（${notesOnConfirm.join(' / ')}）`,
+    );
+
     await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
 
     check(
@@ -222,6 +287,11 @@ try {
       (await page.locator('.chat input, .chat textarea').count()) === 0,
       `${label}: 会話パネルに入力欄がある（今工程では実装しない）`,
     );
+    const notesOnChat = await forbiddenNotesOnScreen(page);
+    check(
+      notesOnChat.length === 0,
+      `${label}: 会話画面に開発者向けの説明が残っている（${notesOnChat.join(' / ')}）`,
+    );
     await record('会話');
 
     await page.locator('.chat__choice').first().click();
@@ -248,6 +318,15 @@ try {
     await record('世界地図');
 
     await page.getByRole('button', { name: '出発する' }).click();
+
+    // 統合後は世界地図のあとに旅の移動画面と国紹介が入る。
+    await page.waitForSelector('.screen--travel');
+    await record('旅の移動');
+    await page.getByRole('button', { name: 'スキップ' }).click();
+    await page.waitForSelector('.screen--intro');
+    await record('国紹介');
+    await page.getByRole('button', { name: 'カルタをはじめる' }).click();
+
     await page.waitForSelector('.card');
     await page.waitForTimeout(250);
     const board = await page.evaluate(() => {
@@ -306,6 +385,7 @@ try {
 
     // ---- 9. 保存内容と再読み込み ----
     const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+    check(stored.version === 3, `${label}: 保存が version 3 になっていない（${stored.version}）`);
     check(stored.selectedAvatarId === chosenId, `${label}: 選んだキャラクターが保存されていない`);
     check(stored.totalPlays === 1, `${label}: 学習記録が記録されていない`);
     check(
@@ -347,7 +427,7 @@ try {
     const changedId = await page
       .locator('.avatar-card[aria-selected="true"]')
       .getAttribute('data-avatar-id');
-    await page.getByRole('button', { name: 'このキャラクターで旅する' }).click();
+    await page.getByRole('button', { name: 'この人を選ぶ' }).click();
     await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
     const changed = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
     check(changed.selectedAvatarId === changedId, `${label}: 設定からの変更が保存されない`);
@@ -371,7 +451,7 @@ try {
     await page.goto(baseUrl, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: '旅をはじめる' }).click();
     await page.locator('.avatar-card').first().click();
-    await page.getByRole('button', { name: 'このキャラクターで旅する' }).click();
+    await page.getByRole('button', { name: 'この人を選ぶ' }).click();
     await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
     await page.getByRole('button', { name: 'はなしかける' }).click();
     await page.waitForSelector('.chat');
@@ -393,9 +473,9 @@ try {
 }
 
 if (failures.length > 0) {
-  console.error('\nPhase 1-C1 表示・操作テスト 失敗:');
+  console.error('\nPhase 1 統合 キャラクター・会話テスト 失敗:');
   for (const failure of failures) console.error(`  ✗ ${failure}`);
   process.exit(1);
 }
 
-console.log('\nPhase 1-C1 表示・操作テスト 成功');
+console.log('\nPhase 1 統合 キャラクター・会話テスト 成功');
