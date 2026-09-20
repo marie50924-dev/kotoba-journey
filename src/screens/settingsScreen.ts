@@ -1,5 +1,7 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
+import { findAvatar, fullName } from '../data/avatars';
+import { avatarThumb } from '../components/avatarThumb';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
@@ -45,7 +47,19 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
     { class: 'btn btn--danger' },
   );
 
+  const me = findAvatar(ctx.records.get().selectedAvatarId);
+
   return screenShell({ title: UI.settings.heading, onBack: () => ctx.back() }, [
+    el('div', { class: 'setting-row' }, [
+      el('span', { class: 'setting-row__label' }, [
+        el('span', { text: UI.avatar.current }),
+        me
+          ? el('span', { class: 'setting-row__value', text: fullName(me) })
+          : el('span', { class: 'setting-row__value', text: UI.avatar.notChosen }),
+      ]),
+      me ? avatarThumb(me, { size: 'sm', label: '' }) : null,
+      button(UI.avatar.change, () => ctx.navigate({ name: 'avatarSelect' }), { class: 'btn' }),
+    ]),
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.settings.audio }),
       toggle,

@@ -1,11 +1,19 @@
 import type { CardCount, MasteryLevel, PlayResult } from '../domain/types';
 import { isCardCount } from '../domain/deck';
 import { calculateAccuracy, masteryFor } from '../domain/scoring';
+import { isValidAvatarId } from '../data/avatars';
+import { RECENT_WINDOW } from '../domain/npcCasting';
 import type { KeyValueStore } from './safeStorage';
 
+/**
+ * 保存キーは v1 のまま据え置き、レコード内の version で世代を管理する。
+ * キーを変えると既存プレイヤーの学習記録が読めなくなるため。
+ */
 export const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
-export const RECORD_VERSION = 1;
+export const RECORD_VERSION = 2;
 const HISTORY_LIMIT = 10;
+/** 出会ったキャラクターの保存上限。localStorage が際限なく増えないようにする。 */
+export const MET_AVATAR_LIMIT = 80;
 
 export interface PlayHistoryEntry {
   date: string;
@@ -35,6 +43,17 @@ export interface LearningRecord {
   visitedCountryIds: string[];
   history: PlayHistoryEntry[];
   audioEnabled: boolean;
+
+  // ---- v2（Phase 1-C1）で追加 ----
+  /**
+   * 自分が選んだキャラクターのID。未選択なら null。
+   * 保存の主キーは名前ではなく不変のID。
+   */
+  selectedAvatarId: string | null;
+  /** これまでに会話したことのあるキャラクターのID。 */
+  metAvatarIds: string[];
+  /** 直近で登場した NPC のID（新しい順）。連続登場を抑えるために使う。 */
+  recentNpcAvatarIds: string[];
 }
 
 export function createEmptyRecord(): LearningRecord {
@@ -51,6 +70,9 @@ export function createEmptyRecord(): LearningRecord {
     visitedCountryIds: [],
     history: [],
     audioEnabled: true,
+    selectedAvatarId: null,
+    metAvatarIds: [],
+    recentNpcAvatarIds: [],
   };
 }
 
@@ -83,6 +105,19 @@ function asBestTimes(value: unknown): Partial<Record<CardCount, number>> {
     if (isCardCount(count) && typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
       result[count] = raw;
     }
+  }
+  return result;
+}
+
+/** 名簿に存在する有効なIDだけを残す。重複も取り除く。 */
+function asAvatarIdArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of value) {
+    if (!isValidAvatarId(item) || seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
   }
   return result;
 }
@@ -141,6 +176,12 @@ export function parseRecord(raw: string | null): LearningRecord {
     visitedCountryIds: asStringArray(data.visitedCountryIds),
     history: asHistory(data.history),
     audioEnabled: asBoolean(data.audioEnabled, empty.audioEnabled),
+
+    // v1 の保存データにはこれらが無い。欠けていれば初期値で補う。
+    // 名簿に無いID・無効化されたIDは null / 除去して安全に復旧する。
+    selectedAvatarId: isValidAvatarId(data.selectedAvatarId) ? data.selectedAvatarId : null,
+    metAvatarIds: asAvatarIdArray(data.metAvatarIds).slice(0, MET_AVATAR_LIMIT),
+    recentNpcAvatarIds: asAvatarIdArray(data.recentNpcAvatarIds).slice(0, RECENT_WINDOW),
   };
 }
 
@@ -250,6 +291,15 @@ export function applyPlayResult(
   };
 }
 
+/** 会話した相手を記録する。上限を超えないよう古いものから捨てる。 */
+export function rememberMetAvatar(record: LearningRecord, avatarId: string): LearningRecord {
+  if (!isValidAvatarId(avatarId) || record.metAvatarIds.includes(avatarId)) return record;
+  return {
+    ...record,
+    metAvatarIds: [...record.metAvatarIds, avatarId].slice(-MET_AVATAR_LIMIT),
+  };
+}
+
 export function isNewBestTime(record: LearningRecord, cardCount: CardCount, elapsedMs: number): boolean {
   const previous = record.bestTimeMs[cardCount];
   return elapsedMs > 0 && (previous === undefined || elapsedMs < previous);
@@ -283,9 +333,9 @@ export class LearningRecordStore {
   }
 
   clear(): LearningRecord {
-    // 音声設定は端末設定として残し、学習記録だけ初期化する。
-    const audioEnabled = this.record.audioEnabled;
-    this.record = { ...createEmptyRecord(), audioEnabled };
+    // 音声設定と選んだキャラクターは端末の設定として残し、学習記録だけ初期化する。
+    const { audioEnabled, selectedAvatarId } = this.record;
+    this.record = { ...createEmptyRecord(), audioEnabled, selectedAvatarId };
     this.persist();
     return this.record;
   }

@@ -20,7 +20,7 @@ export function titleScreen(ctx: AppContext): HTMLElement {
       el('p', { class: 'title__en', text: UI.app.titleEn }),
       el('p', { class: 'title__tagline', text: UI.app.tagline }),
       el('div', { class: 'title__actions' }, [
-        button(UI.actions.start, () => ctx.navigate({ name: 'courseEntry' }), {
+        button(UI.actions.start, () => ctx.startJourney(), {
           class: 'btn btn--primary btn--large',
         }),
         el('div', { class: 'title__sub-actions' }, [

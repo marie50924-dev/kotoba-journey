@@ -1,5 +1,7 @@
 import './styles/base.css';
 import './styles/screens.css';
+import './styles/avatar.css';
+import './styles/chat.css';
 import './styles/karta.css';
 import { createApp } from './app/router';
 import { createBrowserStore } from './storage/safeStorage';

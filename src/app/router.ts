@@ -1,6 +1,9 @@
 import type { AppContext, Route } from './state';
 import { createSelection } from './state';
 import { titleScreen } from '../screens/titleScreen';
+import { avatarSelectScreen } from '../screens/avatarSelectScreen';
+import { avatarConfirmScreen } from '../screens/avatarConfirmScreen';
+import { createSeed } from '../domain/random';
 import { courseEntryScreen, courseListScreen, cardCountScreen } from '../screens/courseScreens';
 import { worldMapScreen } from '../screens/worldMapScreen';
 import { kartaScreen } from '../screens/kartaScreen';
@@ -34,6 +37,8 @@ export function createApp(deps: AppDependencies): AppContext {
     selection: createSelection(),
     lastResult: null,
     lastResultWasBest: false,
+    pendingAvatarId: null,
+    castSeed: createSeed(),
     navigate(route: Route) {
       history.push(route);
       render(route);
@@ -42,6 +47,14 @@ export function createApp(deps: AppDependencies): AppContext {
       history.pop();
       const previous = history[history.length - 1] ?? { name: 'title' as const };
       render(previous);
+    },
+    canGoBack() {
+      return history.length > 1;
+    },
+    startJourney() {
+      // 未選択のときだけキャラクター選択を挟む。選択済みならそのままコース入口へ。
+      const chosen = deps.records.get().selectedAvatarId;
+      ctx.navigate(chosen ? { name: 'courseEntry' } : { name: 'avatarSelect' });
     },
   };
 
@@ -64,6 +77,10 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
   switch (route.name) {
     case 'title':
       return titleScreen(ctx);
+    case 'avatarSelect':
+      return avatarSelectScreen(ctx);
+    case 'avatarConfirm':
+      return avatarConfirmScreen(ctx);
     case 'courseEntry':
       return courseEntryScreen(ctx);
     case 'courseList':

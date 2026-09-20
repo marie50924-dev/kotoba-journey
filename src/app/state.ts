@@ -7,6 +7,8 @@ import type { EntitlementService } from '../services/entitlementService';
 /** 画面遷移の状態。 */
 export type Route =
   | { name: 'title' }
+  | { name: 'avatarSelect' }
+  | { name: 'avatarConfirm' }
   | { name: 'courseEntry' }
   | { name: 'courseList'; categoryId: CourseCategoryId }
   | { name: 'cardCount' }
@@ -32,8 +34,16 @@ export interface AppContext {
   lastResult: PlayResult | null;
   /** 直前のプレイが自己ベストを更新したか。結果画面の表示に使う。 */
   lastResultWasBest: boolean;
+  /** 確定前に選んでいるキャラクター。確定するまで保存しない。 */
+  pendingAvatarId: string | null;
+  /** NPC 選出の seed。起動ごとに変わり、同一起動中は再現できる。 */
+  readonly castSeed: number;
   navigate(route: Route): void;
   back(): void;
+  /** 戻れる履歴があるか。初回のキャラクター選択では戻り先が無い。 */
+  canGoBack(): boolean;
+  /** 表紙の「旅をはじめる」。未選択ならキャラクター選択を挟む。 */
+  startJourney(): void;
 }
 
 export function createSelection(): PlaySelection {
