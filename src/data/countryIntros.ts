@@ -51,6 +51,13 @@ export interface InfoSource {
   /** 所在を確かめた日（YYYY-MM-DD）。本文を読んだ日ではない。 */
   checkedAt: string;
   verification: SourceVerification;
+  /**
+   * 公的機関が外部の媒体（動画サイトなど）で公開している資料のとき、
+   * その公開主体を書く。ドメインだけでは公的資料かどうか見分けられないため、
+   * 「誰が出しているか」を人の確認結果として明示しておく。
+   * 公的機関のドメインで直接公開されている資料には付けない。
+   */
+  hostedBy?: string;
 }
 
 /**
@@ -100,7 +107,11 @@ export interface FactClaim {
   /** 本文で確認できて、この文章を裏づける資料。確認できるまで空。 */
   sourceIds: string[];
   verification: ClaimVerification;
-  /** 本文を確認した日（body-checked のときだけ入る）。 */
+  /**
+   * 本文を確認した日。
+   * 読んだうえでの判断（body-checked / rejected）のときに入る。
+   * 読んでいないもの（unchecked / withdrawn）には入れない。
+   */
   checkedAt?: string;
   /** 本文で確認した内容のメモ、または確認待ちの理由。 */
   verificationNote?: string;
@@ -350,14 +361,44 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceLabel: 'Web Japan（外務省）Japan Fact Sheet「年中行事」',
     sourceUrl: 'https://web-japan.org/factsheet/archives/ja/pdf/J21_annual.pdf',
     checkedAt: '2026-09-20',
-    verification: 'url-only',
+    verification: 'body-checked',
   },
   {
+    // 事業そのものの案内ページ。場面別の本文は下の3件で確認した。
     id: 'kankocho-manners',
     sourceLabel: '観光庁「日本のマナーを知ってもらおう！　訪日外国人旅行者向けマナー啓発動画」',
     sourceUrl: 'https://www.mlit.go.jp/kankocho/news08_000304.html',
     checkedAt: '2026-09-20',
     verification: 'url-only',
+  },
+  // 観光庁のマナー啓発動画は場面ごとに内容がちがう。
+  // どの場面を見て確認したのかが分かるよう、場面別に持つ。
+  {
+    id: 'kankocho-transport',
+    sourceLabel:
+      '観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC TRANSPORTATION SCENE#04（公共交通機関編）',
+    sourceUrl: 'https://www.youtube.com/watch?v=syMm02MLAsg',
+    checkedAt: '2026-09-20',
+    verification: 'body-checked',
+    hostedBy: '観光庁',
+  },
+  {
+    id: 'kankocho-temples',
+    sourceLabel:
+      '観光庁「訪日外国人旅行者向けマナー啓発動画」TRADITIONAL BUILDINGS SCENE#05（神社仏閣・伝統的建築物編）',
+    sourceUrl: 'https://www.youtube.com/watch?v=IN9V-TqECfo',
+    checkedAt: '2026-09-20',
+    verification: 'body-checked',
+    hostedBy: '観光庁',
+  },
+  {
+    id: 'kankocho-baths',
+    sourceLabel:
+      '観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC BATHS AND HOTELS SCENE#06（温泉・宿泊施設編）',
+    sourceUrl: 'https://www.youtube.com/watch?v=0SAQZVEjigM',
+    checkedAt: '2026-09-20',
+    verification: 'body-checked',
+    hostedBy: '観光庁',
   },
   // 文化庁の世界遺産一覧から、各資産名を開いたときの詳細解説ページ。
   // 一覧だけでは、登録の有無より先の説明を裏づけられないため個別に持つ。
@@ -427,6 +468,29 @@ function confirmed(
     verification: 'body-checked',
     verificationNote: checkedNote,
     checkedAt,
+  };
+}
+
+/**
+ * 人が資料の本文を読んだ結果、使わないと判断した事実。
+ *
+ * sourceIds は空にする。読んだ資料はその文章を支えていなかったのだから、
+ * 裏づけとして並べない。何を読んでどう判断したかは checkedNote に残す。
+ */
+function rejectedClaim(
+  id: string,
+  text: string,
+  checkedNote: string,
+  checkedAt: string,
+): FactClaim {
+  return {
+    id,
+    text,
+    sourceIds: [],
+    verification: 'rejected',
+    verificationNote: checkedNote,
+    checkedAt,
+    candidateSourceIds: [],
   };
 }
 
@@ -635,37 +699,37 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     // れきしの4件は要約度が高く、本文と対応づけにくいので取り下げた（retiredClaims）。
     history: [],
     culture: [
-      pending(
-        'jp-claim-culture-shoes',
-        '家や旅館では、玄関で靴をぬいで上がります。',
-        ['kankocho-manners'],
-        NOTE_NEED_BODY,
-      ),
-      pending(
+      // 靴をぬぐ話（jp-claim-culture-shoes）は、本文確認の結果 不採用。
+      // 動画本編に該当する説明が無かった。記録は retiredClaims にある。
+      confirmed(
         'jp-claim-culture-events',
-        '季節の行事が多く、春の花見や夏のお祭りなど、時期ごとの楽しみがあります。',
+        '日本には季節ごとの行事があります。春には花見、夏には七夕や花火大会などがあります。',
         ['webjapan-annual-events'],
-        NOTE_NEED_BODY,
+        'Web Japan「年中行事」は春・夏・秋・冬に分けて日本の年中行事を説明している。春の項目に花見、夏の項目に七夕・花火大会・盆などが掲載されていることを確認した。元の「季節の行事が多い」「時期ごとの楽しみ」という評価的な表現は避け、本文に載っていた具体例だけを使う形に直した。',
+        '2026-09-20',
       ),
     ],
     manners: [
-      pending(
+      confirmed(
         'jp-claim-manner-train',
-        '電車やバスの中では、大きな声で話さないようにしましょう。',
-        ['kankocho-manners'],
-        NOTE_NEED_BODY,
+        '電車では、大きな荷物がほかの人のじゃまにならないように持ちましょう。',
+        ['kankocho-transport'],
+        '公共交通機関編の動画本編で、降りる人を待って順番に乗ること、大きな荷物をほかの乗客のじゃまにならない場所へ置くこと、混雑した電車ではリュックを前に持つこと、妊娠している人や高齢者へ席をゆずることが説明されていることを確認した。元の「大きな声で話さない」は動画内で確認できなかったため外し、確認できた荷物の話に直した。',
+        '2026-09-20',
       ),
-      pending(
+      confirmed(
         'jp-claim-manner-temple',
-        'お寺や神社では、書かれている決まりを見てから入りましょう。',
-        ['kankocho-manners'],
-        NOTE_NEED_BODY,
+        'お寺や神社では、祈っている人のじゃまをせず、古い建物にさわらないようにしましょう。',
+        ['kankocho-temples'],
+        '神社仏閣・伝統的建築物編の動画本編で、古い建物は傷つける可能性があるため触らないこと、祈っている参拝者のじゃまをしないこと、神聖な場所では写真撮影が禁止されている場合が多いことが説明されていることを確認した。元の「書かれている決まりを見てから入る」は確認できなかったため、動画で直接確認できた内容に直した。',
+        '2026-09-20',
       ),
-      pending(
+      confirmed(
         'jp-claim-manner-onsen',
-        '温泉やお風呂では、体を洗ってから湯ぶねに入ります。',
-        ['kankocho-manners'],
-        NOTE_NEED_BODY,
+        '温泉や大浴場では、体を洗ってから湯ぶねに入りましょう。',
+        ['kankocho-baths'],
+        '温泉・宿泊施設編の動画本編で、浴槽へ入る前に体を洗うよう明確に説明されていること、タオルを湯に入れず皆で浴槽を清潔に保つことが説明されていることを確認した。元の「お風呂」は家庭の風呂まで含むように読めるため、資料が対象としている温泉・大浴場へ範囲を限定した。',
+        '2026-09-20',
       ),
     ],
 
@@ -687,6 +751,13 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     // 本文確認の前に取り下げた文章。画面には出ないが、監査記録として残す。
     // 取り下げの理由は verificationNote にある。資料の可否は判定していない。
     retiredClaims: [
+      // 本文を読んだ結果の不採用。取り下げ（withdrawn）とは分けて記録する。
+      rejectedClaim(
+        'jp-claim-culture-shoes',
+        '家や旅館では、玄関で靴をぬいで上がります。',
+        '観光庁の温泉・宿泊施設編の動画本編を確認した。入浴前に体を洗うこと、タオルを湯に入れないこと、備え付け品以外を持ち帰らないこと、チップは不要であることなどが説明されているが、「家や旅館では玄関で靴をぬいで上がる」という説明は確認できなかった。候補資料が元の文章を直接支えていないため不採用とした。',
+        '2026-09-20',
+      ),
       withdrawnClaim(
         'jp-claim-city-sapporo',
         '札幌（さっぽろ・北のまち）',

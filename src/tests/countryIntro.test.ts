@@ -173,13 +173,15 @@ describe('国紹介の必須項目', () => {
     }
   });
 
-  it('日本の表示対象は、確認しやすい18件まで絞ってある', () => {
+  it('表示対象と監査記録を合わせて、最初の46件が残っている', () => {
     // 本文確認の負担を減らすため、公的資料に明記されていない文章は
-    // 本文を読む前に取り下げた（withdrawn）。取り下げた分は監査記録に残る。
-    expect(displayDataClaims(JAPAN)).toHaveLength(18);
-    expect(JAPAN.retiredClaims).toHaveLength(28);
+    // 本文を読む前に取り下げた（withdrawn）。本文を読んだ結果の不採用は rejected。
+    // どちらも消さずに監査記録へ移すので、合計は変わらない。
     expect(allClaims(JAPAN)).toHaveLength(46);
-    expect(JAPAN.retiredClaims.every((c) => c.verification === 'withdrawn')).toBe(true);
+    expect(displayDataClaims(JAPAN).length + JAPAN.retiredClaims.length).toBe(46);
+    expect(JAPAN.retiredClaims.every(isDropped)).toBe(true);
+    // 表示対象に、画面へ出せない文章が残っていない。
+    expect(droppedInDisplayData(JAPAN)).toHaveLength(0);
   });
 
   it('取り下げた並びは空になっている', () => {
@@ -195,7 +197,8 @@ describe('国紹介の必須項目', () => {
     expect(JAPAN.geography).toHaveLength(1);
     expect(JAPAN.climate).toHaveLength(3);
     expect(JAPAN.landmarks).toHaveLength(4);
-    expect(JAPAN.culture).toHaveLength(2);
+    // 靴をぬぐ話は本文確認の結果 不採用になったので、ぶんかは1件。
+    expect(JAPAN.culture).toHaveLength(1);
     expect(JAPAN.manners).toHaveLength(3);
   });
 
@@ -305,13 +308,31 @@ describe('事実（FactClaim）', () => {
     }
   });
 
-  it('取り下げた文章には、取り下げの理由が書いてある', () => {
+  it('監査記録の文章には、必ず理由が書いてある', () => {
     for (const claim of JAPAN.retiredClaims) {
       expect(claim.verificationNote, `${claim.id} に理由が無い`).toBeTruthy();
-      expect(claim.verificationNote).toContain('本文確認の前に取り下げた');
-      // 読んでいない資料を根拠のように見せない。
+      // 読んでいない資料を根拠のように見せない。不採用も裏づけは持たない。
       expect(claim.sourceIds).toEqual([]);
       expect(claim.candidateSourceIds ?? []).toEqual([]);
+    }
+  });
+
+  it('本文を読む前に取り下げた文章は、そう書いてある', () => {
+    const withdrawn = JAPAN.retiredClaims.filter((c) => c.verification === 'withdrawn');
+    expect(withdrawn.length).toBeGreaterThan(0);
+    for (const claim of withdrawn) {
+      expect(claim.verificationNote).toContain('本文確認の前に取り下げた');
+      expect(claim.checkedAt, `${claim.id} は読んでいないのに確認日がある`).toBeUndefined();
+    }
+  });
+
+  it('本文を読んだ結果の不採用は、読んだ記録が残っている', () => {
+    const rejected = JAPAN.retiredClaims.filter((c) => c.verification === 'rejected');
+    expect(rejected.map((c) => c.id)).toEqual(['jp-claim-culture-shoes']);
+    for (const claim of rejected) {
+      // 何を読んでどう判断したかが分かること。
+      expect(claim.verificationNote).toContain('確認した');
+      expect(claim.checkedAt, `${claim.id} に確認日が無い`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
   });
 
@@ -345,8 +366,8 @@ describe('事実（FactClaim）', () => {
     // 人が資料の本文を読んだ分だけ進む。Claude の環境からは本文を取得できない。
     const checked = displayDataClaims(JAPAN).filter((c) => c.verification === 'body-checked');
     expect(checked.length + uncheckedClaims(JAPAN).length).toBe(displayDataClaims(JAPAN).length);
-    // 取り下げた分は表示対象に入らない。
-    expect(JAPAN.retiredClaims.every((c) => c.verification === 'withdrawn')).toBe(true);
+    // 画面へ出せない文章（取り下げ・不採用）は表示対象に入らない。
+    expect(droppedInDisplayData(JAPAN)).toHaveLength(0);
   });
 
   it('みどころ4件は本文確認が済んでいる', () => {
@@ -375,10 +396,11 @@ describe('事実（FactClaim）', () => {
     }
   });
 
-  it('本文確認していない事実は、確認日を持たない', () => {
+  it('本文を読んでいない事実は、確認日を持たない', () => {
+    // 確認日が入るのは、読んだうえでの判断（body-checked / rejected）だけ。
     for (const intro of COUNTRY_INTROS) {
       for (const claim of allClaims(intro)) {
-        if (claim.verification === 'body-checked') continue;
+        if (claim.verification === 'body-checked' || claim.verification === 'rejected') continue;
         expect(claim.checkedAt, `${claim.id} に確認日が入っている`).toBeUndefined();
       }
     }
@@ -616,7 +638,7 @@ describe('公開の可否', () => {
     expect(landmarks.items.map((i) => i.id)).not.toContain(dropped.id);
   });
 
-  it('日本の取り下げ28件は、画面データから1件も参照されていない', () => {
+  it('日本の監査記録は、画面データから1件も参照されていない', () => {
     const displayIds = new Set(displayDataClaims(JAPAN).map((c) => c.id));
     for (const claim of JAPAN.retiredClaims) {
       expect(displayIds.has(claim.id), `${claim.id} が表示対象に残っている`).toBe(false);
@@ -829,11 +851,22 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('出典は公的機関・公的機関が運営する媒体のドメインに限る', () => {
+  it('出典は公的機関のドメインか、公開主体を明示した資料に限る', () => {
+    // 公的機関が動画サイトなどで出している資料もある。
+    // その場合だけ、誰が出しているか（hostedBy）を書いたうえで認める。
     const allowedHost = /\.go\.jp$|\.lg\.jp$|\.unesco\.org$|^web-japan\.org$/;
     for (const source of JAPAN.sources) {
       const host = new URL(source.sourceUrl).hostname;
-      expect(host, `${source.sourceLabel} のドメイン`).toMatch(allowedHost);
+      if (allowedHost.test(host)) {
+        expect(source.hostedBy, `${source.sourceLabel} に不要な公開主体が書いてある`).toBeUndefined();
+        continue;
+      }
+      expect(source.hostedBy, `${source.sourceLabel} の公開主体が書かれていない`).toBeTruthy();
+      // 公的ドメイン以外は、人が本文を確認したものだけ認める。
+      expect(source.verification, `${source.sourceLabel} が本文未確認のまま`).toBe('body-checked');
+      expect(source.sourceLabel, `${source.sourceLabel} に公開主体の名前が無い`).toContain(
+        source.hostedBy!,
+      );
     }
   });
 
@@ -940,11 +973,11 @@ describe('詳細カードの組み立て', () => {
         expect(checkedSourceIds.has(source.id), `${section.id} に未確認の出典が出ている`).toBe(true);
       }
     }
-    // みどころだけ、法隆寺の確認が済んでいるので出典が出る。
+    // 本文確認が済んだカードにだけ出典が出る。
     const withSources = buildDetailSections(JAPAN)
       .filter((s) => s.sources.length > 0)
       .map((s) => s.id);
-    expect(withSources).toEqual(['landmarks']);
+    expect(withSources).toEqual(['landmarks', 'culture']);
   });
 
   it('本文確認が終われば、事実のカードに出典が出る', () => {
@@ -1132,7 +1165,8 @@ describe('人間確認用チェックリスト', () => {
       {
         line: '- withdrawn も rejected と同じく、表示対象から除外されていれば公開を妨げない',
         holds:
-          JAPAN.retiredClaims.every((c) => c.verification === 'withdrawn') &&
+          JAPAN.retiredClaims.some((c) => c.verification === 'withdrawn') &&
+          JAPAN.retiredClaims.every(isDropped) &&
           droppedInDisplayData(JAPAN).length === 0,
       },
     ];
