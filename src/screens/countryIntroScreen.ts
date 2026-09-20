@@ -20,13 +20,14 @@ import type { AppContext } from '../app/state';
  * 到着後の国紹介。
  *
  * 事実の本文確認が終わっていない国（publicationStatus が 'draft'）では、
- * 首都・都市・自然・気候・名所・食・歴史・文化の文章を一切出さず、
+ * あいさつ・首都・都市・自然・気候・名所・食・歴史・文化の文章を一切出さず、
  * 「準備中」とだけ短く案内する。「もっと知る」も出さない。
+ * 準備中でも出すのは、行き先を見分けるための国名と国旗だけ。
  * カルタへは変わらず進めるので、ゲームの進行は妨げない。
  * 確認が終わって 'verified' になれば、下の二段階表示がそのまま出る。
  *
  * 二段階に分けてある。
- * 最初は「国名・国旗・首都・あいさつ・有名なもの1件・短い紹介文」だけを出し、
+ * 最初は「国名・国旗・あいさつ・首都・有名なもの1件・短い紹介文」だけを出し、
  * すぐカルタへ進めるようにする。長い説明は「もっと知る」の中へ入れる。
  *
  * 「もっと知る」は任意で、開かなくても開いたあと閉じても、
@@ -81,14 +82,19 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
     },
     [
       // ---- 最初に見せる分 ----
-      // 国名・国旗・あいさつは事実の説明ではないので、準備中でも出す。
+      // 国名と国旗は行き先の目じるしなので、準備中でも出す。
       el('div', { class: 'intro__hero' }, [
+        // 国旗は行き先を見分けるための目じるしなので、準備中でも出す。
         flagNode(intro),
-        el('div', { class: 'intro__greeting' }, [
-          el('span', { class: 'intro__greeting-label', text: UI.countryIntro.greeting }),
-          el('strong', { class: 'intro__greeting-ja', text: intro.greeting.ja }),
-          el('span', { class: 'intro__greeting-en', text: intro.greeting.en }),
-        ]),
+        // あいさつは「この国ではこう言う」という学習情報なので、
+        // 本文確認が終わるまで出さない。不採用にしたものも描かない。
+        showDetails && isShown(intro.greeting.claim)
+          ? el('div', { class: 'intro__greeting' }, [
+              el('span', { class: 'intro__greeting-label', text: UI.countryIntro.greeting }),
+              el('strong', { class: 'intro__greeting-ja', text: intro.greeting.ja }),
+              el('span', { class: 'intro__greeting-en', text: intro.greeting.en }),
+            ])
+          : null,
       ]),
       // 準備中のあいだは、確認の終わっていない事実を1つも出さない。
       showDetails

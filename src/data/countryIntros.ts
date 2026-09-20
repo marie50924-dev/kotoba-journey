@@ -125,6 +125,25 @@ export type DetailSectionId =
 /** 公開状態。verified の国だけ詳細を公開導線へ出す。 */
 export type PublicationStatus = 'draft' | 'verified';
 
+/**
+ * あいさつ。
+ *
+ * 「この国では『こんにちは』、英語では『Hello』」という対応そのものが、
+ * 子どもへ教える学習情報なので、事実として本文確認の対象にする。
+ * UI の飾りではないため、確認が終わるまで画面には出さない。
+ *
+ * 表示する語（ja / en）と確認する文章（claim.text）がずれないよう、
+ * claim.text は greetingOf() が ja / en から組み立てる。
+ */
+export interface Greeting {
+  /** 画面に出す現地のあいさつ。 */
+  ja: string;
+  /** 画面に出す英語のあいさつ。 */
+  en: string;
+  /** 「◯◯のあいさつ『…』は、英語では『…』と表します。」という事実。 */
+  claim: FactClaim;
+}
+
 export interface CountryIntro {
   countryId: string;
   countryNameJa: string;
@@ -143,7 +162,8 @@ export interface CountryIntro {
   /** 「首都は◯◯です。」の1文。 */
   capitalLine: FactClaim;
 
-  greeting: { ja: string; en: string };
+  /** あいさつ。日本語と英語の対応そのものを学習情報として確認する。 */
+  greeting: Greeting;
   /** 到着直後に出す短い紹介文。 */
   summary: FactClaim;
   /** 到着直後に1件だけ出す「有名なもの」。 */
@@ -333,6 +353,35 @@ function pending(
   };
 }
 
+/**
+ * あいさつを作る補助。
+ *
+ * 画面に出す語と、確認する文章を二重に書かない。
+ * 文章は ja / en から組み立てるので、語を直せば文章も一緒に直り、
+ * 表示とチェックリストの記述が食い違わない。
+ * claimId は引数で固定する。文章を直しても claimId は変えない。
+ */
+function greetingOf(
+  claimId: string,
+  countryNameJa: string,
+  ja: string,
+  en: string,
+  verificationNote: string,
+): Greeting {
+  return {
+    ja,
+    en,
+    claim: {
+      id: claimId,
+      text: `${countryNameJa}のあいさつ「${ja}」は、英語では「${en}」と表します。`,
+      sourceIds: [],
+      verification: 'unchecked',
+      verificationNote,
+      candidateSourceIds: [],
+    },
+  };
+}
+
 const NOTE_NEED_BODY = '資料の本文をまだ読めていない。本文で該当箇所を確認すること。';
 const NOTE_NO_SOURCE = 'この文章を直接あつかう資料がまだ見つかっていない。資料探しから行うこと。';
 
@@ -398,7 +447,13 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       },
     ],
 
-    greeting: { ja: 'こんにちは', en: 'Hello' },
+    greeting: greetingOf(
+      'jp-claim-greeting-hello',
+      '日本',
+      'こんにちは',
+      'Hello',
+      '日本語のあいさつと英語表現の対応を直接確認できる資料を探すこと。',
+    ),
     summary: pending(
       'jp-claim-summary',
       'ユーラシア大陸の東にある、海にかこまれた島の国です。北から南へ細長くつづいているので、地域によって気候も食べものもちがいます。',
@@ -756,6 +811,8 @@ export function findSource(intro: CountryIntro, sourceId: string): InfoSource | 
  */
 export function displayDataClaims(intro: CountryIntro): FactClaim[] {
   return [
+    // 画面に出る順に並べる。あいさつが最初。
+    intro.greeting.claim,
     intro.summary,
     intro.capitalLine,
     ...claimsOf([intro.capital, intro.highlight]),

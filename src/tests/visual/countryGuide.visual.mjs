@@ -2,8 +2,9 @@
  * Phase 1-C3 の表示・操作回帰テスト（国紹介）。
  *
  * 日本は事実の本文確認が終わっていないため publicationStatus: 'draft'。
- * ここで確かめるのは、下書きの国で事実を1つも出さないこと、
- * それでもカルタへ進めること。
+ * ここで確かめるのは、下書きの国で事実を1つも出さないこと
+ * （あいさつ「こんにちは / Hello」も学習情報なので出さない）、
+ * 国名と国旗だけは行き先の目じるしとして出ること、それでもカルタへ進めること。
  * 'verified' になったときの8カード表示は、単体テスト側で組み立てを固定している。
  *
  * CSS レイアウトと開閉の結果は jsdom では測れないため、
@@ -130,9 +131,19 @@ try {
       `${label}: 国名と英語名が出ていない（${title}）`,
     );
     check((await page.locator('.intro__flag').count()) === 1, `${label}: 国旗が出ていない`);
+
+    // --- あいさつは学習情報なので、下書きでは出さない ---
     check(
-      (await page.locator('.intro__greeting-ja').textContent()) === 'こんにちは',
-      `${label}: あいさつが出ていない`,
+      (await page.locator('.intro__greeting').count()) === 0,
+      `${label}: 下書きなのにあいさつ欄が出ている`,
+    );
+    check(
+      (await page.locator('.intro__greeting-ja').count()) === 0,
+      `${label}: 下書きなのに現地のあいさつが出ている`,
+    );
+    check(
+      (await page.locator('.intro__greeting-en').count()) === 0,
+      `${label}: 下書きなのに英語のあいさつが出ている`,
     );
 
     // --- 下書きの案内が読める ---
@@ -178,7 +189,18 @@ try {
 
     // --- 未確認の事実が画面のどこにも出ていない ---
     const bodyText = await page.evaluate(() => document.body.innerText);
-    for (const phrase of ['東京', '富士山', '森林', '梅雨', '法隆寺', 'すし', '武士', 'おじぎ']) {
+    for (const phrase of [
+      'こんにちは',
+      'Hello',
+      '東京',
+      '富士山',
+      '森林',
+      '梅雨',
+      '法隆寺',
+      'すし',
+      '武士',
+      'おじぎ',
+    ]) {
       check(
         !bodyText.includes(phrase),
         `${label}: 未確認の事実「${phrase}」が画面に出ている`,
@@ -216,7 +238,9 @@ try {
 
     check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
     if (failures.length === 0) {
-      console.log(`✓ ${label} 下書き表示（準備中の案内・もっと知る無し・カルタ開始OK）`);
+      console.log(
+        `✓ ${label} 下書き表示（国名と国旗のみ・あいさつ0件・事実カード0件・カルタ開始OK）`,
+      );
     }
     await context.close();
   }
@@ -231,6 +255,10 @@ try {
     await reachIntro(page, baseUrl);
     const text = await page.locator('.intro__preparing').textContent();
     check(text.trim().length > 0, 'reduced-motion: 準備中の案内が読めない');
+    check(
+      (await page.locator('.intro__greeting').count()) === 0,
+      'reduced-motion: あいさつが出ている',
+    );
     check(
       (await page.locator('.intro__more-toggle').count()) === 0,
       'reduced-motion: 「もっと知る」が出ている',
