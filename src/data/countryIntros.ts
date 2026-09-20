@@ -70,7 +70,26 @@ export interface InfoSource {
  * URL が存在する、ドメインが公的機関、資料名にそれらしい語が入っている —
  * これらはどれも 'body-checked' の根拠にならない。
  */
-export type ClaimVerification = 'unchecked' | 'body-checked' | 'rejected';
+export type ClaimVerification = 'unchecked' | 'body-checked' | 'rejected' | 'withdrawn';
+
+/**
+ * 画面に出さない状態。
+ *
+ * 'rejected'  … 資料の本文を読んだ結果、使わないと判断した文章。
+ * 'withdrawn' … 本文を読む前に、書き方や資料の有無を理由に取り下げた文章。
+ *               資料に書いてあるかどうかは判定していない。
+ *
+ * 画面での扱いは同じ（絶対に出さない・監査記録として残す・
+ * 表示対象から外れていれば公開を妨げない）。
+ * 分けてあるのは、あとから見た人が
+ * 「読んでからだめだったのか」「読む前に下げたのか」を取りちがえないため。
+ */
+export const DROPPED_VERIFICATIONS: readonly ClaimVerification[] = ['rejected', 'withdrawn'];
+
+/** 画面に出してはいけない文章か。 */
+export function isDropped(claim: FactClaim): boolean {
+  return DROPPED_VERIFICATIONS.includes(claim.verification);
+}
 
 /** 画面に出す事実1件。 */
 export interface FactClaim {
@@ -193,8 +212,11 @@ export interface CountryIntro {
   foods: NamedItem[];
   /** 特産物（とれるもの）。料理とは分けて持つ。 */
   specialties: NamedItem[];
-  /** 特産物の地域差についての説明。 */
-  specialtiesNote: FactClaim;
+  /**
+   * 特産物の地域差についての説明。
+   * 取り下げた国では項目ごと無くなるので任意にしてある。
+   */
+  specialtiesNote?: FactClaim;
 
   history: HistoryNote[];
   /** 文化・生活習慣。 */
@@ -210,7 +232,8 @@ export interface CountryIntro {
   sources: InfoSource[];
 
   /**
-   * 人が本文を確認した結果、不採用にして表示から外した事実。
+   * 表示から外した事実。本文を読んだ結果の不採用（rejected）と、
+   * 本文を読む前の取り下げ（withdrawn）の両方が入る。
    *
    * 監査記録として残すためのもので、画面には一切出ない。
    * 表示対象から外れているので、国全体の公開は妨げない。
@@ -359,6 +382,34 @@ function pending(
   };
 }
 
+/** 本文を読む前に取り下げた理由。どれも「資料に書いてあるか」は判定していない。 */
+const WITHDRAWN_NO_SOURCE =
+  '本文確認の前に取り下げた。この文章を直接あつかう資料が見つからなかったため。資料に書いてあるかどうかは判定していない。';
+const WITHDRAWN_TOO_BROAD =
+  '本文確認の前に取り下げた。文章が、割り当てた資料であつかう範囲を超えているため。資料に書いてあるかどうかは判定していない。';
+const WITHDRAWN_ADVICE =
+  '本文確認の前に取り下げた。資料に書かれた事実ではなく、ゲーム内の助言だったため。';
+const WITHDRAWN_SUMMARIZED =
+  '本文確認の前に取り下げた。文章の要約度が高く、資料の本文と1対1で対応づけられないため。資料に書いてあるかどうかは判定していない。';
+
+/**
+ * 取り下げた事実を作る補助。
+ *
+ * 文章も claimId も元のまま残す。監査記録として、あとから
+ * 「どの文章を、どういう理由で下げたか」を追えるようにするため。
+ * 出典は割り当てない。読んでいない資料を根拠のように見せないため。
+ */
+function withdrawnClaim(id: string, text: string, reason: string): FactClaim {
+  return {
+    id,
+    text,
+    sourceIds: [],
+    verification: 'withdrawn',
+    verificationNote: reason,
+    candidateSourceIds: [],
+  };
+}
+
 /**
  * あいさつを作る補助。
  *
@@ -389,7 +440,6 @@ function greetingOf(
 }
 
 const NOTE_NEED_BODY = '資料の本文をまだ読めていない。本文で該当箇所を確認すること。';
-const NOTE_NO_SOURCE = 'この文章を直接あつかう資料がまだ見つかっていない。資料探しから行うこと。';
 
 export const COUNTRY_INTROS: readonly CountryIntro[] = [
   {
@@ -414,44 +464,8 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       note: 'とうきょう',
       claim: pending('jp-claim-capital-tokyo', '東京（とうきょう）', ['tokyo-profile'], NOTE_NEED_BODY),
     },
-    majorCities: [
-      {
-        id: 'jp-city-sapporo',
-        name: '札幌',
-        note: 'さっぽろ・北のまち',
-        // 東京都の区市町村マップは東京都内の資料なので、根拠にしない。
-        claim: pending('jp-claim-city-sapporo', '札幌（さっぽろ・北のまち）', [], NOTE_NO_SOURCE),
-      },
-      {
-        id: 'jp-city-kyoto',
-        name: '京都',
-        note: 'きょうと・古いまちなみが残る',
-        claim: pending(
-          'jp-claim-city-kyoto',
-          '京都（きょうと・古いまちなみが残る）',
-          [],
-          NOTE_NO_SOURCE,
-        ),
-      },
-      {
-        id: 'jp-city-osaka',
-        name: '大阪',
-        note: 'おおさか・にぎやかなまち',
-        claim: pending('jp-claim-city-osaka', '大阪（おおさか・にぎやかなまち）', [], NOTE_NO_SOURCE),
-      },
-      {
-        id: 'jp-city-fukuoka',
-        name: '福岡',
-        note: 'ふくおか・海に近いまち',
-        claim: pending('jp-claim-city-fukuoka', '福岡（ふくおか・海に近いまち）', [], NOTE_NO_SOURCE),
-      },
-      {
-        id: 'jp-city-naha',
-        name: '那覇',
-        note: 'なは・南のあたたかいまち',
-        claim: pending('jp-claim-city-naha', '那覇（なは・南のあたたかいまち）', [], NOTE_NO_SOURCE),
-      },
-    ],
+    // 都市の説明は、資料が見つからないうえに主観的だったので取り下げた（retiredClaims）。
+    majorCities: [],
 
     greeting: greetingOf(
       'jp-claim-greeting-hello',
@@ -460,9 +474,11 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       'Hello',
       '日本語のあいさつと英語表現の対応を直接確認できる資料を探すこと。',
     ),
+    // 気候の資料で確認できる範囲まで短くした。
+    // 地理（大陸の東・島国）と食べものの部分は、この資料では裏づけられないので外した。
     summary: pending(
       'jp-claim-summary',
-      'ユーラシア大陸の東にある、海にかこまれた島の国です。北から南へ細長くつづいているので、地域によって気候も食べものもちがいます。',
+      '北から南へ細長くつづく国なので、地域によって気候がちがいます。',
       ['jma-climate'],
       NOTE_NEED_BODY,
     ),
@@ -479,33 +495,14 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     },
 
     geography: [
-      // 山岳標高の資料だけでは「島国」「山が多い」を裏づけられない。
-      pending(
-        'jp-claim-geo-island',
-        '海にかこまれた島の国で、山が多いのが特ちょうです。',
-        [],
-        NOTE_NO_SOURCE,
-      ),
       pending(
         'jp-claim-geo-forest',
         '森林が国土のおよそ3分の2をしめています。',
         ['rinya-forest'],
         NOTE_NEED_BODY,
       ),
-      pending(
-        'jp-claim-geo-rivers',
-        '川は短くて流れが急なものが多く、平地は海の近くに広がっています。',
-        [],
-        NOTE_NO_SOURCE,
-      ),
     ],
     climate: [
-      pending(
-        'jp-claim-climate-range',
-        '南北に長いため、北と南で気候が大きくちがいます。同じ日でも、雪の地域と半そでの地域があります。',
-        ['jma-climate'],
-        NOTE_NEED_BODY,
-      ),
       pending(
         'jp-claim-climate-winter',
         '冬は日本海側で雪やくもりの日が多く、太平洋側では晴れの日が多くなります。',
@@ -525,32 +522,8 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
         NOTE_NEED_BODY,
       ),
     ],
-    clothingTips: [
-      pending(
-        'jp-claim-clothes-summer',
-        '夏（6〜8月）は暑くてしめっぽいので、すずしい服と、ぼうし・水とうがあると安心です。',
-        ['jma-climate'],
-        NOTE_NEED_BODY,
-      ),
-      pending(
-        'jp-claim-clothes-winter',
-        '冬（12〜2月）は地域差が大きいので、行き先の気温を調べてから決めましょう。北の地方や日本海側では雪の用意がいります。',
-        ['jma-climate'],
-        NOTE_NEED_BODY,
-      ),
-      pending(
-        'jp-claim-clothes-spring-autumn',
-        '春と秋は朝晩がひえることがあるので、はおるものを1まい持っていくとよいです。',
-        ['jma-climate'],
-        NOTE_NEED_BODY,
-      ),
-      pending(
-        'jp-claim-clothes-baiu',
-        '梅雨の時期は雨具があると助かります。',
-        ['jma-baiu'],
-        NOTE_NEED_BODY,
-      ),
-    ],
+    // 服装の目安は資料に書かれた事実ではなく助言だったので取り下げた（retiredClaims）。
+    clothingTips: [],
     // 気候の資料をもとにしたゲーム内の案内。事実の主張ではないので claim にしない。
     clothingNote:
       '服装の目安は、公的な気候情報をもとにした一般的な案内です。天気予報ではありません。出かける前に、その日の予報をたしかめてください。',
@@ -601,134 +574,14 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
         ),
       },
     ],
-    foods: [
-      {
-        id: 'jp-food-sushi',
-        name: 'すし',
-        note: '酢をまぜたごはんに、魚などをあわせた料理。',
-        claim: pending(
-          'jp-claim-food-sushi',
-          'すしは、酢をまぜたごはんに、魚などをあわせた料理。',
-          [],
-          NOTE_NO_SOURCE,
-        ),
-      },
-      {
-        id: 'jp-food-ramen',
-        name: 'ラーメン',
-        note: 'スープにめんを入れた料理。地域ごとに味がちがいます。',
-        claim: pending(
-          'jp-claim-food-ramen',
-          'ラーメンは、スープにめんを入れた料理。地域ごとに味がちがいます。',
-          [],
-          NOTE_NO_SOURCE,
-        ),
-      },
-      {
-        id: 'jp-food-misoshiru',
-        name: 'みそしる',
-        note: 'みそでつくる、毎日の食事によく出るしる物。',
-        claim: pending(
-          'jp-claim-food-misoshiru',
-          'みそしるは、みそでつくる、毎日の食事によく出るしる物。',
-          [],
-          NOTE_NO_SOURCE,
-        ),
-      },
-      {
-        id: 'jp-food-wagashi',
-        name: '和菓子',
-        note: '季節の形や色にしたおかし。',
-        claim: pending(
-          'jp-claim-food-wagashi',
-          '和菓子は、季節の形や色にしたおかし。',
-          [],
-          NOTE_NO_SOURCE,
-        ),
-      },
-    ],
-    specialties: [
-      {
-        id: 'jp-spec-rice',
-        name: 'こめ',
-        claim: pending('jp-claim-spec-rice', 'こめは日本の特産物。', [], NOTE_NO_SOURCE),
-      },
-      {
-        id: 'jp-spec-tea',
-        name: 'おちゃ',
-        claim: pending('jp-claim-spec-tea', 'おちゃは日本の特産物。', [], NOTE_NO_SOURCE),
-      },
-      {
-        id: 'jp-spec-fruit',
-        name: 'くだもの',
-        claim: pending('jp-claim-spec-fruit', 'くだものは日本の特産物。', [], NOTE_NO_SOURCE),
-      },
-      {
-        id: 'jp-spec-fish',
-        name: 'さかな',
-        claim: pending('jp-claim-spec-fish', 'さかなは日本の特産物。', [], NOTE_NO_SOURCE),
-      },
-    ],
-    specialtiesNote: pending(
-      'jp-claim-spec-note',
-      '特産物は地域によって大きくちがいます。とれるものと、その土地の料理は別のものです。くわしい地域ごとの特産物は、これからの工程で足していきます。',
-      [],
-      NOTE_NO_SOURCE,
-    ),
+    // 料理の説明は資料が見つからなかったので取り下げた（retiredClaims）。
+    foods: [],
+    // 「国全体の特産物」という書き方は資料と合わない見込みなので取り下げた（retiredClaims）。
+    specialties: [],
 
-    history: [
-      {
-        id: 'jp-hist-ancient',
-        era: 'むかしのくに',
-        body: 'むらがまとまって国の形ができていきました。奈良や京都には、このころに建てられた古いお寺や神社がのこっています。',
-        claim: pending(
-          'jp-claim-hist-ancient',
-          'むかしのくに：むらがまとまって国の形ができていきました。奈良や京都には、このころに建てられた古いお寺や神社がのこっています。',
-          ['webjapan-history'],
-          NOTE_NEED_BODY,
-        ),
-      },
-      {
-        id: 'jp-hist-samurai',
-        era: '武士（ぶし）の時代',
-        body: '武士とよばれる人たちが力を持ち、各地にお城が建てられました。姫路城のように、今も見られるお城があります。',
-        claim: pending(
-          'jp-claim-hist-samurai',
-          '武士（ぶし）の時代：武士とよばれる人たちが力を持ち、各地にお城が建てられました。姫路城のように、今も見られるお城があります。',
-          ['webjapan-history'],
-          NOTE_NEED_BODY,
-        ),
-      },
-      {
-        id: 'jp-hist-edo',
-        era: '江戸（えど）の時代',
-        body: '大きな戦いの少ない時代が長くつづき、まちに絵や芝居などの文化が広がりました。',
-        claim: pending(
-          'jp-claim-hist-edo',
-          '江戸（えど）の時代：大きな戦いの少ない時代が長くつづき、まちに絵や芝居などの文化が広がりました。',
-          ['webjapan-history'],
-          NOTE_NEED_BODY,
-        ),
-      },
-      {
-        id: 'jp-hist-modern',
-        era: '近代から今へ',
-        body: '外国との行き来がふえ、鉄道や工場ができて、くらしが大きく変わりました。そのまま今の日本につながっています。',
-        claim: pending(
-          'jp-claim-hist-modern',
-          '近代から今へ：外国との行き来がふえ、鉄道や工場ができて、くらしが大きく変わりました。そのまま今の日本につながっています。',
-          ['webjapan-history'],
-          NOTE_NEED_BODY,
-        ),
-      },
-    ],
+    // れきしの4件は要約度が高く、本文と対応づけにくいので取り下げた（retiredClaims）。
+    history: [],
     culture: [
-      pending(
-        'jp-claim-culture-bow',
-        'あいさつのときに、おじぎをすることがあります。',
-        [],
-        NOTE_NO_SOURCE,
-      ),
       pending(
         'jp-claim-culture-shoes',
         '家や旅館では、玄関で靴をぬいで上がります。',
@@ -750,12 +603,6 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
         NOTE_NEED_BODY,
       ),
       pending(
-        'jp-claim-manner-trash',
-        'ごみは決められた場所へ。持ち帰ることもあります。',
-        [],
-        NOTE_NO_SOURCE,
-      ),
-      pending(
         'jp-claim-manner-temple',
         'お寺や神社では、書かれている決まりを見てから入りましょう。',
         ['kankocho-manners'],
@@ -766,12 +613,6 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
         '温泉やお風呂では、体を洗ってから湯ぶねに入ります。',
         ['kankocho-manners'],
         NOTE_NEED_BODY,
-      ),
-      pending(
-        'jp-claim-manner-photo',
-        '写真をとってよい場所かどうか、先に確かめましょう。',
-        [],
-        NOTE_NO_SOURCE,
       ),
     ],
 
@@ -790,8 +631,150 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     learning: '身のまわりのことばを、日本語と英語のカルタで集めます。',
 
     sources: JAPAN_SOURCES,
-    // まだ本文確認をしていないので、不採用にした文章も無い。
-    retiredClaims: [],
+    // 本文確認の前に取り下げた文章。画面には出ないが、監査記録として残す。
+    // 取り下げの理由は verificationNote にある。資料の可否は判定していない。
+    retiredClaims: [
+      withdrawnClaim(
+        'jp-claim-city-sapporo',
+        '札幌（さっぽろ・北のまち）',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-city-kyoto',
+        '京都（きょうと・古いまちなみが残る）',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-city-osaka',
+        '大阪（おおさか・にぎやかなまち）',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-city-fukuoka',
+        '福岡（ふくおか・海に近いまち）',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-city-naha',
+        '那覇（なは・南のあたたかいまち）',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-geo-island',
+        '海にかこまれた島の国で、山が多いのが特ちょうです。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-geo-rivers',
+        '川は短くて流れが急なものが多く、平地は海の近くに広がっています。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-climate-range',
+        '南北に長いため、北と南で気候が大きくちがいます。同じ日でも、雪の地域と半そでの地域があります。',
+        WITHDRAWN_TOO_BROAD,
+      ),
+      withdrawnClaim(
+        'jp-claim-clothes-summer',
+        '夏（6〜8月）は暑くてしめっぽいので、すずしい服と、ぼうし・水とうがあると安心です。',
+        WITHDRAWN_ADVICE,
+      ),
+      withdrawnClaim(
+        'jp-claim-clothes-winter',
+        '冬（12〜2月）は地域差が大きいので、行き先の気温を調べてから決めましょう。北の地方や日本海側では雪の用意がいります。',
+        WITHDRAWN_ADVICE,
+      ),
+      withdrawnClaim(
+        'jp-claim-clothes-spring-autumn',
+        '春と秋は朝晩がひえることがあるので、はおるものを1まい持っていくとよいです。',
+        WITHDRAWN_ADVICE,
+      ),
+      withdrawnClaim(
+        'jp-claim-clothes-baiu',
+        '梅雨の時期は雨具があると助かります。',
+        WITHDRAWN_ADVICE,
+      ),
+      withdrawnClaim(
+        'jp-claim-food-sushi',
+        'すしは、酢をまぜたごはんに、魚などをあわせた料理。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-food-ramen',
+        'ラーメンは、スープにめんを入れた料理。地域ごとに味がちがいます。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-food-misoshiru',
+        'みそしるは、みそでつくる、毎日の食事によく出るしる物。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-food-wagashi',
+        '和菓子は、季節の形や色にしたおかし。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-spec-rice',
+        'こめは日本の特産物。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-spec-tea',
+        'おちゃは日本の特産物。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-spec-fruit',
+        'くだものは日本の特産物。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-spec-fish',
+        'さかなは日本の特産物。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-spec-note',
+        '特産物は地域によって大きくちがいます。とれるものと、その土地の料理は別のものです。くわしい地域ごとの特産物は、これからの工程で足していきます。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-hist-ancient',
+        'むかしのくに：むらがまとまって国の形ができていきました。奈良や京都には、このころに建てられた古いお寺や神社がのこっています。',
+        WITHDRAWN_SUMMARIZED,
+      ),
+      withdrawnClaim(
+        'jp-claim-hist-samurai',
+        '武士（ぶし）の時代：武士とよばれる人たちが力を持ち、各地にお城が建てられました。姫路城のように、今も見られるお城があります。',
+        WITHDRAWN_SUMMARIZED,
+      ),
+      withdrawnClaim(
+        'jp-claim-hist-edo',
+        '江戸（えど）の時代：大きな戦いの少ない時代が長くつづき、まちに絵や芝居などの文化が広がりました。',
+        WITHDRAWN_SUMMARIZED,
+      ),
+      withdrawnClaim(
+        'jp-claim-hist-modern',
+        '近代から今へ：外国との行き来がふえ、鉄道や工場ができて、くらしが大きく変わりました。そのまま今の日本につながっています。',
+        WITHDRAWN_SUMMARIZED,
+      ),
+      withdrawnClaim(
+        'jp-claim-culture-bow',
+        'あいさつのときに、おじぎをすることがあります。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-manner-trash',
+        'ごみは決められた場所へ。持ち帰ることもあります。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+      withdrawnClaim(
+        'jp-claim-manner-photo',
+        '写真をとってよい場所かどうか、先に確かめましょう。',
+        WITHDRAWN_NO_SOURCE,
+      ),
+    ],
   },
 ];
 
@@ -830,7 +813,7 @@ export function displayDataClaims(intro: CountryIntro): FactClaim[] {
     ...claimsOf(intro.landmarks),
     ...claimsOf(intro.foods),
     ...claimsOf(intro.specialties),
-    intro.specialtiesNote,
+    ...(intro.specialtiesNote ? [intro.specialtiesNote] : []),
     ...intro.history.map((h) => h.claim),
     ...intro.culture,
     ...intro.manners,
@@ -850,12 +833,15 @@ export function allClaims(intro: CountryIntro): FactClaim[] {
  * 不採用の文章は、画面データに残っていても描かない。
  */
 export function visibleClaims(intro: CountryIntro): FactClaim[] {
-  return displayDataClaims(intro).filter((c) => c.verification !== 'rejected');
+  return displayDataClaims(intro).filter((c) => !isDropped(c));
 }
 
-/** 画面データに残ったままの、不採用の文章。1件でもあれば公開しない。 */
-export function rejectedInDisplayData(intro: CountryIntro): FactClaim[] {
-  return displayDataClaims(intro).filter((c) => c.verification === 'rejected');
+/**
+ * 画面データに残ったままの、出してはいけない文章。
+ * 不採用（rejected）も取り下げ（withdrawn）も含む。1件でもあれば公開しない。
+ */
+export function droppedInDisplayData(intro: CountryIntro): FactClaim[] {
+  return displayDataClaims(intro).filter(isDropped);
 }
 
 /**
@@ -871,8 +857,9 @@ export function uncheckedClaims(intro: CountryIntro): FactClaim[] {
  *
  * 判定は「すべての事実」ではなく「画面データから参照されている事実」で行う。
  * - 表示対象に 'unchecked' が1件でもあれば公開しない。
- * - 表示対象に 'rejected' が残っていれば公開しない（表示から外し忘れている）。
- * - 不採用にして表示から外した文章（retiredClaims）は、公開を妨げない。
+ * - 表示対象に 'rejected' / 'withdrawn' が残っていれば公開しない
+ *   （表示から外し忘れている）。
+ * - 表示から外した文章（retiredClaims）は、公開を妨げない。
  *   監査記録として残しておくためのもので、画面には出ない。
  */
 export function canPublish(intro: CountryIntro): boolean {
@@ -935,12 +922,12 @@ export function needsSource(id: DetailSectionId): boolean {
  * 監査記録としてデータに残っていても、画面へは絶対に出さない。
  */
 function shown(claims: FactClaim[]): FactClaim[] {
-  return claims.filter((c) => c.verification !== 'rejected');
+  return claims.filter((c) => !isDropped(c));
 }
 
 /** 名前つきの並びからも、不採用にした項目を落とす。 */
 function shownItems(items: NamedItem[]): NamedItem[] {
-  return items.filter((i) => i.claim === undefined || i.claim.verification !== 'rejected');
+  return items.filter((i) => i.claim === undefined || !isDropped(i.claim));
 }
 
 /** 名前つきの並びが持っている事実だけを取り出す。 */
@@ -981,7 +968,7 @@ export function buildDetailSections(intro: CountryIntro): DetailSection[] {
   ]);
 
   const landmarkItems = shownItems(intro.landmarks);
-  const historyNotes = intro.history.filter((h) => h.claim.verification !== 'rejected');
+  const historyNotes = intro.history.filter((h) => !isDropped(h.claim));
 
   const sections: DetailSection[] = [
     {
@@ -1017,9 +1004,12 @@ export function buildDetailSections(intro: CountryIntro): DetailSection[] {
       id: 'foods',
       heading: SECTION_HEADING.foods,
       // 料理と特産物を混ぜない。並びも分けて出す。
-      lines: text([intro.specialtiesNote]),
+      lines: intro.specialtiesNote ? text([intro.specialtiesNote]) : [],
       items: foodItems,
-      sources: sourcesOf(intro, [intro.specialtiesNote, ...claimsOf(foodItems)]),
+      sources: sourcesOf(intro, [
+        ...(intro.specialtiesNote ? [intro.specialtiesNote] : []),
+        ...claimsOf(foodItems),
+      ]),
     },
     {
       id: 'history',
