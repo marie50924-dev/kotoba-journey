@@ -72,6 +72,38 @@ export const UI = {
     skipped: '今回はスキップしました',
     encourage: 'つづけていけば、きっと覚えられます。',
   },
+  avatar: {
+    selectHeading: '旅するキャラクターを選ぼう',
+    selectLead: '年代とコースは別です。どの年代を選んでも、学習内容は変わりません。',
+    placeholderNote:
+      'いまはキャラクターの絵が仮表示です。名前と年代の色、下の名前の1文字で見分けてください。正式な立ち絵は後の工程で入ります。',
+    tabsLabel: '年代',
+    filterLabel: '表示',
+    filterAll: 'すべて',
+    filterM: '男性',
+    filterF: '女性',
+    filterNote: 'この絞り込みは人をさがすためのものです。あなた自身のことは聞いていません。',
+    empty: '該当するキャラクターがいません。',
+    chosen: 'えらんだ人',
+    notChosen: 'まだ選んでいません',
+    confirm: 'このキャラクターで旅する',
+    confirmHeading: 'このキャラクターで旅しますか？',
+    change: '旅するキャラクターを変更',
+    current: '旅するキャラクター',
+    startWith: 'この人と旅をはじめる',
+    chooseAgain: 'えらび直す',
+  },
+
+  chat: {
+    heading: 'おしゃべり',
+    open: 'はなしかける',
+    close: 'とじる',
+    later: 'あとで',
+    listen: 'きく',
+    scriptedNote: 'この会話は、あらかじめ用意された台本です。',
+    npcHere: 'がいます',
+  },
+
   courseEntry: {
     heading: 'コースをえらぶ',
     lead: 'どのことばの旅に出ますか？',

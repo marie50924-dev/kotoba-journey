@@ -34,7 +34,9 @@ export function button(
     'aria-label': options.ariaLabel,
   });
   node.textContent = label;
-  if (!options.disabled) node.addEventListener('click', onClick);
+  // disabled は属性で無効化されるので、ハンドラは常に付けておく。
+  // こうしないと、あとから disabled を外しても反応しないボタンになる。
+  node.addEventListener('click', onClick);
   return node;
 }
 

@@ -1,0 +1,224 @@
+/*
+ * 台本式チャット。
+ * 見た目はチャットだが、本文はすべて data/dialogues/ の台本から出る。
+ * 自由入力欄は設けない。
+ */
+
+/* ---- 画面の片隅に置く NPC の帯 ---- */
+.npc-host {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.npc-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.npc-bar__faces {
+  display: flex;
+  gap: -6px;
+  flex: 0 0 auto;
+}
+
+.npc-bar__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--c-ink-soft);
+  line-height: 1.4;
+}
+
+.npc-bar__btn {
+  flex: 0 0 auto;
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* ---- 会話パネル ---- */
+/*
+ * karta.css の .overlay は盤面内の絶対配置なので、こちらは独立したクラスにする。
+ * 画面全体を覆い、どの画面から開いても同じ見え方にする。
+ */
+.chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 36, 58, 0.45);
+  /* カルタ画面の .overlay-host は pointer-events: none なので、ここで戻す。 */
+  pointer-events: auto;
+  padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 10px)
+    calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 10px);
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 100%;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--c-paper);
+  box-shadow: 0 12px 30px rgba(9, 32, 54, 0.32);
+  min-height: 0;
+}
+
+.chat__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.chat__title {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.chat__x {
+  min-height: var(--tap-min);
+}
+
+.chat__log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 2px;
+}
+
+.chat__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 100%;
+}
+
+/* NPC は左、自分は右。 */
+.chat__row--npc {
+  justify-content: flex-start;
+}
+
+.chat__row--me {
+  flex-direction: row-reverse;
+}
+
+.chat__bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 78%;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: var(--c-paper-2);
+  border: 1px solid var(--c-line);
+}
+
+.chat__row--me .chat__bubble {
+  background: #fff3e8;
+  border-color: rgba(226, 112, 58, 0.4);
+}
+
+.chat__speaker {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c-ink-soft);
+}
+
+.chat__text {
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.chat__english {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--c-line);
+}
+
+.chat__english-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-sky-2);
+  word-break: break-word;
+}
+
+.chat__speak {
+  flex: 0 0 auto;
+  min-height: var(--tap-min);
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.chat__choices {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat__choice,
+.chat__later,
+.chat__close {
+  min-height: var(--tap-min);
+  width: 100%;
+  font-size: 14px;
+}
+
+.chat__note {
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.chat__x:focus-visible,
+.chat__choice:focus-visible,
+.chat__later:focus-visible,
+.chat__close:focus-visible,
+.chat__speak:focus-visible,
+.npc-bar__btn:focus-visible {
+  outline: 3px solid var(--c-sky-2);
+  outline-offset: 2px;
+}
+
+@media (max-width: 340px) {
+  .chat__bubble {
+    max-width: 82%;
+    padding: 7px 9px;
+  }
+
+  .chat__text {
+    font-size: 13px;
+  }
+
+  .npc-bar__text {
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* タイピング演出は使っていないが、将来足す場合もここで止める。 */
+  .chat__row {
+    animation: none;
+  }
+}

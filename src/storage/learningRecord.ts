@@ -2,17 +2,24 @@ import type { CardCount, MasteryLevel, PlayResult } from '../domain/types';
 import { isCardCount } from '../domain/deck';
 import { calculateAccuracy, masteryFor } from '../domain/scoring';
 import { isAgeGroup, type SelectedAgeGroup } from '../data/characters';
+import { isValidAvatarId } from '../data/avatars';
+import { RECENT_WINDOW } from '../domain/npcCasting';
 import type { KeyValueStore } from './safeStorage';
 
 /**
  * 保存キーは v1 のまま据え置き、レコード内の version で世代を管理する。
- * キーを変えると既存プレイヤーの記録が読めなくなるため。
+ * キーを変えると既存プレイヤーの学習記録が読めなくなるため。
  */
 export const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
+
+/** 保存形式の世代。両ブランチの version 2 をこの時点で合流させている。 */
 export const RECORD_VERSION = 2;
+
 const HISTORY_LIMIT = 10;
 /** 確認テストの履歴上限。localStorage が無制限に増えないようにする。 */
 export const QUIZ_HISTORY_LIMIT = 20;
+/** 出会ったキャラクターの保存上限。localStorage が際限なく増えないようにする。 */
+export const MET_AVATAR_LIMIT = 80;
 
 /**
  * 各ウェーブ後の任意確認テストの記録。
@@ -59,7 +66,7 @@ export interface LearningRecord {
   history: PlayHistoryEntry[];
   audioEnabled: boolean;
 
-  // ---- v2 で追加 ----
+  // ---- v2（title-tour）で追加 ----
   /**
    * 任意の年齢層設定。コースから年齢が決まらない英検・TOEIC でのみ使う。
    * null なら大人へ安全に落とす。
@@ -71,6 +78,17 @@ export interface LearningRecord {
   seenTravelIntros: string[];
   /** 設定：移動演出を毎回スキップする。 */
   skipTravelAnimation: boolean;
+
+  // ---- v2（avatar-chat）で追加 ----
+  /**
+   * 自分が選んだキャラクターのID。未選択なら null。
+   * 保存の主キーは名前ではなく不変のID。
+   */
+  selectedAvatarId: string | null;
+  /** これまでに会話したことのあるキャラクターのID。 */
+  metAvatarIds: string[];
+  /** 直近で登場した NPC のID（新しい順）。連続登場を抑えるために使う。 */
+  recentNpcAvatarIds: string[];
 }
 
 export function createEmptyRecord(): LearningRecord {
@@ -91,6 +109,9 @@ export function createEmptyRecord(): LearningRecord {
     quizHistory: [],
     seenTravelIntros: [],
     skipTravelAnimation: false,
+    selectedAvatarId: null,
+    metAvatarIds: [],
+    recentNpcAvatarIds: [],
   };
 }
 
@@ -123,6 +144,19 @@ function asBestTimes(value: unknown): Partial<Record<CardCount, number>> {
     if (isCardCount(count) && typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
       result[count] = raw;
     }
+  }
+  return result;
+}
+
+/** 名簿に存在する有効なIDだけを残す。重複も取り除く。 */
+function asAvatarIdArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of value) {
+    if (!isValidAvatarId(item) || seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
   }
   return result;
 }
@@ -210,6 +244,11 @@ export function parseRecord(raw: string | null): LearningRecord {
     quizHistory: asQuizHistory(data.quizHistory),
     seenTravelIntros: asStringArray(data.seenTravelIntros),
     skipTravelAnimation: asBoolean(data.skipTravelAnimation, empty.skipTravelAnimation),
+
+    // 名簿に無いID・無効化されたIDは null / 除去して安全に復旧する。
+    selectedAvatarId: isValidAvatarId(data.selectedAvatarId) ? data.selectedAvatarId : null,
+    metAvatarIds: asAvatarIdArray(data.metAvatarIds).slice(0, MET_AVATAR_LIMIT),
+    recentNpcAvatarIds: asAvatarIdArray(data.recentNpcAvatarIds).slice(0, RECENT_WINDOW),
   };
 }
 
@@ -342,6 +381,15 @@ export function quizAccuracy(record: LearningRecord): number {
   return calculateAccuracy(correct, Math.max(0, total - correct));
 }
 
+/** 会話した相手を記録する。上限を超えないよう古いものから捨てる。 */
+export function rememberMetAvatar(record: LearningRecord, avatarId: string): LearningRecord {
+  if (!isValidAvatarId(avatarId) || record.metAvatarIds.includes(avatarId)) return record;
+  return {
+    ...record,
+    metAvatarIds: [...record.metAvatarIds, avatarId].slice(-MET_AVATAR_LIMIT),
+  };
+}
+
 export function isNewBestTime(record: LearningRecord, cardCount: CardCount, elapsedMs: number): boolean {
   const previous = record.bestTimeMs[cardCount];
   return elapsedMs > 0 && (previous === undefined || elapsedMs < previous);
@@ -375,9 +423,10 @@ export class LearningRecordStore {
   }
 
   clear(): LearningRecord {
-    // 音声設定は端末設定として残し、学習記録だけ初期化する。
-    const audioEnabled = this.record.audioEnabled;
-    this.record = { ...createEmptyRecord(), audioEnabled };
+    // 音声設定・選んだキャラクター・演出設定は端末の設定として残し、
+    // 学習記録だけ初期化する。
+    const { audioEnabled, selectedAvatarId, skipTravelAnimation } = this.record;
+    this.record = { ...createEmptyRecord(), audioEnabled, selectedAvatarId, skipTravelAnimation };
     this.persist();
     return this.record;
   }

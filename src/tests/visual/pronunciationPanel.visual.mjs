@@ -68,6 +68,12 @@ function serveDist() {
 async function openPronunciationPanel(page, baseUrl) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: '旅をはじめる' }).click();
+  // Phase 1-C1 で初回のキャラクター選択が入った。未選択のときだけ通過する。
+  if ((await page.locator('.screen--avatar-select').count()) > 0) {
+    await page.locator('.avatar-card').first().click();
+    await page.getByRole('button', { name: 'このキャラクターで旅する' }).click();
+    await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+  }
   await page.getByRole('button', { name: /学年別/ }).click();
   await page.getByRole('button', { name: '小学生' }).click();
   // Phase 1 でコース別キャラクター紹介が入った。

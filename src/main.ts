@@ -3,6 +3,8 @@ import './styles/screens.css';
 import './styles/title.css';
 import './styles/travel.css';
 import './styles/quiz.css';
+import './styles/avatar.css';
+import './styles/chat.css';
 import './styles/karta.css';
 import { createApp } from './app/router';
 import { createBrowserStore } from './storage/safeStorage';

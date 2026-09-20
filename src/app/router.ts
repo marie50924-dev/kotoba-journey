@@ -1,8 +1,11 @@
 import type { AppContext, Route } from './state';
 import { createSelection } from './state';
 import { titleScreen } from '../screens/titleScreen';
-import { courseEntryScreen, courseListScreen, cardCountScreen } from '../screens/courseScreens';
+import { avatarSelectScreen } from '../screens/avatarSelectScreen';
+import { avatarConfirmScreen } from '../screens/avatarConfirmScreen';
 import { courseCharacterScreen } from '../screens/courseCharacterScreen';
+import { createSeed } from '../domain/random';
+import { courseEntryScreen, courseListScreen, cardCountScreen } from '../screens/courseScreens';
 import { worldMapScreen } from '../screens/worldMapScreen';
 import { travelScreen } from '../screens/travelScreen';
 import { countryIntroScreen } from '../screens/countryIntroScreen';
@@ -42,6 +45,8 @@ export function createApp(deps: AppDependencies): AppContext {
     lastResultWasBest: false,
     wave: null,
     quiz: null,
+    pendingAvatarId: null,
+    castSeed: createSeed(),
     navigate(route: Route) {
       history.push(route);
       render(route);
@@ -51,8 +56,13 @@ export function createApp(deps: AppDependencies): AppContext {
       const previous = history[history.length - 1] ?? { name: 'title' as const };
       render(previous);
     },
+    canGoBack() {
+      return history.length > 1;
+    },
     startJourney() {
-      ctx.navigate({ name: 'courseEntry' });
+      // 未選択のときだけキャラクター選択を挟む。選択済みならそのままコース入口へ。
+      const chosen = deps.records.get().selectedAvatarId;
+      ctx.navigate(chosen ? { name: 'courseEntry' } : { name: 'avatarSelect' });
     },
     savedAgeGroup() {
       return deps.records.get().characterAgeGroup;
@@ -80,6 +90,10 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
       return titleScreen(ctx);
     case 'courseCharacter':
       return courseCharacterScreen(ctx);
+    case 'avatarSelect':
+      return avatarSelectScreen(ctx);
+    case 'avatarConfirm':
+      return avatarConfirmScreen(ctx);
     case 'courseEntry':
       return courseEntryScreen(ctx);
     case 'courseList':

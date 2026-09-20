@@ -1,0 +1,241 @@
+/*
+ * キャラクターの仮サムネイルと選択画面。
+ * 本番立ち絵が未納品のため、年代色・イニシャル・名前だけの仮表示。
+ */
+
+.avatar-thumb {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.avatar-thumb__face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 50%;
+  background: var(--age-color, #777);
+  color: #fff;
+  /* 仮表示であることが分かるよう、破線の縁取りを付けておく。 */
+  border: 2px dashed rgba(255, 255, 255, 0.75);
+  box-shadow: 0 2px 6px rgba(16, 36, 58, 0.22);
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.avatar-thumb__initial {
+  font-weight: 800;
+}
+
+.avatar-thumb__age {
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.avatar-thumb__name {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.avatar-thumb--sm .avatar-thumb__face {
+  width: 40px;
+  height: 40px;
+}
+.avatar-thumb--sm .avatar-thumb__initial { font-size: 16px; }
+.avatar-thumb--sm .avatar-thumb__age { font-size: 7px; }
+
+.avatar-thumb--md .avatar-thumb__face {
+  width: 58px;
+  height: 58px;
+}
+.avatar-thumb--md .avatar-thumb__initial { font-size: 22px; }
+.avatar-thumb--md .avatar-thumb__age { font-size: 8px; }
+
+.avatar-thumb--lg .avatar-thumb__face {
+  width: 96px;
+  height: 96px;
+}
+.avatar-thumb--lg .avatar-thumb__initial { font-size: 38px; }
+.avatar-thumb--lg .avatar-thumb__age { font-size: 11px; }
+
+/* ---- 選択画面 ---- */
+/* 見出しが「選ぼ／う」のように途中で折り返さない大きさにする。 */
+.screen--avatar-select .screen__title {
+  font-size: 15px;
+}
+
+.avatar-select__note {
+  font-size: 11px;
+  color: var(--c-ink-soft);
+  line-height: 1.5;
+}
+
+.avatar-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+/* 5つのタブを常に1行に収める。隠れて押せないタブを作らない。 */
+.avatar-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap-min);
+  padding: 6px 4px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.avatar-tab[aria-selected='true'] {
+  border-color: var(--c-accent);
+  background: #fff3e8;
+  color: var(--c-accent);
+}
+
+.avatar-filter {
+  display: flex;
+  gap: 6px;
+}
+
+.avatar-filter__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap-min);
+  padding: 6px 8px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.avatar-filter__btn[aria-pressed='true'] {
+  border-color: var(--c-sky-2);
+  background: #eaf4fb;
+  color: var(--c-sky-2);
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  /* 行は中身の高さで決め、つぶさない。あふれたぶんはこの枠の中だけで縦スクロールする。 */
+  grid-auto-rows: min-content;
+  align-content: start;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.avatar-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  /* サムネイルと名前が必ず入る高さを確保する。 */
+  min-height: 88px;
+  padding: 8px 4px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-paper-2);
+  min-width: 0;
+}
+
+.avatar-card[aria-selected='true'] {
+  border-color: var(--c-accent);
+  background: #fff3e8;
+}
+
+/* 色だけに頼らず、選択中はチェック記号も出す。 */
+.avatar-card__check {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--c-accent);
+  visibility: hidden;
+}
+
+.avatar-card[aria-selected='true'] .avatar-card__check {
+  visibility: visible;
+}
+
+.avatar-card:focus-visible,
+.avatar-tab:focus-visible,
+.avatar-filter__btn:focus-visible {
+  outline: 3px solid var(--c-sky-2);
+  outline-offset: 2px;
+}
+
+.avatar-select__empty {
+  font-size: 13px;
+  color: var(--c-ink-soft);
+  padding: 12px 0;
+}
+
+/* 確定バー */
+.avatar-select__confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.avatar-select__chosen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ---- 確認画面 ---- */
+.avatar-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.avatar-confirm__name {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.avatar-confirm__kana,
+.avatar-confirm__roman {
+  font-size: 12px;
+  color: var(--c-ink-soft);
+}
+
+@media (max-width: 340px) {
+  .avatar-tab {
+    font-size: 11px;
+    padding: 6px 2px;
+  }
+
+  .avatar-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  }
+
+  .avatar-thumb--md .avatar-thumb__face {
+    width: 50px;
+    height: 50px;
+  }
+  .avatar-thumb--md .avatar-thumb__initial { font-size: 19px; }
+}

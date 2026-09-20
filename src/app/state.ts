@@ -6,10 +6,12 @@ import type { LearningRecordStore } from '../storage/learningRecord';
 import type { AudioService } from '../services/audioService';
 import type { EntitlementService } from '../services/entitlementService';
 
-/** 画面遷移の状態。 */
+/** 画面遷移の状態。両ブランチの画面をいったん合流させた状態。 */
 export type Route =
   | { name: 'title' }
   | { name: 'courseCharacter' }
+  | { name: 'avatarSelect' }
+  | { name: 'avatarConfirm' }
   | { name: 'courseEntry' }
   | { name: 'courseList'; categoryId: CourseCategoryId }
   | { name: 'cardCount' }
@@ -63,9 +65,15 @@ export interface AppContext {
   wave: WaveContext | null;
   /** 進行中の確認テスト。 */
   quiz: QuizContext | null;
+  /** 確定前に選んでいるキャラクター。確定するまで保存しない。 */
+  pendingAvatarId: string | null;
+  /** NPC 選出の seed。起動ごとに変わり、同一起動中は再現できる。 */
+  readonly castSeed: number;
   navigate(route: Route): void;
   back(): void;
-  /** 表紙の「旅をはじめる」。 */
+  /** 戻れる履歴があるか。初回のキャラクター選択では戻り先が無い。 */
+  canGoBack(): boolean;
+  /** 表紙の「旅をはじめる」。未選択ならキャラクター選択を挟む。 */
   startJourney(): void;
   /** 任意で保存された年齢層設定（英検・TOEIC のフォールバックに使う）。 */
   savedAgeGroup(): SelectedAgeGroup;

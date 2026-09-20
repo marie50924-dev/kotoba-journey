@@ -1,10 +1,12 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { AGE_GROUPS, findAgeGroup } from '../data/characters';
+import { findAvatar, fullName } from '../data/avatars';
+import { avatarThumb } from '../components/avatarThumb';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
-/** 設定画面。学習記録の消去と音声ON/OFFだけを置く。 */
+/** 設定画面。両ブランチの設定項目をいったん合流させた状態。 */
 export function settingsScreen(ctx: AppContext): HTMLElement {
   const status = el('p', { class: 'note', role: 'status' });
   const audioSupported = ctx.audio.isSupported();
@@ -83,11 +85,24 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
     ctx.records.update((record) => ({ ...record, characterAgeGroup: next }));
   });
 
+  const me = findAvatar(ctx.records.get().selectedAvatarId);
+
   return screenShell({ title: UI.settings.heading, onBack: () => ctx.back() }, [
+    el('div', { class: 'setting-row' }, [
+      el('span', { class: 'setting-row__label' }, [
+        el('span', { text: UI.avatar.current }),
+        me
+          ? el('span', { class: 'setting-row__value', text: fullName(me) })
+          : el('span', { class: 'setting-row__value', text: UI.avatar.notChosen }),
+      ]),
+      me ? avatarThumb(me, { size: 'sm', label: '' }) : null,
+      button(UI.avatar.change, () => ctx.navigate({ name: 'avatarSelect' }), { class: 'btn' }),
+    ]),
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.settings.audio }),
       toggle,
     ]),
+    !audioSupported ? el('p', { class: 'note', text: UI.settings.unsupportedAudio }) : null,
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.settings.travelAnimation }),
       travelToggle,
@@ -99,7 +114,6 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
       ]),
       ageSelect,
     ]),
-    !audioSupported ? el('p', { class: 'note', text: UI.settings.unsupportedAudio }) : null,
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.actions.clearRecord }),
       clearButton,

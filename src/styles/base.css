@@ -128,7 +128,8 @@ button {
   border-color: transparent;
   font-weight: 600;
   padding: 8px 12px;
-  min-height: 40px;
+  /* タップ領域は 44x44 CSS px 以上を守る。 */
+  min-height: var(--tap-min);
 }
 
 .btn--back {
