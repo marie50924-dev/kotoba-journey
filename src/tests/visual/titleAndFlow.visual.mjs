@@ -216,9 +216,15 @@ try {
       await page.locator('.intro__more:not([hidden])').count() === 0,
       `${tag}: 到着直後から詳細が開いている`,
     );
+    // 日本は事実の本文確認が終わっていないため、国紹介は下書き表示。
+    // 事実の文章は出さず、準備中の案内だけを出す。
     check(
-      await page.locator('.intro__summary').count() === 1,
-      `${tag}: 短い紹介文が出ていない`,
+      await page.locator('.intro__preparing').count() === 1,
+      `${tag}: 準備中の案内が出ていない`,
+    );
+    check(
+      await page.locator('.intro__summary').count() === 0,
+      `${tag}: 下書きなのに紹介文が出ている`,
     );
     // 国紹介には自分のキャラクターと NPC を置く構造が残っている。
     check(

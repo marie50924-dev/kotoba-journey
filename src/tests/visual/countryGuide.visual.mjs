@@ -1,6 +1,11 @@
 /**
  * Phase 1-C3 の表示・操作回帰テスト（国紹介）。
  *
+ * 日本は事実の本文確認が終わっていないため publicationStatus: 'draft'。
+ * ここで確かめるのは、下書きの国で事実を1つも出さないこと、
+ * それでもカルタへ進めること。
+ * 'verified' になったときの8カード表示は、単体テスト側で組み立てを固定している。
+ *
  * CSS レイアウトと開閉の結果は jsdom では測れないため、
  * 実ブラウザ（Chromium）でビルド済みの dist/ を描画して検証する。
  *
@@ -20,9 +25,6 @@ const VIEWPORTS = [
   { width: 393, height: 852 },
   { width: 430, height: 932 },
 ];
-
-/** 「もっと知る」に並ぶカード。data-section で照合する。 */
-const SECTIONS = ['cities', 'nature', 'climate', 'landmarks', 'foods', 'history', 'culture', 'words'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -108,7 +110,10 @@ const baseUrl = `http://127.0.0.1:${port}${BASE_PATH}`;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 
 try {
-  // ---- 1. 3サイズで通常紹介と「もっと知る」 ----
+  // ---- 1. 下書き状態の国紹介（3サイズ） ----
+  //
+  // 日本は publicationStatus: 'draft'。事実の本文確認が終わるまで、
+  // 首都・都市・自然・気候・名所・食・歴史・文化の文章は公開導線へ出さない。
   for (const viewport of VIEWPORTS) {
     const label = `${viewport.width}x${viewport.height}`;
     const context = await browser.newContext({ viewport });
@@ -118,135 +123,83 @@ try {
 
     await reachIntro(page, baseUrl);
 
-    // --- 最初に見せる分がそろっている ---
+    // --- 事実ではない案内は出る ---
     const title = await page.locator('.screen--intro .screen__title').textContent();
-    check(title.includes('日本') && title.includes('Japan'), `${label}: 国名と英語名が出ていない（${title}）`);
+    check(
+      title.includes('日本') && title.includes('Japan'),
+      `${label}: 国名と英語名が出ていない（${title}）`,
+    );
     check((await page.locator('.intro__flag').count()) === 1, `${label}: 国旗が出ていない`);
     check(
       (await page.locator('.intro__greeting-ja').textContent()) === 'こんにちは',
       `${label}: あいさつが出ていない`,
     );
-    const facts = await page.locator('.intro__fact').allTextContents();
-    check(facts.some((f) => f.includes('東京')), `${label}: 首都が出ていない`);
-    check(facts.some((f) => f.includes('富士山')), `${label}: 有名なものが出ていない`);
+
+    // --- 下書きの案内が読める ---
+    const preparing = page.locator('.intro__preparing');
+    check((await preparing.count()) === 1, `${label}: 準備中の案内が無い`);
+    const preparingText = (await preparing.textContent()).trim();
     check(
-      (await page.locator('.intro__summary').textContent()).length > 10,
-      `${label}: 短い紹介文が出ていない`,
+      preparingText === 'この国の紹介は準備中です。',
+      `${label}: 準備中の案内の文言が違う（${preparingText}）`,
+    );
+    await preparing.scrollIntoViewIfNeeded();
+    const preparingBox = await preparing.boundingBox();
+    check(
+      preparingBox !== null && preparingBox.height > 0,
+      `${label}: 準備中の案内が読めない`,
     );
 
-    // --- 詳細を開かなくてもゲームを開始できる ---
+    // --- 「もっと知る」を出さない ---
     check(
-      (await page.getByRole('button', { name: 'この国でことばを集める' }).count()) === 1,
-      `${label}: 開始ボタンが無い`,
+      (await page.locator('.intro__more-toggle').count()) === 0,
+      `${label}: 下書きなのに「もっと知る」が出ている`,
     );
     check(
-      await page.getByRole('button', { name: 'この国でことばを集める' }).isVisible(),
-      `${label}: 開始ボタンが見えない`,
+      (await page.locator('.intro__more').count()) === 0,
+      `${label}: 下書きなのに詳細パネルがある`,
+    );
+    check(
+      (await page.locator('.intro-card').count()) === 0,
+      `${label}: 下書きなのに事実カードが出ている`,
+    );
+    check(
+      (await page.locator('.intro-sources').count()) === 0,
+      `${label}: 下書きなのに情報源一覧が出ている`,
+    );
+    check(
+      (await page.locator('.intro__facts').count()) === 0,
+      `${label}: 下書きなのに首都と有名なものが出ている`,
+    );
+    check(
+      (await page.locator('.intro__summary').count()) === 0,
+      `${label}: 下書きなのに紹介文が出ている`,
     );
 
-    // --- 「もっと知る」は最初は閉じている ---
-    const toggle = page.locator('.intro__more-toggle');
-    check((await toggle.count()) === 1, `${label}: 「もっと知る」が無い`);
-    check(
-      (await toggle.getAttribute('aria-expanded')) === 'false',
-      `${label}: 最初から開いた状態になっている`,
-    );
-    const panelId = await toggle.getAttribute('aria-controls');
-    check(Boolean(panelId), `${label}: aria-controls が設定されていない`);
-    check(
-      (await page.locator(`#${panelId}`).count()) === 1,
-      `${label}: aria-controls の指す要素が無い`,
-    );
-    check(
-      (await page.locator('.intro__more:not([hidden])').count()) === 0,
-      `${label}: 閉じているはずの詳細が見えている`,
-    );
-
-    // --- キーボードで開ける ---
-    await toggle.focus();
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(120);
-    check(
-      (await toggle.getAttribute('aria-expanded')) === 'true',
-      `${label}: キーボードで開けない`,
-    );
-    // 開閉してもフォーカスを失わない。
-    const focusedAfterOpen = await page.evaluate(() =>
-      document.activeElement?.className.includes('intro__more-toggle'),
-    );
-    check(focusedAfterOpen, `${label}: 開いたあとフォーカスが外れている`);
-
-    // --- 8カテゴリーがそろい、スクロールで到達できる ---
-    for (const id of SECTIONS) {
-      const card = page.locator(`.intro-card[data-section="${id}"]`);
-      check((await card.count()) === 1, `${label}: 「${id}」のカードが無い`);
-      await card.scrollIntoViewIfNeeded();
-      const box = await card.boundingBox();
-      check(box !== null && box.height > 0, `${label}: 「${id}」のカードへ到達できない`);
-      const heading = await card.locator('.intro-card__heading').textContent();
-      check(heading.trim().length > 0, `${label}: 「${id}」の見出しが空`);
+    // --- 未確認の事実が画面のどこにも出ていない ---
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    for (const phrase of ['東京', '富士山', '森林', '梅雨', '法隆寺', 'すし', '武士', 'おじぎ']) {
+      check(
+        !bodyText.includes(phrase),
+        `${label}: 未確認の事実「${phrase}」が画面に出ている`,
+      );
     }
 
-    // --- 情報源を開ける ---
-    const sourceToggle = page.locator('.intro-sources__toggle');
-    await sourceToggle.scrollIntoViewIfNeeded();
-    check((await sourceToggle.count()) === 1, `${label}: 情報源の開閉ボタンが無い`);
-    check(
-      (await sourceToggle.getAttribute('aria-expanded')) === 'false',
-      `${label}: 情報源が最初から開いている`,
-    );
-    await sourceToggle.click();
-    await page.waitForTimeout(120);
-    check(
-      (await sourceToggle.getAttribute('aria-expanded')) === 'true',
-      `${label}: 情報源を開けない`,
-    );
-    const sourceLinks = await page.locator('.intro-sources__link').count();
-    check(sourceLinks >= 1, `${label}: 情報源のリンクが無い`);
-    const checkedLabels = await page.locator('.intro-sources__checked').allTextContents();
-    check(
-      checkedLabels.every((t) => /\d{4}-\d{2}-\d{2}/.test(t)),
-      `${label}: 確認日が出ていない`,
-    );
-    check(sourceLinks >= 8, `${label}: 情報源が少なすぎる（${sourceLinks}件）`);
-
-    // 出典が増えても最後まで開いて到達できる。
-    const lastSource = page.locator('.intro-sources__item').last();
-    await lastSource.scrollIntoViewIfNeeded();
-    const lastBox = await lastSource.boundingBox();
-    check(
-      lastBox !== null && lastBox.height > 0,
-      `${label}: 最後の情報源へ到達できない`,
-    );
-    const lastText = await lastSource.textContent();
-    check(lastText.trim().length > 0, `${label}: 最後の情報源が空`);
-
-    // 事実を書いたカードには、必ず出典が添えてある。
-    for (const id of SECTIONS.filter((s) => s !== 'words')) {
-      const notes = await page
-        .locator(`.intro-card[data-section="${id}"] .intro-card__source`)
-        .count();
-      check(notes >= 1, `${label}: 「${id}」のカードに出典が添えられていない`);
+    // --- 技術的な説明を子ども向け画面に出さない ---
+    for (const phrase of ['未確認', '確認中', 'draft', '通信']) {
+      check(
+        !bodyText.includes(phrase),
+        `${label}: 開発向けの説明「${phrase}」が画面に出ている`,
+      );
     }
-    // ことばのカードは、外部出典ではなくゲーム内データが正本だと示す。
-    const wordsNote = await page
-      .locator('.intro-card[data-section="words"] .intro-card__source')
-      .textContent();
-    check(
-      wordsNote.includes('語彙データ'),
-      `${label}: ことばカードの正本が示されていない（${wordsNote}）`,
-    );
 
-    // 服装の目安が天気予報ではないことを断っている。
-    const climateText = await page
-      .locator('.intro-card[data-section="climate"]')
-      .textContent();
-    check(
-      climateText.includes('天気予報ではありません'),
-      `${label}: 服装の目安の断り書きが無い`,
-    );
+    // --- カルタへ進める ---
+    const startButton = page.getByRole('button', { name: 'この国でことばを集める' });
+    check((await startButton.count()) === 1, `${label}: 開始ボタンが無い`);
+    await startButton.scrollIntoViewIfNeeded();
+    check(await startButton.isVisible(), `${label}: 開始ボタンが見えない`);
 
-    // --- 開いた状態でも、はみ出しとタップ領域を守れている ---
+    // --- はみ出しとタップ領域 ---
     const hScroll = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth + 1,
     );
@@ -256,31 +209,6 @@ try {
     const small = await page.evaluate(smallControls);
     check(small.length === 0, `${label}: タップ領域 44px 未満 ${small.join(', ')}`);
 
-    // 見出しと本文が切れていないこと（はみ出して隠れていない）。
-    const clipped = await page.evaluate(() =>
-      [...document.querySelectorAll('.intro-card__heading, .intro-card__body, .intro__summary')]
-        .filter((n) => n.scrollWidth > n.clientWidth + 1)
-        .map((n) => n.textContent.trim().slice(0, 20)),
-    );
-    check(clipped.length === 0, `${label}: 文字が横に切れている ${clipped.join(' / ')}`);
-
-    // --- 閉じても開始ボタンへ到達できる ---
-    await toggle.scrollIntoViewIfNeeded();
-    await toggle.click();
-    await page.waitForTimeout(120);
-    check(
-      (await toggle.getAttribute('aria-expanded')) === 'false',
-      `${label}: 閉じられない`,
-    );
-    check(
-      (await page.locator('.intro__more:not([hidden])').count()) === 0,
-      `${label}: 閉じたのに詳細が見えている`,
-    );
-    const startButton = page.getByRole('button', { name: 'この国でことばを集める' });
-    await startButton.scrollIntoViewIfNeeded();
-    check(await startButton.isVisible(), `${label}: 閉じたあと開始ボタンへ到達できない`);
-
-    // --- 開いて閉じても進行が失われない ---
     await startButton.click();
     await page.waitForSelector('.card', { timeout: 6000 });
     const cards = await page.locator('.card').count();
@@ -288,27 +216,12 @@ try {
 
     check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
     if (failures.length === 0) {
-      console.log(`✓ ${label} 国紹介（8カード・情報源${sourceLinks}件・横スクロール0）`);
+      console.log(`✓ ${label} 下書き表示（準備中の案内・もっと知る無し・カルタ開始OK）`);
     }
     await context.close();
   }
 
-  // ---- 2. 詳細を開かずにそのまま開始できる ----
-  {
-    const context = await browser.newContext({ viewport: { width: 320, height: 568 } });
-    const page = await context.newPage();
-    await reachIntro(page, baseUrl);
-    await page.getByRole('button', { name: 'この国でことばを集める' }).click();
-    await page.waitForSelector('.card', { timeout: 6000 });
-    check(
-      (await page.locator('.card').count()) === 6,
-      '詳細を開かずに開始したときにカルタが始まらない',
-    );
-    if (failures.length === 0) console.log('✓ 「もっと知る」を開かなくてもカルタを開始できる');
-    await context.close();
-  }
-
-  // ---- 3. prefers-reduced-motion でも全情報が読める ----
+  // ---- 2. prefers-reduced-motion でも案内が読める ----
   {
     const context = await browser.newContext({
       viewport: { width: 393, height: 852 },
@@ -316,23 +229,13 @@ try {
     });
     const page = await context.newPage();
     await reachIntro(page, baseUrl);
-    await page.locator('.intro__more-toggle').click();
-    await page.waitForTimeout(150);
-
-    for (const id of SECTIONS) {
-      const card = page.locator(`.intro-card[data-section="${id}"]`);
-      await card.scrollIntoViewIfNeeded();
-      const text = await card.textContent();
-      check(
-        text.trim().length > 0,
-        `reduced-motion: 「${id}」のカードが読めない`,
-      );
-    }
+    const text = await page.locator('.intro__preparing').textContent();
+    check(text.trim().length > 0, 'reduced-motion: 準備中の案内が読めない');
     check(
-      (await page.locator('.intro__summary').textContent()).length > 10,
-      'reduced-motion: 紹介文が読めない',
+      (await page.locator('.intro__more-toggle').count()) === 0,
+      'reduced-motion: 「もっと知る」が出ている',
     );
-    if (failures.length === 0) console.log('✓ prefers-reduced-motion でも全カードが読める');
+    if (failures.length === 0) console.log('✓ prefers-reduced-motion でも案内が読める');
     await context.close();
   }
 } finally {
@@ -341,9 +244,9 @@ try {
 }
 
 if (failures.length > 0) {
-  console.error('\nPhase 1-C3 国紹介テスト 失敗:');
+  console.error('\nPhase 1-C3 国紹介テスト（下書き表示） 失敗:');
   for (const failure of failures) console.error(`  ✗ ${failure}`);
   process.exit(1);
 }
 
-console.log('\nPhase 1-C3 国紹介テスト 成功');
+console.log('\nPhase 1-C3 国紹介テスト（下書き表示） 成功');

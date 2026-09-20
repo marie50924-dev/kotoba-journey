@@ -2,28 +2,33 @@ import { describe, expect, it } from 'vitest';
 import {
   COUNTRY_INTROS,
   INTERNAL_DATA_SECTIONS,
+  allClaims,
   buildDetailSections,
+  canPublish,
   findCountryIntro,
   findSource,
   hasCountryIntro,
-  hasUnverifiedSource,
   needsSource,
+  showsDetails,
+  uncheckedClaims,
 } from '../data/countryIntros';
-import type { CountryIntro, DetailSectionId, NamedItem } from '../data/countryIntros';
+import type { CountryIntro, DetailSectionId, FactClaim, NamedItem } from '../data/countryIntros';
 import { SAMPLE_PAIRS, findPair } from '../data/wordPairs';
 import { DESTINATIONS } from '../data/destinations';
+// チェックリストは配布物ではないので、テストからだけ生テキストとして読む。
+import checklist from '../../docs/reports/COUNTRY_GUIDE_JAPAN_SOURCE_CHECKLIST.md?raw';
 
 /**
  * 国紹介データの検査。
  *
- * 文章そのものの正しさは人の確認に任せるが、
- * 「必須項目が抜けている」「IDがぶつかる」「出典が無い」といった
- * 機械で分かる欠けはここで止める。
+ * 文章そのものの正しさは人が資料の本文を読んで確かめる。
+ * ここで止めるのは、機械で分かる欠け——必須項目の抜け、IDのぶつかり、
+ * 出典の形式不備、そして「確認が終わっていないのに公開してしまう」こと。
  */
 
 const JAPAN = findCountryIntro('japan')!;
 
-/** すべての NamedItem 配列を集めて、IDの重複を調べるために使う。 */
+/** すべての NamedItem を集めて、IDの重複を調べるために使う。 */
 function allItems(intro: CountryIntro): NamedItem[] {
   return [
     intro.capital,
@@ -35,6 +40,49 @@ function allItems(intro: CountryIntro): NamedItem[] {
   ];
 }
 
+/**
+ * 本文確認が終わった状態の複製。公開できる形を試すのに使う。
+ *
+ * 確認済みの事実は必ず裏づけ資料を持つので、
+ * 資料の決まっていない事実には代わりのIDを入れて形をそろえる。
+ * これはテスト用の仮置きで、実際の割り当てではない。
+ */
+const PLACEHOLDER_SOURCE_ID = 'tokyo-profile';
+
+function asVerified(intro: CountryIntro): CountryIntro {
+  const check = (c: FactClaim): FactClaim => {
+    const ids = c.sourceIds.length > 0 ? c.sourceIds : (c.candidateSourceIds ?? []);
+    return {
+      ...c,
+      sourceIds: ids.length > 0 ? ids : [PLACEHOLDER_SOURCE_ID],
+      verification: 'body-checked',
+      verificationNote: '（テスト用）本文確認済みとみなす',
+    };
+  };
+  const checkItem = (i: NamedItem): NamedItem =>
+    i.claim ? { ...i, claim: check(i.claim) } : i;
+
+  return {
+    ...intro,
+    publicationStatus: 'verified',
+    summary: check(intro.summary),
+    capitalLine: check(intro.capitalLine),
+    capital: checkItem(intro.capital),
+    highlight: checkItem(intro.highlight),
+    majorCities: intro.majorCities.map(checkItem),
+    geography: intro.geography.map(check),
+    climate: intro.climate.map(check),
+    clothingTips: intro.clothingTips.map(check),
+    landmarks: intro.landmarks.map(checkItem),
+    foods: intro.foods.map(checkItem),
+    specialties: intro.specialties.map(checkItem),
+    specialtiesNote: check(intro.specialtiesNote),
+    history: intro.history.map((h) => ({ ...h, claim: check(h.claim) })),
+    culture: intro.culture.map(check),
+    manners: intro.manners.map(check),
+  };
+}
+
 describe('国紹介の必須項目', () => {
   it('すべての国で、文字の項目が空でない', () => {
     for (const intro of COUNTRY_INTROS) {
@@ -44,9 +92,10 @@ describe('国紹介の必須項目', () => {
       expect(intro.capital.name.length).toBeGreaterThan(0);
       expect(intro.greeting.ja.length).toBeGreaterThan(0);
       expect(intro.greeting.en.length).toBeGreaterThan(0);
-      expect(intro.summary.length).toBeGreaterThan(0);
+      expect(intro.summary.text.length).toBeGreaterThan(0);
       expect(intro.highlight.name.length).toBeGreaterThan(0);
-      expect(intro.specialtiesNote.length).toBeGreaterThan(0);
+      expect(intro.specialtiesNote.text.length).toBeGreaterThan(0);
+      expect(intro.clothingNote.length).toBeGreaterThan(0);
       expect(intro.learning.length).toBeGreaterThan(0);
     }
   });
@@ -68,16 +117,11 @@ describe('国紹介の必須項目', () => {
     }
   });
 
-  it('空文字の行を持たない', () => {
+  it('空文字の事実を持たない', () => {
     for (const intro of COUNTRY_INTROS) {
-      const lines = [
-        ...intro.geography,
-        ...intro.climate,
-        ...intro.clothingTips,
-        ...intro.culture,
-        ...intro.manners,
-      ];
-      for (const line of lines) expect(line.trim().length).toBeGreaterThan(0);
+      for (const claim of allClaims(intro)) {
+        expect(claim.text.trim().length).toBeGreaterThan(0);
+      }
       for (const item of allItems(intro)) expect(item.name.trim().length).toBeGreaterThan(0);
       for (const note of intro.history) {
         expect(note.era.trim().length).toBeGreaterThan(0);
@@ -134,7 +178,161 @@ describe('IDの重複', () => {
   });
 });
 
-describe('情報源', () => {
+describe('事実（FactClaim）', () => {
+  it('すべての事実に一意な claimId がある', () => {
+    for (const intro of COUNTRY_INTROS) {
+      const ids = allClaims(intro).map((c) => c.id);
+      expect(ids.every((id) => id.length > 0)).toBe(true);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  it('claimId は国をまたいでも重複しない', () => {
+    const ids = COUNTRY_INTROS.flatMap((intro) => allClaims(intro).map((c) => c.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('sourceIds と candidateSourceIds が実在する出典を指す', () => {
+    for (const intro of COUNTRY_INTROS) {
+      for (const claim of allClaims(intro)) {
+        for (const id of claim.sourceIds) {
+          expect(findSource(intro, id), `${claim.id} の出典 ${id}`).toBeDefined();
+        }
+        for (const id of claim.candidateSourceIds ?? []) {
+          expect(findSource(intro, id), `${claim.id} の確認予定資料 ${id}`).toBeDefined();
+        }
+      }
+    }
+  });
+
+  it('確認状態は3種類のいずれか', () => {
+    for (const intro of COUNTRY_INTROS) {
+      for (const claim of allClaims(intro)) {
+        expect(['unchecked', 'body-checked', 'rejected']).toContain(claim.verification);
+      }
+    }
+  });
+
+  it('本文未確認の事実は、裏づけ済みの出典を持たない', () => {
+    // 「割り当てたから確認済み」と読み違えないよう、
+    // 確認できるまで sourceIds は空にしておく。
+    for (const intro of COUNTRY_INTROS) {
+      for (const claim of allClaims(intro)) {
+        if (claim.verification === 'body-checked') continue;
+        expect(claim.sourceIds, `${claim.id} に未確認のまま出典が入っている`).toEqual([]);
+      }
+    }
+  });
+
+  it('未確認の事実には、理由か確認予定が書いてある', () => {
+    for (const intro of COUNTRY_INTROS) {
+      for (const claim of uncheckedClaims(intro)) {
+        expect(claim.verificationNote, `${claim.id} に理由が無い`).toBeTruthy();
+      }
+    }
+  });
+
+  it('日本の事実はまだ1件も本文確認できていない', () => {
+    // この開発環境からは公的機関のページ本文を取得できないため。
+    expect(allClaims(JAPAN).length).toBeGreaterThan(0);
+    expect(uncheckedClaims(JAPAN).length).toBe(allClaims(JAPAN).length);
+  });
+
+  it('根拠が不確かな項目に、無理な出典を割り当てていない', () => {
+    const shouldHaveNoSource = [
+      'jp-claim-city-sapporo',
+      'jp-claim-city-kyoto',
+      'jp-claim-city-osaka',
+      'jp-claim-city-fukuoka',
+      'jp-claim-city-naha',
+      'jp-claim-geo-island',
+      'jp-claim-geo-rivers',
+      'jp-claim-food-sushi',
+      'jp-claim-food-ramen',
+      'jp-claim-food-misoshiru',
+      'jp-claim-food-wagashi',
+      'jp-claim-spec-rice',
+      'jp-claim-spec-tea',
+      'jp-claim-spec-fruit',
+      'jp-claim-spec-fish',
+      'jp-claim-spec-note',
+      'jp-claim-culture-bow',
+      'jp-claim-manner-trash',
+      'jp-claim-manner-photo',
+    ];
+    const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
+    for (const id of shouldHaveNoSource) {
+      const claim = byId.get(id);
+      expect(claim, `${id} が見つからない`).toBeDefined();
+      expect(claim!.sourceIds, `${id} に出典が割り当たっている`).toEqual([]);
+      expect(claim!.candidateSourceIds ?? [], `${id} に確認予定資料が入っている`).toEqual([]);
+      expect(claim!.verification).toBe('unchecked');
+    }
+  });
+
+  it('歴史4区分は Kids Web Japan の本文と照合するまで未確認', () => {
+    for (const note of JAPAN.history) {
+      expect(note.claim.verification).toBe('unchecked');
+      expect(note.claim.sourceIds).toEqual([]);
+      expect(note.claim.candidateSourceIds).toContain('webjapan-history');
+    }
+  });
+});
+
+describe('公開の可否', () => {
+  it('日本は下書きのまま', () => {
+    expect(JAPAN.publicationStatus).toBe('draft');
+  });
+
+  it('未確認が1件でもあれば公開できない', () => {
+    expect(canPublish(JAPAN)).toBe(false);
+    expect(showsDetails(JAPAN)).toBe(false);
+  });
+
+  it('すべて本文確認できたときだけ公開できる', () => {
+    const verified = asVerified(JAPAN);
+    expect(canPublish(verified)).toBe(true);
+    expect(showsDetails(verified)).toBe(true);
+  });
+
+  it('1件でも rejected が残れば公開できない', () => {
+    const verified = asVerified(JAPAN);
+    const withRejected: CountryIntro = {
+      ...verified,
+      culture: [
+        { ...verified.culture[0], verification: 'rejected', sourceIds: [] },
+        ...verified.culture.slice(1),
+      ],
+    };
+    expect(canPublish(withRejected)).toBe(false);
+    expect(showsDetails(withRejected)).toBe(false);
+  });
+
+  it('1件でも unchecked が残れば公開できない', () => {
+    const verified = asVerified(JAPAN);
+    const withUnchecked: CountryIntro = {
+      ...verified,
+      manners: [
+        { ...verified.manners[0], verification: 'unchecked', sourceIds: [] },
+        ...verified.manners.slice(1),
+      ],
+    };
+    expect(canPublish(withUnchecked)).toBe(false);
+    expect(showsDetails(withUnchecked)).toBe(false);
+  });
+
+  it('publicationStatus を verified にしても、未確認があれば表示しない', () => {
+    // 宣言だけで公開できてしまわないようにする二重の歯止め。
+    const declaredOnly: CountryIntro = { ...JAPAN, publicationStatus: 'verified' };
+    expect(canPublish(declaredOnly)).toBe(false);
+    expect(showsDetails(declaredOnly)).toBe(false);
+  });
+});
+
+describe('出典メタデータの形式確認', () => {
+  // ここは事実が正しいことの保証ではない。出典の「書き方」がそろっているかだけを見る。
+  // 内容が正しいかどうかは、人が本文を読んで FactClaim を body-checked にしたときに決まる。
+
   it('すべての出典が名前・https のURL・確認日・確認状態を持つ', () => {
     for (const intro of COUNTRY_INTROS) {
       for (const source of intro.sources) {
@@ -147,155 +345,24 @@ describe('情報源', () => {
   });
 
   it('出典名が機関名だけでなく資料名まで含む', () => {
-    // 「文化庁」だけでは、どの資料を見ればよいのか分からない。
     for (const intro of COUNTRY_INTROS) {
       for (const source of intro.sources) {
         expect(source.sourceLabel).toMatch(/「.+」/);
-        const organization = source.sourceLabel.split('「')[0];
-        expect(organization.trim().length).toBeGreaterThan(0);
+        expect(source.sourceLabel.split('「')[0].trim().length).toBeGreaterThan(0);
       }
     }
-  });
-
-  it('出典IDが重複しない', () => {
-    for (const intro of COUNTRY_INTROS) {
-      const ids = intro.sources.map((s) => s.id);
-      expect(new Set(ids).size).toBe(ids.length);
-    }
-  });
-
-  it('同じ出典を同じセクションへ二重に割り当てない', () => {
-    for (const intro of COUNTRY_INTROS) {
-      for (const [section, ids] of Object.entries(intro.sectionSources)) {
-        expect(new Set(ids ?? []).size, `${section} に重複した出典がある`).toBe(
-          (ids ?? []).length,
-        );
-      }
-    }
-  });
-
-  it('セクションに割り当てた出典IDが実在する', () => {
-    for (const intro of COUNTRY_INTROS) {
-      for (const ids of Object.values(intro.sectionSources)) {
-        for (const id of ids ?? []) {
-          expect(findSource(intro, id)).toBeDefined();
-        }
-      }
-    }
-  });
-
-  it('事実説明を含むカードには出典が1件以上ある', () => {
-    for (const intro of COUNTRY_INTROS) {
-      for (const section of buildDetailSections(intro)) {
-        if (!needsSource(section.id)) continue;
-        expect(section.sources.length, `${section.id} に出典が無い`).toBeGreaterThan(0);
-      }
-    }
-  });
-
-  it('ゲーム内データが正本のカードは、外部出典を引かずに正本を示す', () => {
-    const words = buildDetailSections(JAPAN).find((s) => s.id === 'words')!;
-    expect(INTERNAL_DATA_SECTIONS).toContain('words');
-    expect(words.sources).toEqual([]);
-    expect(words.sourceNote).toBeTruthy();
-    expect(words.sourceNote).toContain('語彙データ');
-  });
-
-  // ここから先は「ドメインが公的機関だから正しい」で済ませないための確認。
-  // 各カードに、その内容を直接あつかう資料が割り当たっているかを見る。
-
-  it('まちのカードに、その都市を所管する自治体の資料が割り当たっている', () => {
-    const cities = buildDetailSections(JAPAN).find((s) => s.id === 'cities')!;
-    const labels = cities.sources.map((s) => s.sourceLabel).join(' ');
-    const urls = cities.sources.map((s) => s.sourceUrl).join(' ');
-    expect(labels).toContain('東京都');
-    expect(urls).toContain('metro.tokyo.lg.jp');
-  });
-
-  it('みどころの法隆寺の説明に、法隆寺を直接あつかう資料が割り当たっている', () => {
-    const landmarks = buildDetailSections(JAPAN).find((s) => s.id === 'landmarks')!;
-    const mentionsHoryuji = landmarks.items.some((i) => i.name.includes('法隆寺'));
-    expect(mentionsHoryuji).toBe(true);
-
-    const direct = landmarks.sources.filter(
-      (s) => s.sourceLabel.includes('法隆寺') || /horyuji|list\/660/.test(s.sourceUrl),
-    );
-    expect(direct.length, '法隆寺を直接あつかう資料が無い').toBeGreaterThan(0);
-  });
-
-  it('れきしのカードに、歴史を直接あつかう資料が割り当たっている', () => {
-    const history = buildDetailSections(JAPAN).find((s) => s.id === 'history')!;
-    const direct = history.sources.filter(
-      (s) => s.sourceLabel.includes('歴史') || /history/.test(s.sourceUrl),
-    );
-    expect(direct.length, '歴史を直接あつかう資料が無い').toBeGreaterThan(0);
-  });
-
-  it('たべもの・特産物のカードに、農林水産省の該当資料が割り当たっている', () => {
-    const foods = buildDetailSections(JAPAN).find((s) => s.id === 'foods')!;
-    const maff = foods.sources.filter((s) => /maff\.go\.jp/.test(s.sourceUrl));
-    expect(maff.length, '農林水産省の資料が無い').toBeGreaterThan(0);
-    const labels = maff.map((s) => s.sourceLabel).join(' ');
-    expect(labels).toMatch(/食|料理/);
-  });
-
-  it('きこうのカードに、気象機関の資料が割り当たっている', () => {
-    const climate = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
-    const jma = climate.sources.filter((s) => s.sourceLabel.includes('気象庁'));
-    expect(jma.length, '気象庁の資料が無い').toBeGreaterThan(0);
-  });
-
-  it('しぜんのカードに、森林と山岳の資料が割り当たっている', () => {
-    const nature = buildDetailSections(JAPAN).find((s) => s.id === 'nature')!;
-    const labels = nature.sources.map((s) => s.sourceLabel).join(' ');
-    expect(labels).toMatch(/森林/);
-    expect(labels).toMatch(/山岳|標高/);
-  });
-
-  it('ぶんかのカードに、年中行事とマナーの資料が割り当たっている', () => {
-    const culture = buildDetailSections(JAPAN).find((s) => s.id === 'culture')!;
-    const labels = culture.sources.map((s) => s.sourceLabel).join(' ');
-    expect(labels).toMatch(/年中行事/);
-    expect(labels).toMatch(/マナー/);
   });
 
   it('出典は公的機関・公的機関が運営する媒体のドメインに限る', () => {
-    // ドメインだけで正しさは決まらないが、出所の最低条件としては確認する。
     const allowedHost = /\.go\.jp$|\.lg\.jp$|\.unesco\.org$|^web-japan\.org$/;
     for (const source of JAPAN.sources) {
       const host = new URL(source.sourceUrl).hostname;
       expect(host, `${source.sourceLabel} のドメイン`).toMatch(allowedHost);
     }
   });
-});
 
-describe('出典の確認状態', () => {
-  it('本文を確認できていない出典が残っていることを、データ側で分かるようにする', () => {
-    // この開発環境からは公的機関のページ本文を取得できない。
-    // 確認済みとして扱わないため、状態をデータに持たせている。
-    const unverified = JAPAN.sources.filter((s) => s.verification !== 'body-checked');
-    expect(unverified.length).toBeGreaterThan(0);
-    expect(hasUnverifiedSource(JAPAN)).toBe(true);
-  });
-
-  it('本文をすべて確認できたら、未確認の印は消える', () => {
-    const verified: CountryIntro = {
-      ...JAPAN,
-      sources: JAPAN.sources.map((s) => ({ ...s, verification: 'body-checked' as const })),
-    };
-    expect(hasUnverifiedSource(verified)).toBe(false);
-  });
-});
-
-describe('服装の目安', () => {
-  it('天気予報ではないことを断っている', () => {
-    const climate = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
-    expect(climate.lines.join('')).toContain('天気予報ではありません');
-  });
-
-  it('断り書きは気候の説明の最後に置く', () => {
-    const climate = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
-    expect(climate.lines[climate.lines.length - 1]).toBe(JAPAN.clothingNote);
+  it('日本の出典はまだ1件も本文確認できていない', () => {
+    expect(JAPAN.sources.every((s) => s.verification === 'url-only')).toBe(true);
   });
 });
 
@@ -321,6 +388,16 @@ describe('学ぶ単語と語彙データの対応', () => {
     const first = SAMPLE_PAIRS.find((p) => p.pairId === JAPAN.learningWords[0].pairId)!;
     expect(words.items[0].name).toBe(first.ja);
     expect(words.items[0].note).toBe(first.en);
+  });
+
+  it('ことばのカードは外部の FactClaim を要求しない', () => {
+    const words = buildDetailSections(JAPAN).find((s) => s.id === 'words')!;
+    expect(INTERNAL_DATA_SECTIONS).toContain('words');
+    expect(needsSource('words')).toBe(false);
+    expect(words.sources).toEqual([]);
+    expect(words.sourceNote).toContain('語彙データ');
+    // ことばの並びは事実の主張ではないので、claim を持たない。
+    expect(words.items.every((i) => i.claim === undefined)).toBe(true);
   });
 });
 
@@ -348,8 +425,22 @@ describe('詳細カードの組み立て', () => {
     }
   });
 
+  it('カードに出るのは確認できた事実の出典だけ', () => {
+    // まだ1件も本文確認できていないので、どのカードにも出典が出ない。
+    for (const section of buildDetailSections(JAPAN)) {
+      expect(section.sources, `${section.id} に未確認の出典が出ている`).toEqual([]);
+    }
+  });
+
+  it('本文確認が終われば、事実のカードに出典が出る', () => {
+    const verified = asVerified(JAPAN);
+    for (const section of buildDetailSections(verified)) {
+      if (!needsSource(section.id)) continue;
+      expect(section.sources.length, `${section.id} に出典が無い`).toBeGreaterThan(0);
+    }
+  });
+
   it('中身の無いカテゴリーはカードを作らない', () => {
-    // 情報がそろっていない国でも、空のカードで画面が崩れないようにする。
     const sparse: CountryIntro = {
       ...JAPAN,
       countryId: 'test-sparse',
@@ -369,25 +460,33 @@ describe('詳細カードの組み立て', () => {
     expect(ids).not.toContain('landmarks');
     expect(ids).not.toContain('history');
     expect(ids).not.toContain('culture');
-    // 首都と食べものは残っているので、その2つは出る。
     expect(ids).toContain('cities');
     expect(ids).toContain('foods');
   });
 
   it('料理と特産物を混同しない', () => {
-    // 料理の名前と特産物の名前が重ならないこと。
     const foods = JAPAN.foods.map((f) => f.name);
     const specialties = JAPAN.specialties.map((s) => s.name);
     for (const name of specialties) expect(foods).not.toContain(name);
-    // 地域差があることを本文で断っている。
     const section = buildDetailSections(JAPAN).find((s) => s.id === 'foods')!;
     expect(section.lines.join('')).toContain('地域');
   });
 
   it('気候の説明が地域差にふれている', () => {
-    // 「国全体が同じ」と誤解させないための最低限の確認。
     const section = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
     expect(section.lines.join('')).toMatch(/地域|北と南/);
+  });
+});
+
+describe('服装の目安', () => {
+  it('天気予報ではないことを断っている', () => {
+    const climate = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
+    expect(climate.lines.join('')).toContain('天気予報ではありません');
+  });
+
+  it('断り書きは気候の説明の最後に置く', () => {
+    const climate = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
+    expect(climate.lines[climate.lines.length - 1]).toBe(JAPAN.clothingNote);
   });
 });
 
@@ -404,5 +503,34 @@ describe('未実装の国', () => {
     for (const intro of COUNTRY_INTROS) {
       expect(unlocked).toContain(intro.countryId);
     }
+  });
+});
+
+describe('人間確認用チェックリスト', () => {
+  it('画面に出るすべての事実が、チェックリストに載っている', () => {
+    // 表に無い文章がこっそり増えないようにする歯止め。
+    for (const claim of allClaims(JAPAN)) {
+      expect(checklist, `${claim.id} がチェックリストに無い`).toContain(claim.id);
+      expect(checklist, `${claim.id} の文章がチェックリストと違う`).toContain(claim.text);
+    }
+  });
+
+  it('チェックリストの claimId が実在する', () => {
+    const ids = new Set(allClaims(JAPAN).map((c) => c.id));
+    const listed = [...checklist.matchAll(/^### \d+\. `([^`]+)`$/gm)].map((m) => m[1]);
+    expect(listed.length).toBe(ids.size);
+    for (const id of listed) expect(ids.has(id), `${id} はデータに無い`).toBe(true);
+  });
+
+  it('最初はすべて unchecked として並んでいる', () => {
+    const states = [...checklist.matchAll(/\| 本文確認状態 \| \*\*(\w[\w-]*)\*\* \|/g)].map(
+      (m) => m[1],
+    );
+    expect(states.length).toBe(allClaims(JAPAN).length);
+    expect(states.every((s) => s === 'unchecked')).toBe(true);
+  });
+
+  it('本文を読めていない資料を確認済みとして書いていない', () => {
+    expect(checklist).toContain('本文確認済み: **0件**');
   });
 });
