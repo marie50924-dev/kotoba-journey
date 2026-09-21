@@ -312,6 +312,22 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceUrl: 'https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html',
     verification: 'url-only',
   },
+  // 標高値そのものは一覧の PDF 本体にある。入口ページ（gsi-mountains）には数値が無い。
+  {
+    id: 'gsi-mountains-20260331',
+    sourceLabel: '国土地理院「日本の主な山岳標高（1003山・令和8年3月31日）」',
+    sourceUrl: 'https://www.gsi.go.jp/KOKUJYOHO/MOUNTAIN/1003zan20260331.pdf',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
+  },
+  // 三角点の標高成果と、最高地点の標高3776mが変わらないことの説明。
+  {
+    id: 'gsi-fuji-elevation',
+    sourceLabel: '国土地理院「衛星測位を基盤とする三角点『富士山』の新しい標高」',
+    sourceUrl: 'https://www.gsi.go.jp/WNEW/PRESS-RELEASE/keikaku61003.html',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
+  },
   {
     id: 'jma-climate',
     sourceLabel: '気象庁「日本の気候」',
@@ -642,11 +658,12 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       id: 'jp-highlight-fuji',
       name: '富士山',
       note: '高さ3776mで、日本でいちばん高い山です。',
-      claim: pending(
+      claim: confirmed(
         'jp-claim-highlight-fuji',
         '富士山は高さ3776mで、日本でいちばん高い山です。',
-        ['gsi-mountains'],
-        '公式PDF・CSV本体の直接確認待ち。国土地理院「日本の主な山岳標高（1003山）」の PDF または CSV 本体で富士山の行を直接確認するまで body-checked にしない。',
+        ['gsi-mountains-20260331', 'gsi-fuji-elevation'],
+        '国土地理院「日本の主な山岳標高一覧（令和8年3月31日）」で、「富士山〈剣ヶ峯〉」の標高値が3,776mと記載されていることを確認した。同一覧の最大値が富士山の3,776mであり、次に高い北岳は3,193mなので、富士山が日本でいちばん高い山であることを確認した。あわせて国土地理院の報道発表で、二等三角点「富士山」の新しい標高成果は3775.56m（従来の標高成果は3775.51m）だが、富士山の最高地点は三角点より高い場所にあり、標高は3776mのまま変更されないと説明されていることを確認した。',
+        '2026-09-21',
       ),
     },
 

@@ -850,10 +850,10 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('本文確認日を持つ出典は14件、持たない出典は12件', () => {
+  it('本文確認日を持つ出典は16件、持たない出典は12件', () => {
     const withDate = JAPAN.sources.filter((s) => s.checkedAt !== undefined).map((s) => s.id);
     const withoutDate = JAPAN.sources.filter((s) => s.checkedAt === undefined).map((s) => s.id);
-    expect(withDate).toHaveLength(14);
+    expect(withDate).toHaveLength(16);
     expect(withoutDate).toHaveLength(12);
     // 日付を持つのは、本文を確認できた資料だけ。
     expect(withDate.sort()).toEqual(
@@ -921,8 +921,8 @@ describe('出典メタデータの形式確認', () => {
   it('出典の状態別件数', () => {
     const count = (state: string): number =>
       JAPAN.sources.filter((s) => s.verification === state).length;
-    expect(JAPAN.sources).toHaveLength(26);
-    expect(count('body-checked')).toBe(14);
+    expect(JAPAN.sources).toHaveLength(28);
+    expect(count('body-checked')).toBe(16);
     expect(count('url-only')).toBe(12);
   });
 
@@ -1076,8 +1076,8 @@ describe('確認の進み具合', () => {
     const count = (state: string): number =>
       allClaims(JAPAN).filter((c) => c.verification === state).length;
     expect(allClaims(JAPAN)).toHaveLength(46);
-    expect(count('body-checked')).toBe(11);
-    expect(count('unchecked')).toBe(5);
+    expect(count('body-checked')).toBe(12);
+    expect(count('unchecked')).toBe(4);
     expect(count('rejected')).toBe(2);
     expect(count('withdrawn')).toBe(28);
   });
@@ -1135,18 +1135,66 @@ describe('確認の進み具合', () => {
     }
   });
 
-  it('富士山の高さは未確認のまま、PDF・CSV本体の確認を待っている', () => {
+  it('富士山の高さは、公式PDFと報道発表で確認されている', () => {
     const claim = JAPAN.highlight.claim!;
     expect(claim.id).toBe('jp-claim-highlight-fuji');
+    // 文章は変えていない。
     expect(claim.text).toBe('富士山は高さ3776mで、日本でいちばん高い山です。');
-    expect(claim.verification).toBe('unchecked');
-    expect(claim.sourceIds).toEqual([]);
-    expect(claim.checkedAt).toBeUndefined();
-    expect(claim.candidateSourceIds).toEqual(['gsi-mountains']);
-    expect(claim.verificationNote).toContain('公式PDF・CSV本体の直接確認待ち');
-    const source = findSource(JAPAN, 'gsi-mountains')!;
-    expect(source.verification).toBe('url-only');
-    expect(source.checkedAt).toBeUndefined();
+    expect(claim.verification).toBe('body-checked');
+    expect(claim.sourceIds).toEqual(['gsi-mountains-20260331', 'gsi-fuji-elevation']);
+    expect(claim.candidateSourceIds ?? []).toEqual([]);
+    expect(claim.checkedAt).toBe('2026-09-21');
+  });
+
+  it('富士山の確認メモに、一覧の標高値と三角点の成果が残っている', () => {
+    const note = JAPAN.highlight.claim!.verificationNote!;
+    for (const value of ['3,776m', '3,193m', '3775.56m']) {
+      expect(note, `${value} が記録されていない`).toContain(value);
+    }
+    expect(note).toContain('剣ヶ峯');
+    expect(note).toContain('北岳');
+  });
+
+  it('富士山の出典は、PDF本体と報道発表を直接指している', () => {
+    const pdf = findSource(JAPAN, 'gsi-mountains-20260331');
+    expect(pdf, 'gsi-mountains-20260331 が無い').toBeDefined();
+    expect(new URL(pdf!.sourceUrl).hostname).toBe('www.gsi.go.jp');
+    expect(pdf!.sourceUrl.endsWith('/1003zan20260331.pdf')).toBe(true);
+    expect(pdf!.verification).toBe('body-checked');
+    expect(pdf!.checkedAt).toBe('2026-09-21');
+
+    const press = findSource(JAPAN, 'gsi-fuji-elevation');
+    expect(press, 'gsi-fuji-elevation が無い').toBeDefined();
+    expect(new URL(press!.sourceUrl).hostname).toBe('www.gsi.go.jp');
+    expect(press!.sourceUrl).toContain('/WNEW/PRESS-RELEASE/');
+    expect(press!.verification).toBe('body-checked');
+    expect(press!.checkedAt).toBe('2026-09-21');
+  });
+
+  it('山岳標高の入口ページは url-only のまま残り、裏づけには使われていない', () => {
+    const entry = findSource(JAPAN, 'gsi-mountains');
+    expect(entry, 'gsi-mountains が消えている').toBeDefined();
+    expect(entry!.verification).toBe('url-only');
+    expect(entry!.checkedAt).toBeUndefined();
+    for (const claim of allClaims(JAPAN)) {
+      expect(claim.sourceIds, `${claim.id} が入口ページを裏づけにしている`).not.toContain(
+        'gsi-mountains',
+      );
+    }
+  });
+
+  it('残る未確認は、公式MP4待ちのマナー3件とあいさつだけ', () => {
+    expect(uncheckedClaims(JAPAN).map((c) => c.id).sort()).toEqual(
+      [
+        'jp-claim-greeting-hello',
+        'jp-claim-manner-onsen',
+        'jp-claim-manner-temple',
+        'jp-claim-manner-train',
+      ].sort(),
+    );
+    for (const id of ['kankocho-transport', 'kankocho-temples', 'kankocho-baths']) {
+      expect(findSource(JAPAN, id)!.verification, `${id}`).toBe('url-only');
+    }
   });
 
   it('気候4件は本文確認が済み、四季の話だけ不採用になった', () => {
@@ -1512,13 +1560,33 @@ describe('人間確認用チェックリスト', () => {
     expect(checklist).toContain('本文・映像確認日');
   });
 
-  it('富士山の行は、PDF・CSV本体の確認待ちと書いてある', () => {
+  it('富士山の行から確認待ちの記述が消え、確認結果が入っている', () => {
     const from = checklist.indexOf('`jp-claim-highlight-fuji`');
     const row = checklist.slice(from, checklist.indexOf('###', from + 10));
-    expect(row).toContain('**unchecked**');
-    expect(row).toContain('公式PDF・CSV本体の直接確認待ち');
-    expect(row).toContain('PDF・CSV本体の直接確認待ち');
-    expect(row).not.toContain('| 確認日 | 2026-');
+    expect(row).toContain('**body-checked**');
+    expect(row).toContain('| 採用／修正／削除 | 採用 |');
+    expect(row).toContain('| 確認日 | 2026-09-21 |');
+    for (const value of ['3,776m', '3,193m', '3775.56m']) {
+      expect(row, `${value} が行に無い`).toContain(value);
+    }
+    expect(row).toContain('1003zan20260331.pdf');
+    expect(row).toContain('keikaku61003.html');
+    // 待機の記述が残っていない。
+    expect(row).not.toContain('確認待ち');
+  });
+
+  it('チェックリスト全体に「PDF・CSV本体の直接確認待ち」が残っていない', () => {
+    expect(checklist).not.toContain('PDF・CSV本体の直接確認待ち');
+    expect(checklist).not.toContain('公式PDF・CSV本体の直接確認待ち');
+  });
+
+  it('文章を直していない claim は「採用」と書かれている', () => {
+    // 全件を「修正のうえ採用」にしない。直したかどうかは確認メモが持っている。
+    for (const id of ['jp-claim-highlight-fuji', 'jp-claim-summary', 'jp-claim-geo-forest']) {
+      const from = checklist.indexOf(`\`${id}\``);
+      const row = checklist.slice(from, checklist.indexOf('###', from + 10));
+      expect(row, `${id}`).toContain('| 採用／修正／削除 | 採用 |');
+    }
   });
 
   it('チェックリストに古い公開判定が残っていない', () => {
