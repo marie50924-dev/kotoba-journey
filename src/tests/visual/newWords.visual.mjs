@@ -41,7 +41,7 @@ const VIEWPORTS = [
 const BATCHES = [
   {
     label: '11〜30',
-    title: '工程V-2C-4の15語',
+    stage: '工程V-2C-4',
     now: 1700000000018,
     cardLabel: /^6枚/,
     expected: [18, 29, 30],
@@ -50,7 +50,7 @@ const BATCHES = [
   },
   {
     label: '31〜45',
-    title: '工程V-2D-3の15語',
+    stage: '工程V-2D-3',
     now: 1700000035418,
     cardLabel: /^12枚/,
     expected: [31, 33, 37, 38, 39, 43],
@@ -63,7 +63,7 @@ const BATCHES = [
   },
   {
     label: '46〜60',
-    title: '工程V-2D-5の15語',
+    stage: '工程V-2D-5',
     now: 1700000016363,
     cardLabel: /^12枚/,
     expected: [46, 50, 54, 57, 58, 59],
@@ -77,7 +77,7 @@ const BATCHES = [
   },
   {
     label: '61〜75',
-    title: '工程V-2D-7の15語',
+    stage: '工程V-2D-7',
     now: 1700000047375,
     cardLabel: /^12枚/,
     expected: [62, 64, 66, 68, 69, 75],
@@ -133,6 +133,36 @@ const failures = [];
 const check = (condition, message) => {
   if (!condition) failures.push(message);
 };
+
+/**
+ * 1ケースぶんの検査をまとめて走らせ、記号を実際の成否に合わせる。
+ *
+ * 以前は検査の結果を見ずに ✓ を出していた。そのため盤面の語が想定と違っても
+ * 「✓ …を取り切れた」と表示され、終了コードだけが失敗という食い違いが起きていた。
+ * ケースの前後で失敗の件数を比べ、増えていなければ ✓、増えていれば ✗ を出す。
+ * 例外もそのケースの失敗として数えるので、途中で落ちても ✓ にはならず、
+ * 後続のケースはそのまま続けられる。
+ *
+ * body が返した文字列は、成功したときだけラベルの後ろに付ける。
+ * 観測した pairId のような実測値は、想定と一致を確かめたあとにだけ出す。
+ */
+async function runCase(label, failNote, body) {
+  const before = failures.length;
+  let note = '';
+  try {
+    note = (await body()) ?? '';
+  } catch (error) {
+    failures.push(`${label}: 検査の途中で例外が出た（${error && error.message}）`);
+  }
+  const added = failures.slice(before);
+  if (added.length === 0) {
+    console.log(`✓ ${label}${note}`);
+    return true;
+  }
+  console.error(`✗ ${label} ${failNote}`);
+  for (const message of added) console.error(`   - ${message}`);
+  return false;
+}
 
 /** 盤面の seed を固定する。ページのどのスクリプトより先に入れる。 */
 async function pinSeed(context, now) {
@@ -234,7 +264,8 @@ async function checkBoard(page, batch, label) {
   const ids = await boardPairIds(page);
   check(
     JSON.stringify(ids) === JSON.stringify(batch.expected),
-    `${label}: 盤面の語が固定seedの想定と違う（${ids.join(',')}）`,
+    `${label}: 盤面の語が固定seedの想定と違う` +
+      `（期待: ${batch.expected.join(',')} / 実際: ${ids.join(',')}）`,
   );
   check(
     ids.every((id) => batch.from.includes(id)),
@@ -283,149 +314,165 @@ try {
     // ---- 1. そのまとまりの語だけの盤面を、3サイズで遊べる ----
     for (const viewport of VIEWPORTS) {
       const label = `${batch.label} ${viewport.width}x${viewport.height}`;
-      const context = await browser.newContext({ viewport });
-      await pinSeed(context, batch.now);
-      const page = await context.newPage();
-      const jsErrors = [];
-      page.on('pageerror', (e) => jsErrors.push(e.message));
+      await runCase(label, `${batch.stage}の追加語テスト`, async () => {
+        const context = await browser.newContext({ viewport });
+        try {
+          await pinSeed(context, batch.now);
+          const page = await context.newPage();
+          const jsErrors = [];
+          page.on('pageerror', (e) => jsErrors.push(e.message));
 
-      await reachBoard(page, baseUrl, batch.cardLabel);
-      const ids = await checkBoard(page, batch, label);
+          await reachBoard(page, baseUrl, batch.cardLabel);
+          const ids = await checkBoard(page, batch, label);
 
-      const scrollX = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      check(scrollX <= 0, `${label}: 横スクロールが出ている（${scrollX}px）`);
+          const scrollX = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          );
+          check(scrollX <= 0, `${label}: 横スクロールが出ている（${scrollX}px）`);
 
-      // 日本語札と英語札を正しく合わせられる。
-      await clearBoard(page);
-      await page.waitForSelector('.screen--quiz-prompt', { timeout: 8000 });
+          // 日本語札と英語札を正しく合わせられる。
+          await clearBoard(page);
+          await page.waitForSelector('.screen--quiz-prompt', { timeout: 8000 });
 
-      check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
-      console.log(`✓ ${label} ${batch.title}（${ids.join(',')}）を取り切れた`);
-      await context.close();
+          check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
+          return ` ${batch.stage}の15語（${ids.join(',')}）を取り切れた`;
+        } finally {
+          await context.close();
+        }
+      });
     }
 
     // ---- 2. 確認テスト → 結果画面 → パスポートまで通る ----
     {
       const label = `${batch.label} 通し`;
-      const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
-      await pinSeed(context, batch.now);
-      const page = await context.newPage();
-      const jsErrors = [];
-      page.on('pageerror', (e) => jsErrors.push(e.message));
+      await runCase(label, `${batch.stage}の通しテスト`, async () => {
+        const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
+        try {
+          await pinSeed(context, batch.now);
+          const page = await context.newPage();
+          const jsErrors = [];
+          page.on('pageerror', (e) => jsErrors.push(e.message));
 
-      await reachBoard(page, baseUrl, batch.cardLabel);
-      const ids = await boardPairIds(page);
-      // 先頭の語を2回まちがえて、復習対象にする。
-      await makeMistakes(page, ids);
-      check(
-        (await mistakeCount(page)) === 2,
-        `${label}: わざとのまちがいが2回そろっていない（${await mistakeCount(page)}回）`,
-      );
-      await clearBoard(page);
-      await page.waitForSelector('.screen--quiz-prompt', { timeout: 8000 });
-      await page.getByRole('button', { name: 'テストを受ける' }).click();
-      await page.waitForSelector('.screen--quiz');
+          await reachBoard(page, baseUrl, batch.cardLabel);
+          const ids = await boardPairIds(page);
+          // 先頭の語を2回まちがえて、復習対象にする。
+          await makeMistakes(page, ids);
+          check(
+            (await mistakeCount(page)) === 2,
+            `${label}: わざとのまちがいが2回そろっていない（${await mistakeCount(page)}回）`,
+          );
+          await clearBoard(page);
+          await page.waitForSelector('.screen--quiz-prompt', { timeout: 8000 });
+          await page.getByRole('button', { name: 'テストを受ける' }).click();
+          await page.waitForSelector('.screen--quiz');
 
-      const total = Number(
-        (await page.locator('.quiz__progress').textContent()).split('/')[1].trim().split(' ')[0],
-      );
-      const lang = await page.locator('.quiz__input').getAttribute('lang');
+          const total = Number(
+            (await page.locator('.quiz__progress').textContent()).split('/')[1].trim().split(' ')[0],
+          );
+          const lang = await page.locator('.quiz__input').getAttribute('lang');
 
-      // 1問目はわざと間違える。不正解のときに正しい正答が出るかを見る。
-      const firstPrompt = await page.locator('.quiz__prompt').textContent();
-      const firstAnswer = answerFor(firstPrompt, lang);
-      check(
-        firstAnswer.length > 0,
-        `${label}: 足した語の出題から正答を引けない（${firstPrompt.trim()}）`,
-      );
-      await page.locator('.quiz__input').fill(lang === 'en' ? 'qqqqqqq' : 'ぬぬぬぬぬ');
-      await page.locator('.quiz__submit').click();
-      await page.waitForSelector('.quiz__feedback .quiz__verdict', { timeout: 3000 });
-      const shownAnswer = (await page.locator('.quiz__answer-text').textContent()).trim();
-      check(
-        shownAnswer === firstAnswer,
-        `${label}: 不正解時に足した語の正答が出ない（表示=${shownAnswer} / 正答=${firstAnswer}）`,
-      );
-      await page.locator('.quiz__next').click();
-      await page.waitForTimeout(120);
+          // 1問目はわざと間違える。不正解のときに正しい正答が出るかを見る。
+          const firstPrompt = await page.locator('.quiz__prompt').textContent();
+          const firstAnswer = answerFor(firstPrompt, lang);
+          check(
+            firstAnswer.length > 0,
+            `${label}: 足した語の出題から正答を引けない（${firstPrompt.trim()}）`,
+          );
+          await page.locator('.quiz__input').fill(lang === 'en' ? 'qqqqqqq' : 'ぬぬぬぬぬ');
+          await page.locator('.quiz__submit').click();
+          await page.waitForSelector('.quiz__feedback .quiz__verdict', { timeout: 3000 });
+          const shownAnswer = (await page.locator('.quiz__answer-text').textContent()).trim();
+          check(
+            shownAnswer === firstAnswer,
+            `${label}: 不正解時に足した語の正答が出ない（表示=${shownAnswer} / 正答=${firstAnswer}）`,
+          );
+          await page.locator('.quiz__next').click();
+          await page.waitForTimeout(120);
 
-      // 残りは正しく答える。足した語でも採点が通ることを見る。
-      for (let i = 2; i <= total; i += 1) {
-        const prompt = await page.locator('.quiz__prompt').textContent();
-        const answer = answerFor(prompt, lang);
-        check(answer.length > 0, `${label}: ${i}問目の正答を引けない（${prompt.trim()}）`);
-        await page.locator('.quiz__input').fill(answer);
-        await page.locator('.quiz__submit').click();
-        await page.waitForSelector('.quiz__feedback .quiz__verdict', { timeout: 3000 });
-        check(
-          (await page.locator('.quiz__feedback.is-correct').count()) === 1,
-          `${label}: 足した語の正答が不正解にされた（${answer}）`,
-        );
-        await page.locator('.quiz__next').click();
-        await page.waitForTimeout(120);
-      }
+          // 残りは正しく答える。足した語でも採点が通ることを見る。
+          for (let i = 2; i <= total; i += 1) {
+            const prompt = await page.locator('.quiz__prompt').textContent();
+            const answer = answerFor(prompt, lang);
+            check(answer.length > 0, `${label}: ${i}問目の正答を引けない（${prompt.trim()}）`);
+            await page.locator('.quiz__input').fill(answer);
+            await page.locator('.quiz__submit').click();
+            await page.waitForSelector('.quiz__feedback .quiz__verdict', { timeout: 3000 });
+            check(
+              (await page.locator('.quiz__feedback.is-correct').count()) === 1,
+              `${label}: 足した語の正答が不正解にされた（${answer}）`,
+            );
+            await page.locator('.quiz__next').click();
+            await page.waitForTimeout(120);
+          }
 
-      await page.waitForSelector('.screen--quiz-result', { timeout: 8000 });
-      const score = (await page.locator('.quiz-result__score .stat-tile__value').textContent()).trim();
-      check(score === `${total - 1} / ${total}`, `${label}: 採点が合わない（${score}）`);
+          await page.waitForSelector('.screen--quiz-result', { timeout: 8000 });
+          const score = (
+            await page.locator('.quiz-result__score .stat-tile__value').textContent()
+          ).trim();
+          check(score === `${total - 1} / ${total}`, `${label}: 採点が合わない（${score}）`);
 
-      await page.getByRole('button', { name: 'つぎへ' }).click();
-      await page.waitForSelector('.screen--result', { timeout: 8000 });
+          await page.getByRole('button', { name: 'つぎへ' }).click();
+          await page.waitForSelector('.screen--result', { timeout: 8000 });
 
-      // --- 結果画面に、盤面の語が日本語と英語で出る ---
-      const resultText = await page.evaluate(() => document.body.innerText);
-      for (const id of ids) {
-        const [ja, en] = WORD_PAIRS.get(id) ?? [];
-        check(resultText.includes(ja), `${label}: 結果画面に ${id} の「${ja}」が出ていない`);
-        check(resultText.includes(en), `${label}: 結果画面に ${id} の「${en}」が出ていない`);
-      }
-      check(
-        (await page.locator('.word-list__ja').count()) > 0,
-        `${label}: 結果画面に覚えたことばの一覧が無い`,
-      );
+          // --- 結果画面に、盤面の語が日本語と英語で出る ---
+          const resultText = await page.evaluate(() => document.body.innerText);
+          for (const id of ids) {
+            const [ja, en] = WORD_PAIRS.get(id) ?? [];
+            check(resultText.includes(ja), `${label}: 結果画面に ${id} の「${ja}」が出ていない`);
+            check(resultText.includes(en), `${label}: 結果画面に ${id} の「${en}」が出ていない`);
+          }
+          check(
+            (await page.locator('.word-list__ja').count()) > 0,
+            `${label}: 結果画面に覚えたことばの一覧が無い`,
+          );
 
-      // --- 保存された pairId が、盤面の語の正しい番号になっている ---
-      const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
-      check(stored.version === 3, `${label}: 保存が version 3 でない（${stored.version}）`);
-      const savedIds = [...stored.masteredPairIds, ...stored.reviewPairIds];
-      check(
-        savedIds.length > 0 && savedIds.every((id) => ids.includes(id)),
-        `${label}: 保存された pairId が盤面の語と合わない（${savedIds.join(',')}）`,
-      );
+          // --- 保存された pairId が、盤面の語の正しい番号になっている ---
+          const stored = await page.evaluate(
+            (key) => JSON.parse(localStorage.getItem(key)),
+            STORAGE_KEY,
+          );
+          check(stored.version === 3, `${label}: 保存が version 3 でない（${stored.version}）`);
+          const savedIds = [...stored.masteredPairIds, ...stored.reviewPairIds];
+          check(
+            savedIds.length > 0 && savedIds.every((id) => ids.includes(id)),
+            `${label}: 保存された pairId が盤面の語と合わない` +
+              `（盤面: ${ids.join(',')} / 保存: ${savedIds.join(',')}）`,
+          );
 
-      // --- パスポートの復習語で、足した語を解決できる ---
-      await page.goto(baseUrl, { waitUntil: 'networkidle' });
-      await page.getByRole('button', { name: 'マイパスポート' }).click();
-      await page.waitForSelector('.screen--passport');
+          // --- パスポートの復習語で、足した語を解決できる ---
+          await page.goto(baseUrl, { waitUntil: 'networkidle' });
+          await page.getByRole('button', { name: 'マイパスポート' }).click();
+          await page.waitForSelector('.screen--passport');
 
-      const reviewIds = stored.reviewPairIds;
-      check(reviewIds.length > 0, `${label}: 復習対象が記録されていない`);
-      const reviewWords = await page.$$eval('.word-list__item', (nodes) =>
-        nodes.map((n) => n.textContent.trim()),
-      );
-      for (const pairId of reviewIds) {
-        const [ja, en] = WORD_PAIRS.get(pairId) ?? [];
-        check(ja !== undefined, `${label}: 復習の pairId ${pairId} を語彙データから引けない`);
-        check(
-          reviewWords.some((w) => w.includes(ja) && w.includes(en)),
-          `${label}: パスポートの復習語で ${pairId}「${ja} / ${en}」を解決できていない（${reviewWords.join(' / ')}）`,
-        );
-      }
-      check(
-        !reviewWords.some((w) => w.includes('?')),
-        `${label}: パスポートの復習語に引けない語がある（${reviewWords.join(' / ')}）`,
-      );
+          const reviewIds = stored.reviewPairIds;
+          check(reviewIds.length > 0, `${label}: 復習対象が記録されていない`);
+          const reviewWords = await page.$$eval('.word-list__item', (nodes) =>
+            nodes.map((n) => n.textContent.trim()),
+          );
+          for (const pairId of reviewIds) {
+            const [ja, en] = WORD_PAIRS.get(pairId) ?? [];
+            check(ja !== undefined, `${label}: 復習の pairId ${pairId} を語彙データから引けない`);
+            check(
+              reviewWords.some((w) => w.includes(ja) && w.includes(en)),
+              `${label}: パスポートの復習語で ${pairId}「${ja} / ${en}」を解決できていない（${reviewWords.join(' / ')}）`,
+            );
+          }
+          check(
+            !reviewWords.some((w) => w.includes('?')),
+            `${label}: パスポートの復習語に引けない語がある（${reviewWords.join(' / ')}）`,
+          );
 
-      const passportScrollX = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      check(passportScrollX <= 0, `${label}: パスポートで横スクロールが出ている`);
-      check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
+          const passportScrollX = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          );
+          check(passportScrollX <= 0, `${label}: パスポートで横スクロールが出ている`);
+          check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
 
-      console.log(`✓ ${label} 確認テスト・結果画面・パスポートまで通った`);
-      await context.close();
+          return ' 確認テスト・結果画面・パスポートまで通った';
+        } finally {
+          await context.close();
+        }
+      });
     }
   }
 } finally {

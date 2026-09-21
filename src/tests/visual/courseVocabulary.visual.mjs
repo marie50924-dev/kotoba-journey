@@ -85,6 +85,24 @@ const check = (condition, message) => {
   if (!condition) failures.push(message);
 };
 
+/**
+ * ケースの成否を、実際の検査結果どおりの記号で出す。
+ *
+ * 以前は検査に失敗していても ✓ を出していたので、
+ * 終了コードだけが失敗という食い違いが起きていた。
+ * 開始時点の失敗件数を渡し、増えていなければ ✓、増えていれば ✗ を出す。
+ */
+function reportCase(before, label, okNote, failNote) {
+  const added = failures.slice(before);
+  if (added.length === 0) {
+    console.log(`✓ ${label}${okNote}`);
+    return true;
+  }
+  console.error(`✗ ${label} ${failNote}`);
+  for (const message of added) console.error(`   - ${message}`);
+  return false;
+}
+
 /** 指定したコースでカルタ盤面まで進める。案内文の有無もそのとき見る。 */
 async function reachBoard(page, baseUrl, { category, course, notice }, label) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -180,6 +198,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 try {
   for (const target of COURSES) {
     const label = `${target.course}`;
+    const failuresBefore = failures.length;
     const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
     await context.addInitScript((now) => {
       Date.now = () => now;
@@ -282,7 +301,12 @@ try {
     check(passportScrollX <= 0, `${label}: パスポートで横スクロールが出ている`);
     check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
 
-    console.log(`✓ ${label} 共通${COMMON.size}語（${ids.join(',')}）で最後まで遊べた`);
+    reportCase(
+      failuresBefore,
+      label,
+      ` 共通${COMMON.size}語（${ids.join(',')}）で最後まで遊べた`,
+      'コース別語彙セットテスト',
+    );
     await context.close();
   }
 } finally {

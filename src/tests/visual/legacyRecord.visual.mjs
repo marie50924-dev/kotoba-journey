@@ -106,6 +106,24 @@ const check = (condition, message) => {
   if (!condition) failures.push(message);
 };
 
+/**
+ * ケースの成否を、実際の検査結果どおりの記号で出す。
+ *
+ * 以前は検査に失敗していても ✓ を出していたので、
+ * 終了コードだけが失敗という食い違いが起きていた。
+ * 開始時点の失敗件数を渡し、増えていなければ ✓、増えていれば ✗ を出す。
+ */
+function reportCase(before, label, okNote, failNote) {
+  const added = failures.slice(before);
+  if (added.length === 0) {
+    console.log(`✓ ${label}${okNote}`);
+    return true;
+  }
+  console.error(`✗ ${label} ${failNote}`);
+  for (const message of added) console.error(`   - ${message}`);
+  return false;
+}
+
 /** 旧データを入れた状態でパスポートを開く。 */
 async function openPassportWithLegacyRecord(page, baseUrl) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -136,6 +154,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 try {
   for (const viewport of VIEWPORTS) {
     const label = `${viewport.width}x${viewport.height}`;
+    const failuresBefore = failures.length;
     const context = await browser.newContext({ viewport });
     const page = await context.newPage();
     const jsErrors = [];
@@ -190,12 +209,18 @@ try {
     check(offscreen.length === 0, `${label}: 画面外の操作がある（${offscreen.join(', ')}）`);
     check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
 
-    console.log(`✓ ${label} 旧保存データでも旧試験名0件・記録は7回のまま`);
+    reportCase(
+      failuresBefore,
+      label,
+      ' 旧保存データでも旧試験名0件・記録は7回のまま',
+      '旧保存データ表示テスト',
+    );
     await context.close();
   }
 
   // ---- prefers-reduced-motion でも同じ ----
   {
+    const failuresBefore = failures.length;
     const context = await browser.newContext({
       viewport: { width: 393, height: 852 },
       reducedMotion: 'reduce',
@@ -224,7 +249,12 @@ try {
     check(box !== null && box.height > 0, 'reduced-motion: 履歴が読めない');
     check(jsErrors.length === 0, `reduced-motion: JavaScriptエラー（${jsErrors.join(' / ')}）`);
 
-    console.log('✓ prefers-reduced-motion でも履歴が読め、旧試験名0件');
+    reportCase(
+      failuresBefore,
+      'prefers-reduced-motion',
+      ' でも履歴が読め、旧試験名0件',
+      '旧保存データ表示テスト',
+    );
     await context.close();
   }
 } finally {
