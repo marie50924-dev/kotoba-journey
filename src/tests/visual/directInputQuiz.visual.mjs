@@ -15,6 +15,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { WORD_PAIRS } from './wordPairsFixture.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
 const BASE_PATH = '/kotoba-journey/';
@@ -41,36 +42,9 @@ const MIME = {
 };
 
 /** 語彙データ。出題文から正解を引くために持つ。 */
-const PAIRS = [
-  ['りんご', 'apple'],
-  ['ねこ', 'cat'],
-  ['あお', 'blue'],
-  ['いぬ', 'dog'],
-  ['はな', 'flower'],
-  ['ほん', 'book'],
-  ['みず', 'water'],
-  ['つき', 'moon'],
-  ['とり', 'bird'],
-  ['くるま', 'car'],
-  // 工程V-2C-4で足した15語。盤面は25語から選ばれるので、
-  // ここが10語のままだと、足した語が出たときに正答を引けず、
-  // このテストが語彙の中身ではなく運で落ちる。
-  ['うさぎ', 'rabbit'],
-  ['ぞう', 'elephant'],
-  ['うま', 'horse'],
-  ['あか', 'red'],
-  ['きいろ', 'yellow'],
-  ['みどり', 'green'],
-  ['しろ', 'white'],
-  ['くろ', 'black'],
-  ['たまご', 'egg'],
-  ['いちご', 'strawberry'],
-  ['やま', 'mountain'],
-  ['そら', 'sky'],
-  ['たべる', 'eat'],
-  ['のむ', 'drink'],
-  ['ねる', 'sleep'],
-];
+// 語彙の対応表は src/data/wordPairs.ts から読む。
+// 手書きの表を持つと、語を足したときに直し忘れて運で落ちるテストになる。
+const PAIRS = [...WORD_PAIRS.values()];
 
 function serveDist() {
   const server = createServer(async (req, res) => {

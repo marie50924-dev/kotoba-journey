@@ -2,10 +2,10 @@
  * 工程V-2D-1の表示・操作回帰テスト（コース → 語彙セット → 盤面）。
  *
  * カルタ画面が、選んだコースの語彙セットから語を引くようになった。
- * いまセットは1つだけなので、**どのコースでも同じ25語から出題される**。
+ * いまセットは1つだけなので、**どのコースでも同じ共通セットから出題される**。
  * これが正式仕様なので、コースによって語が違うことは確かめない。
  * 確かめるのは、3分類のどのコースからでも最後まで遊べることと、
- * 出題がその25語の中に収まっていること。
+ * 出題がそのセットの中に収まっていること。
  *
  * 盤面の語は seed で決まる。偶然に頼らないよう、ページを開く前に
  * Date.now と Math.random を固定する。
@@ -17,6 +17,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { WORD_PAIRS, answerFor } from './wordPairsFixture.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
 const BASE_PATH = '/kotoba-journey/';
@@ -24,34 +25,11 @@ const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
 
 const FIXED_NOW = 1700000000001;
 
-/** 共通セットの25語。どのコースを選んでもこの中から出る。 */
-const COMMON = new Map([
-  [1, ['りんご', 'apple']],
-  [2, ['ねこ', 'cat']],
-  [3, ['あお', 'blue']],
-  [4, ['いぬ', 'dog']],
-  [5, ['はな', 'flower']],
-  [6, ['ほん', 'book']],
-  [7, ['みず', 'water']],
-  [8, ['つき', 'moon']],
-  [9, ['とり', 'bird']],
-  [10, ['くるま', 'car']],
-  [11, ['うさぎ', 'rabbit']],
-  [13, ['ぞう', 'elephant']],
-  [14, ['うま', 'horse']],
-  [15, ['あか', 'red']],
-  [16, ['きいろ', 'yellow']],
-  [17, ['みどり', 'green']],
-  [18, ['しろ', 'white']],
-  [19, ['くろ', 'black']],
-  [21, ['たまご', 'egg']],
-  [23, ['いちご', 'strawberry']],
-  [24, ['やま', 'mountain']],
-  [26, ['そら', 'sky']],
-  [28, ['たべる', 'eat']],
-  [29, ['のむ', 'drink']],
-  [30, ['ねる', 'sleep']],
-]);
+/**
+ * 共通セットの語。どのコースを選んでもこの中から出る。
+ * src/data/wordPairs.ts から読むので、語を足しても直す必要がない。
+ */
+const COMMON = WORD_PAIRS;
 /** まだどのセットにも入れていない語。盤面へ出てはいけない。 */
 const RESERVED = [
   [12, 'さかな', 'fish'],
@@ -195,14 +173,6 @@ async function clearBoard(page) {
   await page.getByRole('button', { name: 'とじる' }).first().click();
 }
 
-function answerFor(prompt, lang) {
-  const text = prompt.trim();
-  for (const [, [ja, en]] of COMMON) {
-    if (text.includes(ja) || text.includes(en)) return lang === 'en' ? en : ja;
-  }
-  return '';
-}
-
 const { server, port } = await serveDist();
 const baseUrl = `http://127.0.0.1:${port}${BASE_PATH}`;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
@@ -221,7 +191,7 @@ try {
 
     await reachBoard(page, baseUrl, target, label);
 
-    // --- 出題は共通セットの25語に収まっている ---
+    // --- 出題は共通セットの語に収まっている ---
     const ids = await boardPairIds(page);
     check(ids.length === 3, `${label}: 6枚の盤面が3語になっていない（${ids.join(',')}）`);
     for (const id of ids) {
@@ -312,7 +282,7 @@ try {
     check(passportScrollX <= 0, `${label}: パスポートで横スクロールが出ている`);
     check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
 
-    console.log(`✓ ${label} 共通25語（${ids.join(',')}）で最後まで遊べた`);
+    console.log(`✓ ${label} 共通${COMMON.size}語（${ids.join(',')}）で最後まで遊べた`);
     await context.close();
   }
 } finally {

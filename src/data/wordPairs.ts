@@ -1,7 +1,7 @@
 import type { WordPair } from '../domain/types';
 
 /**
- * いまのカルタが使う、共通の練習用語彙。
+ * いまのカルタが使う、共通の練習用語彙（40語）。
  *
  * どのコースを選んでも、24コースすべてがこの同じプールから出題する。
  * コース別の語彙セットはまだ作っていない。
@@ -49,6 +49,24 @@ export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 28, ja: 'たべる', en: 'eat' },
   { pairId: 29, ja: 'のむ', en: 'drink' },
   { pairId: 30, ja: 'ねる', en: 'sleep' },
+
+  // 工程V-2D-2で台帳の確認を終え、工程V-2D-3で足した日常の語。
+  // 体の部分・身の回りの物・動きを、台帳と同じ番号のまま入れている。
+  { pairId: 31, ja: 'かお', en: 'face' },
+  { pairId: 32, ja: 'て', en: 'hand' },
+  { pairId: 33, ja: 'め', en: 'eye' },
+  { pairId: 34, ja: 'みみ', en: 'ear' },
+  { pairId: 35, ja: 'くち', en: 'mouth' },
+  { pairId: 36, ja: 'かさ', en: 'umbrella' },
+  { pairId: 37, ja: 'つくえ', en: 'desk' },
+  { pairId: 38, ja: 'いす', en: 'chair' },
+  { pairId: 39, ja: 'まど', en: 'window' },
+  { pairId: 40, ja: 'ドア', en: 'door' },
+  { pairId: 41, ja: 'えんぴつ', en: 'pencil' },
+  { pairId: 42, ja: 'あるく', en: 'walk' },
+  { pairId: 43, ja: 'およぐ', en: 'swim' },
+  { pairId: 44, ja: 'うたう', en: 'sing' },
+  { pairId: 45, ja: 'わらう', en: 'laugh' },
 ];
 
 export function findPair(pairId: number): WordPair | undefined {

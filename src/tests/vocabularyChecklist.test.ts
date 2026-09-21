@@ -101,12 +101,11 @@ const ENTRIES = parseChecklist(checklist);
 const byId = new Map(ENTRIES.map((e) => [e.pairId, e]));
 
 describe('語彙確認チェックリストの形', () => {
-  it('45語あり、使用中25語・候補20語に分かれる', () => {
+  it('45語あり、使用中40語・候補5語に分かれる', () => {
     expect(ENTRIES).toHaveLength(45);
-    expect(inGame(ENTRIES)).toHaveLength(25);
-    expect(notInGame(ENTRIES)).toHaveLength(20);
-    expect(notInGame(ENTRIES).map((e) => e.pairId))
-      .toEqual([12, 20, 22, 25, 27, ...DAILY_IDS]);
+    expect(inGame(ENTRIES)).toHaveLength(40);
+    expect(notInGame(ENTRIES)).toHaveLength(5);
+    expect(notInGame(ENTRIES).map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
   });
 
   it('日本語・英語に重複がない', () => {
@@ -114,16 +113,15 @@ describe('語彙確認チェックリストの形', () => {
     expect(new Set(ENTRIES.map((e) => e.en)).size).toBe(45);
   });
 
-  it('2軸の内訳が 23・15・2・5 になる', () => {
+  it('2軸の内訳が 38・0・2・5 になる', () => {
     const verifiedInGame = inGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const verifiedOnly = notInGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const pendingInGame = inGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
     const pendingOnly = notInGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
-    expect(verifiedInGame).toHaveLength(23);
-    expect(verifiedOnly).toHaveLength(15);
+    expect(verifiedInGame).toHaveLength(38);
+    expect(verifiedOnly).toHaveLength(0);
     expect(pendingInGame).toHaveLength(2);
     expect(pendingOnly).toHaveLength(5);
-    expect(verifiedOnly.map((e) => e.pairId)).toEqual(DAILY_IDS);
     expect(pendingInGame.map((e) => e.pairId)).toEqual([8, 10]);
     expect(pendingOnly.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
   });
@@ -438,18 +436,19 @@ describe('工程V-2D-2で足した日常語彙15語', () => {
     }
   });
 
-  it('15語とも 候補・確認済み・基本語判断・採用 になっている', () => {
+  it('15語とも 使用中・確認済み・基本語判断・採用 になっている', () => {
     for (const pairId of DAILY_IDS) {
       const entry = byId.get(pairId)!;
       expect(entry.状態, `${pairId} の状態`).toBe('確認済み');
       expect(entry.確認の方法, `${pairId} の確認の方法`).toBe('基本語判断');
       expect(entry.判定, `${pairId} の判定`).toBe('採用');
       expect(entry.確認日, `${pairId} の確認日`).toBe('2026-09-21');
-      // まだゲームに入れていない＝台帳上は候補。
-      expect(
-        SAMPLE_PAIRS.some((p) => p.pairId === pairId),
-        `${pairId} がゲームデータに入っている`,
-      ).toBe(false);
+      // 工程V-2D-3でゲームへ入れた。台帳の区分も使用中になっている。
+      expect(entry.使用状況, `${pairId} の使用状況`).toBe('使用中');
+      const pair = SAMPLE_PAIRS.find((p) => p.pairId === pairId);
+      expect(pair, `${pairId} がゲームデータに無い`).toBeDefined();
+      expect(pair!.ja, `${pairId} の日本語`).toBe(entry.ja);
+      expect(pair!.en, `${pairId} の英語`).toBe(entry.en);
     }
   });
 
@@ -546,7 +545,7 @@ describe('コードの実データとの照合', () => {
       expect(entry.使用状況 === '使用中', `${entry.pairId} の区分がゲームデータと違う`)
         .toBe(isInGame);
     }
-    expect(SAMPLE_PAIRS).toHaveLength(25);
+    expect(SAMPLE_PAIRS).toHaveLength(40);
   });
 
   it('ゲームへ入れた語は、台帳で確認済みか、もとから使っていた語だけ', () => {
@@ -585,10 +584,10 @@ describe('コードの実データとの照合', () => {
     }
   });
 
-  it('ゲームの25語は、台帳の同じ番号の語と完全一致する（採用でも表記は変わらない）', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(25);
-    // 台帳が45語になっても、ゲームへ入れたのは25語だけ。
-    expect(SAMPLE_PAIRS.every((p) => p.pairId <= 30)).toBe(true);
+  it('ゲームの40語は、台帳の同じ番号の語と完全一致する（採用でも表記は変わらない）', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(40);
+    // 台帳は45語。資料確認待ちの5語だけがゲームの外にいる。
+    expect(SAMPLE_PAIRS.map((p) => p.pairId)).not.toContain(12);
     for (const pair of SAMPLE_PAIRS) {
       const entry = byId.get(pair.pairId);
       expect(entry, `pairId ${pair.pairId} が台帳に無い`).toBeDefined();
@@ -602,7 +601,7 @@ describe('コードの実データとの照合', () => {
     const usedEn = new Set(SAMPLE_PAIRS.map((p) => p.en));
     const usedIds = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     const stillCandidates = notInGame(ENTRIES);
-    expect(stillCandidates.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27, ...DAILY_IDS]);
+    expect(stillCandidates.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
     for (const entry of stillCandidates) {
       expect(usedIds.has(entry.pairId), `仮ID ${entry.pairId} が実データにある`).toBe(false);
       expect(usedJa.has(entry.ja), `候補「${entry.ja}」が実データにある`).toBe(false);

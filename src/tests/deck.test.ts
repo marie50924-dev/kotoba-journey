@@ -20,10 +20,12 @@ const GAME_PAIR_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
   11, 13, 14, 15, 16, 17, 18, 19,
   21, 23, 24, 26, 28, 29, 30,
+  31, 32, 33, 34, 35, 36, 37, 38,
+  39, 40, 41, 42, 43, 44, 45,
 ];
 /** 台帳にはあるが、まだゲームへ入れていない語。番号は予約したまま。 */
 const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
-/** 工程V-2C-4で足した15語。 */
+/** 工程V-2C-4と工程V-2D-3で足した30語。 */
 const ADDED_PAIRS: [number, string, string][] = [
   [11, 'うさぎ', 'rabbit'],
   [13, 'ぞう', 'elephant'],
@@ -40,6 +42,21 @@ const ADDED_PAIRS: [number, string, string][] = [
   [28, 'たべる', 'eat'],
   [29, 'のむ', 'drink'],
   [30, 'ねる', 'sleep'],
+  [31, 'かお', 'face'],
+  [32, 'て', 'hand'],
+  [33, 'め', 'eye'],
+  [34, 'みみ', 'ear'],
+  [35, 'くち', 'mouth'],
+  [36, 'かさ', 'umbrella'],
+  [37, 'つくえ', 'desk'],
+  [38, 'いす', 'chair'],
+  [39, 'まど', 'window'],
+  [40, 'ドア', 'door'],
+  [41, 'えんぴつ', 'pencil'],
+  [42, 'あるく', 'walk'],
+  [43, 'およぐ', 'swim'],
+  [44, 'うたう', 'sing'],
+  [45, 'わらう', 'laugh'],
 ];
 
 describe('デッキ生成', () => {
@@ -59,9 +76,9 @@ describe('デッキ生成', () => {
     expect(ids.size).toBe(pairCountFor(count));
   });
 
-  it('20枚は、25語のプールから10語を選ぶ', () => {
+  it('20枚は、40語のプールから10語を選ぶ', () => {
     // 語彙が10語だった頃は、20枚を出すと必ず全語が並んでいた。
-    // 25語になったいまは選ぶ側になり、出る10語は seed で変わる。
+    // いまは40語から選ぶので、出る10語は seed で変わる。
     const pool = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     for (const seed of [1, 777, 20260921]) {
       const ids = [...new Set(buildDeck(SAMPLE_PAIRS, 20, seed).map((c) => c.pairId))];
@@ -145,6 +162,18 @@ describe('語彙の選出', () => {
     );
     // 少なくとも2種類以上の組み合わせが現れる。
     expect(new Set(sets).size).toBeGreaterThan(1);
+  });
+
+  it('40語すべてが、seed しだいで選ばれうる', () => {
+    // 少数のseedで全語が出ると決め打ちせず、十分な数のseedを走査して、
+    // 40のどの pairId も少なくとも1回は選ばれることを見る。
+    const TRIALS = 300;
+    const seen = new Set<number>();
+    for (let seed = 1; seed <= TRIALS; seed += 1) {
+      for (const pair of selectPairs(SAMPLE_PAIRS, 10, seed)) seen.add(pair.pairId);
+      if (seen.size === SAMPLE_PAIRS.length) break;
+    }
+    expect([...seen].sort((a, b) => a - b)).toEqual(GAME_PAIR_IDS);
   });
 
   it('seedが違えば、20枚に出る10語の組み合わせも変わる', () => {
@@ -249,11 +278,26 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
       [28, 'たべる', 'eat'],
       [29, 'のむ', 'drink'],
       [30, 'ねる', 'sleep'],
+      [31, 'かお', 'face'],
+      [32, 'て', 'hand'],
+      [33, 'め', 'eye'],
+      [34, 'みみ', 'ear'],
+      [35, 'くち', 'mouth'],
+      [36, 'かさ', 'umbrella'],
+      [37, 'つくえ', 'desk'],
+      [38, 'いす', 'chair'],
+      [39, 'まど', 'window'],
+      [40, 'ドア', 'door'],
+      [41, 'えんぴつ', 'pencil'],
+      [42, 'あるく', 'walk'],
+      [43, 'およぐ', 'swim'],
+      [44, 'うたう', 'sing'],
+      [45, 'わらう', 'laugh'],
     ]);
   });
 
-  it('ゲームの語は25語で、欠番を詰めていない', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(25);
+  it('ゲームの語は40語で、欠番を詰めていない', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(40);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(GAME_PAIR_IDS);
     // 資料確認が終わっていない5語は、まだゲームへ入れない。
     for (const reserved of RESERVED_PAIR_IDS) {
@@ -266,15 +310,15 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
   });
 
   it('pairId・日本語・英語に重複がない', () => {
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(25);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(25);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(25);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(40);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(40);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(40);
     for (const pair of SAMPLE_PAIRS) {
       expect(Number.isInteger(pair.pairId) && pair.pairId > 0, `${pair.pairId}`).toBe(true);
     }
   });
 
-  it('あとから足した15語を findPair で引ける', () => {
+  it('あとから足した30語を findPair で引ける', () => {
     for (const [pairId, ja, en] of ADDED_PAIRS) {
       const pair = findPair(pairId as number);
       expect(pair, `findPair(${pairId})`).toBeDefined();
@@ -308,7 +352,7 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
     const deck = buildDeck(SAMPLE_PAIRS, 6, 4242);
     const onBoard = new Set(deck.map((c) => c.pairId));
     const offBoard = SAMPLE_PAIRS.filter((p) => !onBoard.has(p.pairId)).map((p) => p.pairId);
-    expect(offBoard).toHaveLength(22);
+    expect(offBoard).toHaveLength(37);
     const questions = buildWaveQuiz({
       wavePairIds: [...onBoard],
       cardCount: 6,
