@@ -850,11 +850,11 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('本文確認日を持つ出典は11件、持たない出典は13件', () => {
+  it('本文確認日を持つ出典は12件、持たない出典は12件', () => {
     const withDate = JAPAN.sources.filter((s) => s.checkedAt !== undefined).map((s) => s.id);
     const withoutDate = JAPAN.sources.filter((s) => s.checkedAt === undefined).map((s) => s.id);
-    expect(withDate).toHaveLength(11);
-    expect(withoutDate).toHaveLength(13);
+    expect(withDate).toHaveLength(12);
+    expect(withoutDate).toHaveLength(12);
     // 日付を持つのは、本文を確認できた資料だけ。
     expect(withDate.sort()).toEqual(
       JAPAN.sources
@@ -906,8 +906,8 @@ describe('出典メタデータの形式確認', () => {
     const count = (state: string): number =>
       JAPAN.sources.filter((s) => s.verification === state).length;
     expect(JAPAN.sources).toHaveLength(24);
-    expect(count('body-checked')).toBe(11);
-    expect(count('url-only')).toBe(13);
+    expect(count('body-checked')).toBe(12);
+    expect(count('url-only')).toBe(12);
   });
 
   it('body-checked の出典は、確認済みの事実から引かれている', () => {
@@ -1060,8 +1060,8 @@ describe('確認の進み具合', () => {
     const count = (state: string): number =>
       allClaims(JAPAN).filter((c) => c.verification === state).length;
     expect(allClaims(JAPAN)).toHaveLength(46);
-    expect(count('body-checked')).toBe(8);
-    expect(count('unchecked')).toBe(8);
+    expect(count('body-checked')).toBe(9);
+    expect(count('unchecked')).toBe(7);
     expect(count('rejected')).toBe(2);
     expect(count('withdrawn')).toBe(28);
   });
@@ -1071,6 +1071,24 @@ describe('確認の進み具合', () => {
     expect(canPublish(JAPAN)).toBe(false);
     expect(showsDetails(JAPAN)).toBe(false);
     expect(renderedText(JAPAN)).toBe(UI.countryIntro.preparing);
+  });
+
+  it('首都の一文は、首都を定める法律について書かれた資料で確認されている', () => {
+    // 東京都の案内には首都に関する記述が無かったので、そちらは裏づけに使わない。
+    expect(JAPAN.capitalLine.verification).toBe('body-checked');
+    expect(JAPAN.capitalLine.sourceIds).toEqual(['sangiin-capital-law']);
+    expect(JAPAN.capitalLine.checkedAt).toBe('2026-09-21');
+    const source = findSource(JAPAN, 'sangiin-capital-law')!;
+    expect(source.verification).toBe('body-checked');
+    expect(new URL(source.sourceUrl).hostname).toBe('houseikyoku.sangiin.go.jp');
+    // 無断転載が禁じられている資料なので、確認メモは要約であることを明示する。
+    expect(JAPAN.capitalLine.verificationNote).toContain('要約で記録する');
+  });
+
+  it('首都の一文は、東京都の案内を裏づけにしていない', () => {
+    expect(JAPAN.capitalLine.sourceIds).not.toContain('tokyo-profile');
+    // 東京都の案内は、ほかの claim の確認予定資料としては残っている。
+    expect(findSource(JAPAN, 'tokyo-profile')).toBeDefined();
   });
 
   it('気候4件は本文確認が済み、四季の話だけ不採用になった', () => {
@@ -1162,7 +1180,7 @@ describe('詳細カードの組み立て', () => {
     const withSources = buildDetailSections(JAPAN)
       .filter((s) => s.sources.length > 0)
       .map((s) => s.id);
-    expect(withSources).toEqual(['climate', 'landmarks', 'culture']);
+    expect(withSources).toEqual(['cities', 'climate', 'landmarks', 'culture']);
   });
 
   it('本文確認が終われば、事実のカードに出典が出る', () => {

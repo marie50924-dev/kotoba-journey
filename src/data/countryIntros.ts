@@ -268,14 +268,15 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceUrl: 'https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo',
     verification: 'url-only',
   },
-  // 「首都は東京です」は、東京都の案内だけでは法令上の位置づけまで追えない。
-  // 首都を定める法律について書かれたページを、確認予定の資料として並べておく。
-  // 本文は未確認なので url-only。読んだうえで、どちらを根拠にするか人が決める。
+  // 「首都は東京です」の裏づけ。東京都の案内には首都に関する記述が無かったため、
+  // 首都を定める法律についてのこのページを根拠にしている。
+  // 無断転載が禁じられているので、確認メモは長い引用を避けて要約で残す。
   {
     id: 'sangiin-capital-law',
     sourceLabel: '参議院法制局「首都を定める法律」',
     sourceUrl: 'https://houseikyoku.sangiin.go.jp/column/column081.htm',
-    verification: 'url-only',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
   },
   {
     id: 'tokyo-municipalities',
@@ -585,11 +586,12 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     // 事実の本文確認が1件も終わっていないため、公開しない。
     publicationStatus: 'draft',
 
-    capitalLine: pending(
+    capitalLine: confirmed(
       'jp-claim-capital-line',
       '首都は東京です。',
-      ['tokyo-profile', 'sangiin-capital-law'],
-      NOTE_NEED_BODY,
+      ['sangiin-capital-law'],
+      '参議院法制局のコラム「首都を定める法律」で、首都を定める法律は現在存在しないこと、一方で内閣法制局長官答弁（昭和54年6月5日 参議院内閣委員会）が東京を日本の首都として述べていること、東京には国の主要な行政機関・国会・最高裁判所があり辞書的な「首都」の要件を備えていること、法律上は「首都圏」の定義があること（首都圏整備法第2条第1項ほか）を確認した。法令の明文はないが、東京が首都であるという理解は公的にも示されており、「首都は東京です。」は資料の範囲内と判断した。なお本記事は法制局職員有志による解説記事で、無断転載が禁じられているため要約で記録する。東京都「東京都プロフィール」も確認したが、首都に関する記述は無かったため裏づけには使わない。',
+      '2026-09-21',
     ),
     capital: {
       id: 'jp-capital-tokyo',

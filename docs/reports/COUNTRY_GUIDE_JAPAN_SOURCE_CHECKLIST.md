@@ -3,15 +3,15 @@
 対象: `src/data/countryIntros.ts` の `countryId: 'japan'`
 作成日: 2026-09-20
 claim 件数: 46件（確認対象 16件 / 画面に出さない 30件）
-本文確認済み: **8件** / 未確認: 8件
+本文確認済み: **9件** / 未確認: 7件
 
 ---
 
 ## このチェックリストについて
 
 国紹介の画面に出す事実を1文ずつ `FactClaim` にし、claimId を付けて並べたものです。
-確認対象16件のうち、**8件が本文確認済み**です。
-残り8件が終わるまで日本の `publicationStatus` は `'draft'` のままで、
+確認対象16件のうち、**9件が本文確認済み**です。
+残り7件が終わるまで日本の `publicationStatus` は `'draft'` のままで、
 「もっと知る」も事実カードも公開導線には出していません。
 
 人が読む件数を減らすため、**公的資料に明記されていない文章は、本文を読む前に取り下げました**
@@ -117,8 +117,8 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 | 状態 | 件数 |
 |---|---|
-| unchecked（未確認） | 8 |
-| body-checked（確認済み） | 8 |
+| unchecked（未確認） | 7 |
+| body-checked（確認済み） | 9 |
 | rejected（本文確認後の不採用） | 2 |
 | withdrawn（本文確認前の取り下げ） | 28 |
 
@@ -126,7 +126,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 # 確認対象（16件）
 
-この16件が確認対象です。残り8件の本文を読んで判断してください。
+この16件が確認対象です。残り7件の本文を読んで判断してください。
 
 ## あいさつ（1件）
 
@@ -183,12 +183,12 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 |---|---|
 | ゲーム内の文章 | 首都は東京です。 |
 | カテゴリー | まち |
-| 確認予定の資料 | 東京都「東京都プロフィール　都の概要」 / 参議院法制局「首都を定める法律」 |
-| URL | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo / https://houseikyoku.sangiin.go.jp/column/column081.htm |
-| 本文確認状態 | **unchecked** |
-| 本文中で確認した内容 | （未記入） |
-| 採用／修正／削除 | （未記入） |
-| 確認日 | （未記入） |
+| 本文確認状態 | **body-checked** |
+| 本文を確認した資料 | 参議院法制局「首都を定める法律」 |
+| そのURL | https://houseikyoku.sangiin.go.jp/column/column081.htm |
+| 本文中で確認した内容 | 参議院法制局のコラム「首都を定める法律」で、首都を定める法律は現在存在しないこと、一方で内閣法制局長官答弁（昭和54年6月5日 参議院内閣委員会）が東京を日本の首都として述べていること、東京には国の主要な行政機関・国会・最高裁判所があり辞書的な「首都」の要件を備えていること、法律上は「首都圏」の定義があること（首都圏整備法第2条第1項ほか）を確認した。法令の明文はないが、東京が首都であるという理解は公的にも示されており、「首都は東京です。」は資料の範囲内と判断した。なお本記事は法制局職員有志による解説記事で、無断転載が禁じられているため要約で記録する。東京都「東京都プロフィール」も確認したが、首都に関する記述は無かったため裏づけには使わない。 |
+| 採用／修正／削除 | 修正のうえ採用 |
+| 確認日 | 2026-09-21 |
 
 ### 5. `jp-claim-capital-tokyo`
 
@@ -701,7 +701,7 @@ URLの所在を確かめただけの資料には日付を入れません。
 | id | 機関と資料名 | URL | 本文確認 | 本文・映像確認日 |
 |---|---|---|---|---|
 | `tokyo-profile` | 東京都「東京都プロフィール　都の概要」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo | 未 | — |
-| `sangiin-capital-law` | 参議院法制局「首都を定める法律」 | https://houseikyoku.sangiin.go.jp/column/column081.htm | 未 | — |
+| `sangiin-capital-law` | 参議院法制局「首都を定める法律」 | https://houseikyoku.sangiin.go.jp/column/column081.htm | 済 | 2026-09-21 |
 | `tokyo-municipalities` | 東京都「都内区市町村マップ」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson | 未 | — |
 | `rinya-forest` | 林野庁「都道府県別森林率・人工林率」 | https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html | 未 | — |
 | `gsi-mountains` | 国土地理院「日本の主な山岳標高（1003山）」 | https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html | 未 | — |
