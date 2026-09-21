@@ -275,7 +275,8 @@ function sourceRow(source: InfoSource): HTMLElement {
 
   return el('li', { class: 'intro-sources__item' }, [
     link,
-    // 所在を確かめた日が無い資料もある。その場合は日付欄を出さない。
+    // 本文・PDF・映像を直接確認していない資料には checkedAt が無いので、
+    // 本文・映像確認日の行を出さない。
     source.checkedAt
       ? el('span', {
           class: 'intro-sources__checked',
