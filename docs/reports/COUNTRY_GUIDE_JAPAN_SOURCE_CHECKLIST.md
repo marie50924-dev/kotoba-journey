@@ -183,8 +183,8 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 |---|---|
 | ゲーム内の文章 | 首都は東京です。 |
 | カテゴリー | まち |
-| 確認予定の資料 | 東京都「東京都プロフィール　都の概要」 |
-| URL | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo |
+| 確認予定の資料 | 東京都「東京都プロフィール　都の概要」 / 参議院法制局「首都を定める法律」 |
+| URL | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo / https://houseikyoku.sangiin.go.jp/column/column081.htm |
 | 本文確認状態 | **unchecked** |
 | 本文中で確認した内容 | （未記入） |
 | 採用／修正／削除 | （未記入） |
@@ -689,7 +689,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ---
 
-## 参照した出典の一覧（23件）
+## 参照した出典の一覧（24件）
 
 
 取り下げによって、いま使われていない出典もあります。
@@ -701,6 +701,7 @@ URLの所在を確かめただけの資料には日付を入れません。
 | id | 機関と資料名 | URL | 本文確認 | 本文・映像確認日 |
 |---|---|---|---|---|
 | `tokyo-profile` | 東京都「東京都プロフィール　都の概要」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo | 未 | — |
+| `sangiin-capital-law` | 参議院法制局「首都を定める法律」 | https://houseikyoku.sangiin.go.jp/column/column081.htm | 未 | — |
 | `tokyo-municipalities` | 東京都「都内区市町村マップ」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson | 未 | — |
 | `rinya-forest` | 林野庁「都道府県別森林率・人工林率」 | https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html | 未 | — |
 | `gsi-mountains` | 国土地理院「日本の主な山岳標高（1003山）」 | https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html | 未 | — |

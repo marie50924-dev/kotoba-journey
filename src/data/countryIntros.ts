@@ -268,6 +268,15 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceUrl: 'https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo',
     verification: 'url-only',
   },
+  // 「首都は東京です」は、東京都の案内だけでは法令上の位置づけまで追えない。
+  // 首都を定める法律について書かれたページを、確認予定の資料として並べておく。
+  // 本文は未確認なので url-only。読んだうえで、どちらを根拠にするか人が決める。
+  {
+    id: 'sangiin-capital-law',
+    sourceLabel: '参議院法制局「首都を定める法律」',
+    sourceUrl: 'https://houseikyoku.sangiin.go.jp/column/column081.htm',
+    verification: 'url-only',
+  },
   {
     id: 'tokyo-municipalities',
     sourceLabel: '東京都「都内区市町村マップ」',
@@ -579,7 +588,7 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     capitalLine: pending(
       'jp-claim-capital-line',
       '首都は東京です。',
-      ['tokyo-profile'],
+      ['tokyo-profile', 'sangiin-capital-law'],
       NOTE_NEED_BODY,
     ),
     capital: {

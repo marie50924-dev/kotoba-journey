@@ -850,11 +850,11 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('本文確認日を持つ出典は11件、持たない出典は12件', () => {
+  it('本文確認日を持つ出典は11件、持たない出典は13件', () => {
     const withDate = JAPAN.sources.filter((s) => s.checkedAt !== undefined).map((s) => s.id);
     const withoutDate = JAPAN.sources.filter((s) => s.checkedAt === undefined).map((s) => s.id);
     expect(withDate).toHaveLength(11);
-    expect(withoutDate).toHaveLength(12);
+    expect(withoutDate).toHaveLength(13);
     // 日付を持つのは、本文を確認できた資料だけ。
     expect(withDate.sort()).toEqual(
       JAPAN.sources
@@ -905,9 +905,9 @@ describe('出典メタデータの形式確認', () => {
   it('出典の状態別件数', () => {
     const count = (state: string): number =>
       JAPAN.sources.filter((s) => s.verification === state).length;
-    expect(JAPAN.sources).toHaveLength(23);
+    expect(JAPAN.sources).toHaveLength(24);
     expect(count('body-checked')).toBe(11);
-    expect(count('url-only')).toBe(12);
+    expect(count('url-only')).toBe(13);
   });
 
   it('body-checked の出典は、確認済みの事実から引かれている', () => {
