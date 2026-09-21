@@ -30,6 +30,8 @@ interface ChecklistEntry {
   確認した内容: string;
   確認日: string;
   注意点: string;
+  /** 基本語判断の5条件。番号（1〜5）をそのまま持つ。 */
+  条件: Map<number, string>;
 }
 
 /** 語ごとの節（### 見出し ＋ 縦表）を項目単位で読み取る。 */
@@ -56,6 +58,13 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
       fields.set(key, parts[1].trim());
     }
 
+    // 「基本語条件3・語形」のような行を、番号ごとに取り出す。
+    const conditions = new Map<number, string>();
+    for (const [key, value] of fields) {
+      const matched = key.match(/^基本語条件([1-5])・(.+)$/);
+      if (matched) conditions.set(Number(matched[1]), `${matched[2]}\t${value}`);
+    }
+
     const pairId = Number(fields.get('pairId'));
     // 使用中の語は「現在の日本語」、候補は「日本語候補」で書き分けている。
     const ja = fields.get('現在の日本語') ?? fields.get('日本語候補') ?? '';
@@ -76,6 +85,7 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
       確認した内容: fields.get('確認した内容') ?? '',
       確認日: fields.get('確認日') ?? '',
       注意点: fields.get('注意点') ?? '',
+      条件: conditions,
     };
   });
 }
@@ -116,6 +126,14 @@ describe('語彙確認チェックリストの形', () => {
 
 const STATES = ['要確認（使用中）', '要確認（候補）', '確認済み'];
 const METHODS = ['資料確認', '基本語判断'];
+/** 基本語判断の5条件。番号と見出しの対応。 */
+const CONDITION_NAMES: [number, string][] = [
+  [1, '具体性'],
+  [2, '対応'],
+  [3, '語形'],
+  [4, '同音'],
+  [5, '表記'],
+];
 const verified = ENTRIES.filter((e) => e.状態 === '確認済み');
 const pending = ENTRIES.filter((e) => e.状態 !== '確認済み');
 
@@ -171,6 +189,63 @@ describe('確認の進みかた', () => {
     }
   });
 
+  it('基本語判断の語は、5条件を1行ずつ書いてある', () => {
+    for (const entry of verified.filter((e) => e.確認の方法 === '基本語判断')) {
+      expect(
+        [...entry.条件.keys()].sort((a, b) => a - b),
+        `${entry.pairId} の条件の番号がそろっていない`,
+      ).toEqual([1, 2, 3, 4, 5]);
+
+      for (const [number, name] of CONDITION_NAMES) {
+        const row = entry.条件.get(number) ?? '';
+        const [label, value] = row.split('\t');
+        expect(label, `${entry.pairId} の条件${number}の見出し`).toBe(name);
+        // 「適合」と書いただけで中身が無い記録を弾く。
+        expect(value.startsWith('適合：'), `${entry.pairId} の条件${number}が「適合：」で始まらない: ${value}`).toBe(true);
+        expect(
+          value.replace('適合：', '').trim().length,
+          `${entry.pairId} の条件${number}に理由が書かれていない`,
+        ).toBeGreaterThan(5);
+      }
+    }
+  });
+
+  it('条件3・語形には、名詞の単数形・動詞の原形・色 のどれかを書く', () => {
+    for (const entry of verified.filter((e) => e.確認の方法 === '基本語判断')) {
+      const 語形 = entry.条件.get(3) ?? '';
+      expect(
+        ['名詞の単数形', '動詞の原形', '色'].some((form) => 語形.includes(form)),
+        `${entry.pairId} の条件3に語形が書かれていない: ${語形}`,
+      ).toBe(true);
+    }
+  });
+
+  it('条件4・同音は、同じ読みの語が本当に他にないときだけ書ける', () => {
+    // 台帳に載っている30語の中で、読みが重なっていないことを実データから確かめる。
+    const readings = new Map<string, number[]>();
+    for (const entry of ENTRIES) {
+      readings.set(entry.ja, [...(readings.get(entry.ja) ?? []), entry.pairId]);
+    }
+    for (const entry of verified.filter((e) => e.確認の方法 === '基本語判断')) {
+      expect(
+        readings.get(entry.ja),
+        `${entry.pairId}「${entry.ja}」と同じ表記の語が台帳に複数ある`,
+      ).toEqual([entry.pairId]);
+    }
+  });
+
+  it('未確認の語には、条件の行を書かない', () => {
+    for (const entry of pending) {
+      expect(entry.条件.size, `${entry.pairId} に条件の行がある`).toBe(0);
+    }
+  });
+
+  it('資料確認の語には、基本語条件を書かない', () => {
+    for (const entry of verified.filter((e) => e.確認の方法 === '資料確認')) {
+      expect(entry.条件.size, `${entry.pairId} は資料確認なのに基本語条件がある`).toBe(0);
+    }
+  });
+
   it('語の行へ国紹介の状態名を持ち込まない', () => {
     for (const entry of ENTRIES) {
       const row = Object.values(entry).join(' ');
@@ -196,6 +271,8 @@ describe('確認の方法が2通りあると書いてあること', () => {
       '### 3-3. `基本語判断` を使ってはいけない語',
       'このチェックリスト自身を資料として記録する',
       '同じ読みの別の語が、同じ札のセットに入っていない',
+      '### 3-2-1. 5条件は、語ごとに1行ずつ書く',
+      '**5行すべてが必要です。**',
     ]) {
       expect(checklist, `「${phrase}」が書かれていない`).toContain(phrase);
     }
