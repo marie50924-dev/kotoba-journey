@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import checklist from '../../docs/reports/VOCABULARY_CHECKLIST.md?raw';
 import { SAMPLE_PAIRS } from '../data/wordPairs';
+import { findVocabularySet } from '../data/vocabularySets';
 import { RECORD_VERSION } from '../storage/learningRecord';
 import { COUNTRY_INTROS, allClaims, visibleClaims, canPublish, showsDetails } from '../data/countryIntros';
 
@@ -97,44 +98,47 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
   });
 }
 
+const COMMON_SET_PAIR_IDS = [...findVocabularySet('common-practice')!.pairIds];
 const ENTRIES = parseChecklist(checklist);
 const byId = new Map(ENTRIES.map((e) => [e.pairId, e]));
 
 describe('語彙確認チェックリストの形', () => {
-  it('45語あり、使用中40語・候補5語に分かれる', () => {
-    expect(ENTRIES).toHaveLength(45);
+  it('60語あり、使用中40語・候補20語に分かれる', () => {
+    expect(ENTRIES).toHaveLength(60);
     expect(inGame(ENTRIES)).toHaveLength(40);
-    expect(notInGame(ENTRIES)).toHaveLength(5);
-    expect(notInGame(ENTRIES).map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
+    expect(notInGame(ENTRIES)).toHaveLength(20);
+    expect(notInGame(ENTRIES).map((e) => e.pairId))
+      .toEqual([12, 20, 22, 25, 27, ...TRAVEL_IDS]);
   });
 
   it('日本語・英語に重複がない', () => {
-    expect(new Set(ENTRIES.map((e) => e.ja)).size).toBe(45);
-    expect(new Set(ENTRIES.map((e) => e.en)).size).toBe(45);
+    expect(new Set(ENTRIES.map((e) => e.ja)).size).toBe(60);
+    expect(new Set(ENTRIES.map((e) => e.en)).size).toBe(60);
   });
 
-  it('2軸の内訳が 38・0・2・5 になる', () => {
+  it('2軸の内訳が 38・15・2・5 になる', () => {
     const verifiedInGame = inGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const verifiedOnly = notInGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const pendingInGame = inGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
     const pendingOnly = notInGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
     expect(verifiedInGame).toHaveLength(38);
-    expect(verifiedOnly).toHaveLength(0);
+    expect(verifiedOnly).toHaveLength(15);
     expect(pendingInGame).toHaveLength(2);
     expect(pendingOnly).toHaveLength(5);
+    expect(verifiedOnly.map((e) => e.pairId)).toEqual(TRAVEL_IDS);
     expect(pendingInGame.map((e) => e.pairId)).toEqual([8, 10]);
     expect(pendingOnly.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
   });
 
-  it('pairId は 1〜45 で重複しない', () => {
+  it('pairId は 1〜60 で重複しない', () => {
     const ids = ENTRIES.map((e) => e.pairId);
-    expect(new Set(ids).size).toBe(45);
+    expect(new Set(ids).size).toBe(60);
     expect([...ids].sort((a, b) => a - b)).toEqual(
-      Array.from({ length: 45 }, (_, i) => i + 1),
+      Array.from({ length: 60 }, (_, i) => i + 1),
     );
   });
 
-  it('30語すべてに 種類・品詞・注意点 がある', () => {
+  it('全語に 種類・品詞・注意点 がある', () => {
     for (const entry of ENTRIES) {
       expect(entry.種類, `${entry.pairId} の種類が空`).not.toBe('');
       expect(entry.品詞, `${entry.pairId} の品詞が空`).not.toBe('');
@@ -157,6 +161,7 @@ const WORD_FORMS = ['名詞の単数形', '名詞（不可算）', '動詞の原
 const VERIFIED_IDS = [
   1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 26, 28, 29, 30,
   31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45,
+  46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
 ];
 const PENDING_IDS = [8, 10, 12, 20, 22, 25, 27];
 /** 工程V-2D-2で足した日常語彙15語。まだゲームには入れていない。 */
@@ -177,6 +182,41 @@ const DAILY_WORDS: [number, string, string][] = [
   [43, 'およぐ', 'swim'],
   [44, 'うたう', 'sing'],
   [45, 'わらう', 'laugh'],
+];
+/** 工程V-2D-4で足した旅行語彙15語。まだゲームには入れていない。 */
+const TRAVEL_IDS = [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
+const TRAVEL_WORDS: [number, string, string][] = [
+  [46, 'でんしゃ', 'train'],
+  [47, 'バス', 'bus'],
+  [48, 'ひこうき', 'airplane'],
+  [49, 'タクシー', 'taxi'],
+  [50, 'ホテル', 'hotel'],
+  [51, 'きっぷ', 'ticket'],
+  [52, 'パスポート', 'passport'],
+  [53, 'ちず', 'map'],
+  [54, 'くうこう', 'airport'],
+  [55, 'えき', 'station'],
+  [56, 'スーツケース', 'suitcase'],
+  [57, 'かぎ', 'key'],
+  [58, 'さいふ', 'wallet'],
+  [59, 'カメラ', 'camera'],
+  [60, 'レストラン', 'restaurant'],
+];
+/** 旅行語彙のうち、カタカナで書く語とひらがなで書く語。 */
+const TRAVEL_KATAKANA = [47, 49, 50, 52, 56, 59, 60];
+const TRAVEL_HIRAGANA = [46, 48, 51, 53, 54, 55, 57, 58];
+/** 英語に別の意味が無いと決めつける書き方。条件2で使ってはいけない。 */
+const NEGATIONS = [
+  '意味は無い',
+  '意味はない',
+  '意味がない',
+  '意味が無い',
+  '意味はありません',
+  '他の意味を持たない',
+  'ほかの意味を持たない',
+  'ほかの意味はない',
+  '別の意味はない',
+  '別の意味は無い',
 ];
 const COLOR_IDS = [3, 15, 16, 17, 18, 19];
 const VERB_IDS = [28, 29, 30, 42, 43, 44, 45];
@@ -379,19 +419,19 @@ describe('確認の進みかた', () => {
     }
   });
 
-  it('確認済み38語・要確認7語が、指定の集合と完全に一致する', () => {
+  it('確認済み53語・要確認7語が、指定の集合と完全に一致する', () => {
     expect(verified.map((e) => e.pairId)).toEqual(VERIFIED_IDS);
     expect(pending.map((e) => e.pairId)).toEqual(PENDING_IDS);
-    expect(verified).toHaveLength(38);
+    expect(verified).toHaveLength(53);
     expect(pending).toHaveLength(7);
-    expect(ENTRIES).toHaveLength(45);
+    expect(ENTRIES).toHaveLength(60);
   });
 
   it('状態別・方法別の件数が合っている', () => {
     expect(pending.filter((e) => e.状態 === '要確認（使用中）').map((e) => e.pairId)).toEqual([8, 10]);
     expect(pending.filter((e) => e.状態 === '要確認（候補）').map((e) => e.pairId))
       .toEqual([12, 20, 22, 25, 27]);
-    expect(verified.filter((e) => e.確認の方法 === '基本語判断')).toHaveLength(38);
+    expect(verified.filter((e) => e.確認の方法 === '基本語判断')).toHaveLength(53);
     expect(verified.filter((e) => e.確認の方法 === '資料確認')).toHaveLength(0);
   });
 });
@@ -412,13 +452,13 @@ describe('確認の方法が2通りあると書いてあること', () => {
       '数えられない名詞を `名詞の単数形` と書いてはいけません。',
       'その語が英語でつねに不可算だと決めつけないでください。',
       '### 5-1. pairId は振り直しません',
-      '- pairId 1〜45 は**振り直しません**',
+      '- pairId 1〜60 は**振り直しません**',
       '欠番として残してかまいません',
       '| 正本URLを直接開いた | はい |',
       '### 2-1. 「使用中かどうか」と「確認したかどうか」は別です',
       '「ゲームの語はすべて確認済み」ではありません。',
       '### 7-1. コースとの関係',
-      '## 8. 45語の確認台帳',
+      '## 8. 60語の確認台帳',
       '**全24コースが、いまこのセットを参照しています。**',
     ]) {
       expect(checklist, `「${phrase}」が書かれていない`).toContain(phrase);
@@ -475,7 +515,7 @@ describe('工程V-2D-2で足した日常語彙15語', () => {
       expect(value, `${pairId} の条件2が扱う範囲を書いていない`)
         .toContain('この札では扱わない');
       // 英語に別の意味が存在しないという断定をしていない。
-      for (const word of ['意味は無い', '意味はない', '他の意味を持たない']) {
+      for (const word of NEGATIONS) {
         expect(value, `${pairId} の条件2に断定がある`).not.toContain(word);
       }
     }
@@ -487,7 +527,7 @@ describe('工程V-2D-2で足した日常語彙15語', () => {
     for (const entry of ENTRIES) {
       readings.set(entry.ja, [...(readings.get(entry.ja) ?? []), entry.pairId]);
     }
-    for (const pairId of DAILY_IDS) {
+    for (const pairId of [...DAILY_IDS, ...TRAVEL_IDS]) {
       const entry = byId.get(pairId)!;
       // 実データでも、同じ表記の語がほかに無いことを確かめる。
       expect(readings.get(entry.ja), `${pairId}「${entry.ja}」と同じ表記の語がある`)
@@ -512,6 +552,89 @@ describe('工程V-2D-2で足した日常語彙15語', () => {
       expect(new Set(rows).size, `条件${number} が使い回されている`).toBe(rows.length);
     }
     expect(new Set(entries.map((e) => e.確認した内容)).size).toBe(entries.length);
+  });
+});
+
+describe('工程V-2D-4で足した旅行語彙15語', () => {
+  it('pairId・日本語・英語が、指定の表と完全に一致する', () => {
+    for (const [pairId, ja, en] of TRAVEL_WORDS) {
+      const entry = byId.get(pairId);
+      expect(entry, `pairId ${pairId} が台帳に無い`).toBeDefined();
+      expect(entry!.ja, `${pairId} の日本語`).toBe(ja);
+      expect(entry!.en, `${pairId} の英語`).toBe(en);
+    }
+  });
+
+  it('15語とも 候補・確認済み・基本語判断・採用 になっている', () => {
+    for (const pairId of TRAVEL_IDS) {
+      const entry = byId.get(pairId)!;
+      expect(entry.使用状況, `${pairId} の使用状況`).toBe('候補');
+      expect(entry.状態, `${pairId} の状態`).toBe('確認済み');
+      expect(entry.確認の方法, `${pairId} の確認の方法`).toBe('基本語判断');
+      expect(entry.判定, `${pairId} の判定`).toBe('採用');
+      expect(entry.確認日, `${pairId} の確認日`).toBe('2026-09-21');
+    }
+  });
+
+  it('15語とも 資料名・URL・正本確認欄が空', () => {
+    for (const pairId of TRAVEL_IDS) {
+      const entry = byId.get(pairId)!;
+      expect(entry.確認した資料, `${pairId} の資料名`).toBe('');
+      expect(entry.URL, `${pairId} のURL`).toBe('');
+      expect(entry.直接確認, `${pairId} の正本確認欄`).toBe('');
+    }
+  });
+
+  it('15語とも条件3が 名詞の単数形', () => {
+    for (const pairId of TRAVEL_IDS) {
+      expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('名詞の単数形');
+    }
+  });
+
+  it('条件2は、その語で採る意味を限定し、別の意味を否定していない', () => {
+    for (const pairId of TRAVEL_IDS) {
+      const value = byId.get(pairId)!.条件.get(2) ?? '';
+      expect(value, `${pairId} の条件2が意味を限定していない`).toContain('この札で採用する');
+      expect(value, `${pairId} の条件2が扱う範囲を書いていない`)
+        .toContain('この札では扱わない');
+      for (const word of NEGATIONS) {
+        expect(value, `${pairId} の条件2に断定がある`).not.toContain(word);
+      }
+    }
+  });
+
+  it('外来語7語はカタカナ、ほか8語はひらがな', () => {
+    for (const pairId of TRAVEL_KATAKANA) {
+      expect(byId.get(pairId)!.条件.get(5), `${pairId} の条件5`).toContain('カタカナ');
+      expect(byId.get(pairId)!.ja, `${pairId} の日本語`).toMatch(/^[ァ-ヶー]+$/);
+    }
+    for (const pairId of TRAVEL_HIRAGANA) {
+      expect(byId.get(pairId)!.条件.get(5), `${pairId} の条件5`).toContain('ひらがな');
+      expect(byId.get(pairId)!.ja, `${pairId} の日本語`).toMatch(/^[ぁ-ん]+$/);
+    }
+    expect([...TRAVEL_KATAKANA, ...TRAVEL_HIRAGANA].sort((a, b) => a - b)).toEqual(TRAVEL_IDS);
+  });
+
+  it('15語の条件と確認内容を使い回していない', () => {
+    const entries = TRAVEL_IDS.map((id) => byId.get(id)!);
+    for (const number of [1, 2, 4, 5]) {
+      const rows = entries.map((e) => e.条件.get(number) ?? '');
+      expect(new Set(rows).size, `条件${number} が使い回されている`).toBe(rows.length);
+    }
+    expect(new Set(entries.map((e) => e.確認した内容)).size).toBe(entries.length);
+  });
+
+  it('まだゲームデータにも共通セットにも入っていない', () => {
+    for (const pairId of TRAVEL_IDS) {
+      expect(
+        SAMPLE_PAIRS.some((p) => p.pairId === pairId),
+        `${pairId} がゲームデータに入っている`,
+      ).toBe(false);
+      expect(
+        COMMON_SET_PAIR_IDS.includes(pairId),
+        `${pairId} が common-practice に入っている`,
+      ).toBe(false);
+    }
   });
 });
 
@@ -601,7 +724,7 @@ describe('コードの実データとの照合', () => {
     const usedEn = new Set(SAMPLE_PAIRS.map((p) => p.en));
     const usedIds = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     const stillCandidates = notInGame(ENTRIES);
-    expect(stillCandidates.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
+    expect(stillCandidates.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27, ...TRAVEL_IDS]);
     for (const entry of stillCandidates) {
       expect(usedIds.has(entry.pairId), `仮ID ${entry.pairId} が実データにある`).toBe(false);
       expect(usedJa.has(entry.ja), `候補「${entry.ja}」が実データにある`).toBe(false);
