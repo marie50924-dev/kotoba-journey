@@ -850,11 +850,11 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('本文確認日を持つ出典は16件、持たない出典は12件', () => {
+  it('本文確認日を持つ出典は19件、持たない出典は9件', () => {
     const withDate = JAPAN.sources.filter((s) => s.checkedAt !== undefined).map((s) => s.id);
     const withoutDate = JAPAN.sources.filter((s) => s.checkedAt === undefined).map((s) => s.id);
-    expect(withDate).toHaveLength(16);
-    expect(withoutDate).toHaveLength(12);
+    expect(withDate).toHaveLength(19);
+    expect(withoutDate).toHaveLength(9);
     // 日付を持つのは、本文を確認できた資料だけ。
     expect(withDate.sort()).toEqual(
       JAPAN.sources
@@ -864,13 +864,11 @@ describe('出典メタデータの形式確認', () => {
     );
   });
 
-  it('観光庁の4件は本文確認日を持たない', () => {
-    for (const id of ['kankocho-manners', 'kankocho-transport', 'kankocho-temples', 'kankocho-baths']) {
-      const source = findSource(JAPAN, id);
-      expect(source, `${id} が無い`).toBeDefined();
-      expect(source!.verification, `${id}`).toBe('url-only');
-      expect(source!.checkedAt, `${id} に日付が残っている`).toBeUndefined();
-    }
+  it('観光庁の案内ページだけは本文確認日を持たない', () => {
+    // 場面別の動画は再生して確認したが、案内ページは入口なので確認対象にしない。
+    const page = findSource(JAPAN, 'kankocho-manners')!;
+    expect(page.verification).toBe('url-only');
+    expect(page.checkedAt, '案内ページに日付が残っている').toBeUndefined();
   });
 
   it('すべての出典が名前・https のURL・確認状態を持つ', () => {
@@ -922,8 +920,8 @@ describe('出典メタデータの形式確認', () => {
     const count = (state: string): number =>
       JAPAN.sources.filter((s) => s.verification === state).length;
     expect(JAPAN.sources).toHaveLength(28);
-    expect(count('body-checked')).toBe(16);
-    expect(count('url-only')).toBe(12);
+    expect(count('body-checked')).toBe(19);
+    expect(count('url-only')).toBe(9);
   });
 
   it('body-checked の出典は、確認済みの事実から引かれている', () => {
@@ -1009,46 +1007,40 @@ describe('観光庁のマナー啓発動画の出典', () => {
     }
   });
 
-  it('公式MP4を直接再生していないので、出典は url-only のまま', () => {
+  it('公式MP4を直接再生したので、出典は本文確認済み', () => {
     for (const scene of SCENES) {
       const source = findSource(JAPAN, scene.sourceId)!;
-      expect(source.verification, `${scene.sourceId}`).toBe('url-only');
-      // 確認の記録として残さない。
-      expect(source.checkedAt, `${scene.sourceId} に確認日が残っている`).toBeUndefined();
+      expect(source.verification, `${scene.sourceId}`).toBe('body-checked');
+      expect(source.checkedAt, `${scene.sourceId} の確認日`).toBe('2026-09-21');
     }
   });
 
-  it('マナー3件は未確認のまま', () => {
+  it('マナー3件は本文確認済みで、対応する場面の動画を引いている', () => {
     const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
     for (const scene of SCENES) {
       const claim = byId.get(scene.claimId);
       expect(claim, `${scene.claimId} が無い`).toBeDefined();
-      expect(claim!.verification, `${scene.claimId}`).toBe('unchecked');
-      expect(claim!.sourceIds, `${scene.claimId} に裏づけが入っている`).toEqual([]);
-      expect(claim!.checkedAt, `${scene.claimId} に確認日が残っている`).toBeUndefined();
+      expect(claim!.verification, `${scene.claimId}`).toBe('body-checked');
+      expect(claim!.sourceIds, `${scene.claimId}`).toEqual([scene.sourceId]);
+      expect(claim!.candidateSourceIds ?? [], `${scene.claimId}`).toEqual([]);
+      expect(claim!.checkedAt, `${scene.claimId} の確認日`).toBe('2026-09-21');
     }
   });
 
-  it('マナー3件は、対応する公式MP4を確認予定の資料に持つ', () => {
-    const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
-    for (const scene of SCENES) {
-      expect(byId.get(scene.claimId)!.candidateSourceIds, `${scene.claimId}`).toEqual([
-        scene.sourceId,
-      ]);
-    }
-  });
-
-  it('確認メモに、公式MP4が未確認であることが書いてある', () => {
+  it('確認メモに、公式MP4を直接再生したことが書いてある', () => {
     const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
     for (const scene of SCENES) {
       const note = byId.get(scene.claimId)!.verificationNote!;
-      expect(note, `${scene.claimId}`).toContain('公式MP4未確認');
-      expect(note, `${scene.claimId}`).toContain('参考記録（公式MP4未照合）');
+      expect(note, `${scene.claimId}`).toContain('公式MP4');
+      expect(note, `${scene.claimId}`).toContain('直接再生して確認した');
       expect(note, `${scene.claimId}`).toContain(scene.file);
+      // 未確認のままだったころの記述が残っていない。
+      expect(note, `${scene.claimId}`).not.toContain('公式MP4未確認');
+      expect(note, `${scene.claimId}`).not.toContain('参考記録');
     }
   });
 
-  it('案内ページは url-only のまま残り、事実の根拠には使われていない', () => {
+  it('案内ページだけは url-only のまま残り、事実の根拠には使われていない', () => {
     const page = findSource(JAPAN, 'kankocho-manners');
     expect(page).toBeDefined();
     expect(new URL(page!.sourceUrl).hostname).toBe('www.mlit.go.jp');
@@ -1076,8 +1068,8 @@ describe('確認の進み具合', () => {
     const count = (state: string): number =>
       allClaims(JAPAN).filter((c) => c.verification === state).length;
     expect(allClaims(JAPAN)).toHaveLength(46);
-    expect(count('body-checked')).toBe(12);
-    expect(count('unchecked')).toBe(4);
+    expect(count('body-checked')).toBe(15);
+    expect(count('unchecked')).toBe(1);
     expect(count('rejected')).toBe(2);
     expect(count('withdrawn')).toBe(28);
   });
@@ -1183,18 +1175,16 @@ describe('確認の進み具合', () => {
     }
   });
 
-  it('残る未確認は、公式MP4待ちのマナー3件とあいさつだけ', () => {
-    expect(uncheckedClaims(JAPAN).map((c) => c.id).sort()).toEqual(
-      [
-        'jp-claim-greeting-hello',
-        'jp-claim-manner-onsen',
-        'jp-claim-manner-temple',
-        'jp-claim-manner-train',
-      ].sort(),
-    );
-    for (const id of ['kankocho-transport', 'kankocho-temples', 'kankocho-baths']) {
-      expect(findSource(JAPAN, id)!.verification, `${id}`).toBe('url-only');
-    }
+  it('残る未確認はあいさつ1件だけ', () => {
+    expect(uncheckedClaims(JAPAN).map((c) => c.id)).toEqual(['jp-claim-greeting-hello']);
+  });
+
+  it('表示対象があと1件で全件そろうが、日本はまだ公開しない', () => {
+    // あいさつが body-checked になるまで canPublish は false のまま。
+    expect(uncheckedClaims(JAPAN)).toHaveLength(1);
+    expect(canPublish(JAPAN)).toBe(false);
+    expect(JAPAN.publicationStatus).toBe('draft');
+    expect(showsDetails(JAPAN)).toBe(false);
   });
 
   it('気候4件は本文確認が済み、四季の話だけ不採用になった', () => {
@@ -1508,23 +1498,7 @@ describe('人間確認用チェックリスト', () => {
     expect(notClaimed).not.toContain('Hello');
   });
 
-  it('3件が確認済みと読める記述が残っていない', () => {
-    // 公式MP4を直接再生するまで、マナー3件は未確認。
-    for (const phrase of ['ぶんか・マナー5件完了', 'マナー3件完了', 'マナー3件確認済み']) {
-      expect(checklist, `「${phrase}」が残っている`).not.toContain(phrase);
-    }
-    // 未確認へ戻した3件の行が、確認済み用の項目を持っていない。
-    for (const id of ['jp-claim-manner-train', 'jp-claim-manner-temple', 'jp-claim-manner-onsen']) {
-      const from = checklist.indexOf(`\`${id}\``);
-      const row = checklist.slice(from, checklist.indexOf('###', from + 10));
-      expect(row, `${id} が確認済みになっている`).toContain('**unchecked**');
-      expect(row, `${id} に本文確認欄が残っている`).not.toContain('| 本文を確認した資料 |');
-      expect(row, `${id} の待ち状態が書かれていない`).toContain('公式MP4照合待ち');
-      expect(row, `${id} に確認日が入っている`).not.toContain('| 確認日 | 2026-');
-    }
-  });
-
-  it('未確認へ戻した3件は、確認予定の資料として公式MP4が載っている', () => {
+  it('マナー3件の行から、確認待ちの記述が消えている', () => {
     for (const [id, file] of [
       ['jp-claim-manner-train', '04-30_En_1.mp4'],
       ['jp-claim-manner-temple', '05-30_En_1.mp4'],
@@ -1532,61 +1506,18 @@ describe('人間確認用チェックリスト', () => {
     ]) {
       const from = checklist.indexOf(`\`${id}\``);
       const row = checklist.slice(from, checklist.indexOf('###', from + 10));
+      expect(row, `${id}`).toContain('**body-checked**');
+      expect(row, `${id} に確認日が無い`).toContain('| 確認日 | 2026-09-21 |');
       expect(row, `${id} に公式MP4のURLが無い`).toContain(file);
-      expect(row, `${id} の参考記録が無い`).toContain('参考記録（公式MP4未照合）');
+      expect(row, `${id} に待機の記述が残っている`).not.toContain('公式MP4照合待ち');
+      expect(row, `${id} に未照合の記述が残っている`).not.toContain('参考記録（公式MP4未照合）');
     }
   });
 
-  it('出典一覧で、本文確認日は確認済みの資料だけに出ている', () => {
-    const start = checklist.indexOf('## 参照した出典の一覧');
-    const table = checklist.slice(start, checklist.indexOf('## 画面に出るが claim', start));
-    for (const source of JAPAN.sources) {
-      const row = table
-        .split('\n')
-        .find((line) => line.startsWith(`| \`${source.id}\``));
-      expect(row, `${source.id} の行が出典一覧に無い`).toBeDefined();
-      if (source.verification === 'body-checked') {
-        expect(row, `${source.id} に本文確認日が出ていない`).toContain(`| ${source.checkedAt} |`);
-        expect(row, `${source.id} が未確認と出ている`).toContain('| 済 |');
-      } else {
-        expect(row, `${source.id} に日付が出ている`).toContain('| 未 | — |');
-      }
-    }
-  });
-
-  it('URLの所在確認日と読める記述が残っていない', () => {
-    expect(checklist).not.toContain('所在を確かめた日');
-    expect(checklist).not.toContain('所在確認日');
-    expect(checklist).toContain('本文・映像確認日');
-  });
-
-  it('富士山の行から確認待ちの記述が消え、確認結果が入っている', () => {
-    const from = checklist.indexOf('`jp-claim-highlight-fuji`');
-    const row = checklist.slice(from, checklist.indexOf('###', from + 10));
-    expect(row).toContain('**body-checked**');
-    expect(row).toContain('| 採用／修正／削除 | 採用 |');
-    expect(row).toContain('| 確認日 | 2026-09-21 |');
-    for (const value of ['3,776m', '3,193m', '3775.56m']) {
-      expect(row, `${value} が行に無い`).toContain(value);
-    }
-    expect(row).toContain('1003zan20260331.pdf');
-    expect(row).toContain('keikaku61003.html');
-    // 待機の記述が残っていない。
-    expect(row).not.toContain('確認待ち');
-  });
-
-  it('チェックリスト全体に「PDF・CSV本体の直接確認待ち」が残っていない', () => {
-    expect(checklist).not.toContain('PDF・CSV本体の直接確認待ち');
-    expect(checklist).not.toContain('公式PDF・CSV本体の直接確認待ち');
-  });
-
-  it('文章を直していない claim は「採用」と書かれている', () => {
-    // 全件を「修正のうえ採用」にしない。直したかどうかは確認メモが持っている。
-    for (const id of ['jp-claim-highlight-fuji', 'jp-claim-summary', 'jp-claim-geo-forest']) {
-      const from = checklist.indexOf(`\`${id}\``);
-      const row = checklist.slice(from, checklist.indexOf('###', from + 10));
-      expect(row, `${id}`).toContain('| 採用／修正／削除 | 採用 |');
-    }
+  it('チェックリスト全体に公式MP4の待機記述が残っていない', () => {
+    expect(checklist).not.toContain('公式MP4照合待ち');
+    expect(checklist).not.toContain('公式MP4未確認');
+    expect(checklist).not.toContain('参考記録（公式MP4未照合）');
   });
 
   it('チェックリストに古い公開判定が残っていない', () => {
