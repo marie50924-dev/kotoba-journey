@@ -291,13 +291,30 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceLabel: '気象庁「日本の気候」',
     sourceUrl:
       'https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html',
-    verification: 'url-only',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
   },
   {
     id: 'jma-baiu',
     sourceLabel: '気象庁「過去の梅雨入りと梅雨明け」',
     sourceUrl: 'https://www.data.jma.go.jp/cpd/baiu/index.html',
-    verification: 'url-only',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
+  },
+  // 梅雨入りの平年値は地方別ページにある。総合ページから直接リンクされている。
+  {
+    id: 'jma-baiu-okinawa',
+    sourceLabel: '気象庁「過去の梅雨入りと梅雨明け（沖縄）」',
+    sourceUrl: 'https://www.data.jma.go.jp/cpd/baiu/kako_baiu01.html',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
+  },
+  {
+    id: 'jma-baiu-amami',
+    sourceLabel: '気象庁「過去の梅雨入りと梅雨明け（奄美）」',
+    sourceUrl: 'https://www.data.jma.go.jp/cpd/baiu/kako_baiu02.html',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
   },
   {
     id: 'bunka-heritage',
@@ -583,11 +600,12 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     ),
     // 気候の資料で確認できる範囲まで短くした。
     // 地理（大陸の東・島国）と食べものの部分は、この資料では裏づけられないので外した。
-    summary: pending(
+    summary: confirmed(
       'jp-claim-summary',
       '北から南へ細長くつづく国なので、地域によって気候がちがいます。',
       ['jma-climate'],
-      NOTE_NEED_BODY,
+      '気象庁「日本の気候」で、日本列島は南北に長く、北の亜寒帯から南の亜熱帯までさまざまな気候区分に属し、地方によって天候に大きな違いがあると説明されていることを確認した。現在の文章は資料の範囲内なので、そのまま採用した。',
+      '2026-09-21',
     ),
     highlight: {
       id: 'jp-highlight-fuji',
@@ -610,23 +628,21 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
       ),
     ],
     climate: [
-      pending(
+      // 四季の話（jp-claim-climate-seasons）は、本文確認の結果 不採用。
+      // 資料本文に該当する説明が無かった。記録は retiredClaims にある。
+      confirmed(
         'jp-claim-climate-winter',
-        '冬は日本海側で雪やくもりの日が多く、太平洋側では晴れの日が多くなります。',
+        '冬は日本海側では、くもりや雪、雨の日が多く、太平洋側では晴れの日が多くなります。',
         ['jma-climate'],
-        NOTE_NEED_BODY,
+        '気象庁「日本の気候」で、冬は日本海側では曇りや雪または雨の日が多く、太平洋側では晴れの日が多いと説明されていることを確認した。元の文章には資料に記載された「雨」が含まれていなかったため、資料の範囲に合わせて追加した。',
+        '2026-09-21',
       ),
-      pending(
+      confirmed(
         'jp-claim-climate-baiu',
         '春から夏へ変わるころに、雨の多い「梅雨（つゆ）」があります。沖縄や奄美では5月ごろにはじまります。',
-        ['jma-baiu', 'jma-climate'],
-        NOTE_NEED_BODY,
-      ),
-      pending(
-        'jp-claim-climate-seasons',
-        '四季があり、季節によって景色が変わります。',
-        ['jma-climate'],
-        NOTE_NEED_BODY,
+        ['jma-baiu', 'jma-baiu-okinawa', 'jma-baiu-amami'],
+        '気象庁の総合ページで、梅雨は春から夏へ移る過程で、前後の時期より雨が多く日照が少なくなる季節現象であることを確認した。同ページから直接リンクされている地方別ページで、1991〜2020年の平年の梅雨入りが沖縄は5月10日ごろ、奄美は5月12日ごろであることを確認した。現在の文章は資料の範囲内なので、そのまま採用した。',
+        '2026-09-21',
       ),
     ],
     // 服装の目安は資料に書かれた事実ではなく助言だったので取り下げた（retiredClaims）。
@@ -746,6 +762,12 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     // 取り下げの理由は verificationNote にある。資料の可否は判定していない。
     retiredClaims: [
       // 本文を読んだ結果の不採用。取り下げ（withdrawn）とは分けて記録する。
+      rejectedClaim(
+        'jp-claim-climate-seasons',
+        '四季があり、季節によって景色が変わります。',
+        '気象庁「日本の気候」の本文を確認したが、「四季がある」「季節によって景色が変わる」という説明は確認できなかった。候補資料が元の文章を直接支えていないため、本文確認後の不採用とした。',
+        '2026-09-21',
+      ),
       rejectedClaim(
         'jp-claim-culture-shoes',
         '家や旅館では、玄関で靴をぬいで上がります。',

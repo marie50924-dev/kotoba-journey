@@ -195,7 +195,8 @@ describe('国紹介の必須項目', () => {
 
   it('残した並びは中身がある', () => {
     expect(JAPAN.geography).toHaveLength(1);
-    expect(JAPAN.climate).toHaveLength(3);
+    // 四季の話は本文確認の結果 不採用になったので、きこうは2件。
+    expect(JAPAN.climate).toHaveLength(2);
     expect(JAPAN.landmarks).toHaveLength(4);
     // 靴をぬぐ話は本文確認の結果 不採用になったので、ぶんかは1件。
     expect(JAPAN.culture).toHaveLength(1);
@@ -328,7 +329,9 @@ describe('事実（FactClaim）', () => {
 
   it('本文を読んだ結果の不採用は、読んだ記録が残っている', () => {
     const rejected = JAPAN.retiredClaims.filter((c) => c.verification === 'rejected');
-    expect(rejected.map((c) => c.id)).toEqual(['jp-claim-culture-shoes']);
+    expect(rejected.map((c) => c.id).sort()).toEqual(
+      ['jp-claim-climate-seasons', 'jp-claim-culture-shoes'].sort(),
+    );
     for (const claim of rejected) {
       // 何を読んでどう判断したかが分かること。
       expect(claim.verificationNote).toContain('確認した');
@@ -847,11 +850,11 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('本文確認日を持つ出典は7件、持たない出典は14件', () => {
+  it('本文確認日を持つ出典は11件、持たない出典は12件', () => {
     const withDate = JAPAN.sources.filter((s) => s.checkedAt !== undefined).map((s) => s.id);
     const withoutDate = JAPAN.sources.filter((s) => s.checkedAt === undefined).map((s) => s.id);
-    expect(withDate).toHaveLength(7);
-    expect(withoutDate).toHaveLength(14);
+    expect(withDate).toHaveLength(11);
+    expect(withoutDate).toHaveLength(12);
     // 日付を持つのは、本文を確認できた資料だけ。
     expect(withDate.sort()).toEqual(
       JAPAN.sources
@@ -902,9 +905,9 @@ describe('出典メタデータの形式確認', () => {
   it('出典の状態別件数', () => {
     const count = (state: string): number =>
       JAPAN.sources.filter((s) => s.verification === state).length;
-    expect(JAPAN.sources).toHaveLength(21);
-    expect(count('body-checked')).toBe(7);
-    expect(count('url-only')).toBe(14);
+    expect(JAPAN.sources).toHaveLength(23);
+    expect(count('body-checked')).toBe(11);
+    expect(count('url-only')).toBe(12);
   });
 
   it('body-checked の出典は、確認済みの事実から引かれている', () => {
@@ -1057,9 +1060,9 @@ describe('確認の進み具合', () => {
     const count = (state: string): number =>
       allClaims(JAPAN).filter((c) => c.verification === state).length;
     expect(allClaims(JAPAN)).toHaveLength(46);
-    expect(count('body-checked')).toBe(5);
-    expect(count('unchecked')).toBe(12);
-    expect(count('rejected')).toBe(1);
+    expect(count('body-checked')).toBe(8);
+    expect(count('unchecked')).toBe(8);
+    expect(count('rejected')).toBe(2);
     expect(count('withdrawn')).toBe(28);
   });
 
@@ -1070,16 +1073,46 @@ describe('確認の進み具合', () => {
     expect(renderedText(JAPAN)).toBe(UI.countryIntro.preparing);
   });
 
-  it('気候4件には手を付けていない', () => {
-    const climateIds = [
-      'jp-claim-summary',
-      'jp-claim-climate-winter',
-      'jp-claim-climate-baiu',
-      'jp-claim-climate-seasons',
-    ];
-    const byId = new Map(allClaims(JAPAN).map((c) => [c.id, c]));
-    for (const id of climateIds) {
-      expect(byId.get(id)!.verification, `${id} が未確認のままでない`).toBe('unchecked');
+  it('気候4件は本文確認が済み、四季の話だけ不採用になった', () => {
+    const byId = new Map(allClaims(JAPAN).map((x) => [x.id, x]));
+    for (const id of ['jp-claim-summary', 'jp-claim-climate-winter', 'jp-claim-climate-baiu']) {
+      expect(byId.get(id)!.verification, `${id}`).toBe('body-checked');
+      expect(byId.get(id)!.checkedAt, `${id} の確認日`).toBe('2026-09-21');
+    }
+    expect(byId.get('jp-claim-climate-seasons')!.verification).toBe('rejected');
+  });
+
+  it('不採用にした四季の話は、表示対象から消えて監査記録に1件だけ残る', () => {
+    const id = 'jp-claim-climate-seasons';
+    expect(displayDataClaims(JAPAN).map((c) => c.id)).not.toContain(id);
+    expect(visibleClaims(JAPAN).map((c) => c.id)).not.toContain(id);
+    expect(allClaims(JAPAN).filter((c) => c.id === id)).toHaveLength(1);
+    expect(JAPAN.retiredClaims.filter((c) => c.id === id)).toHaveLength(1);
+    // きこうカードの本文にも出ない。
+    const climate = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
+    expect(climate.lines.join('\n')).not.toContain('四季があり');
+  });
+
+  it('冬の文章は、資料の範囲に合わせた語をすべて含む', () => {
+    const byId = new Map(allClaims(JAPAN).map((x) => [x.id, x]));
+    const text = byId.get('jp-claim-climate-winter')!.text;
+    for (const word of ['くもり', '雪', '雨', '太平洋側', '晴れ']) {
+      expect(text, `「${word}」が無い`).toContain(word);
+    }
+  });
+
+  it('梅雨は、総合ページと沖縄・奄美の地方別ページを引いている', () => {
+    const byId = new Map(allClaims(JAPAN).map((x) => [x.id, x]));
+    expect(byId.get('jp-claim-climate-baiu')!.sourceIds).toEqual([
+      'jma-baiu',
+      'jma-baiu-okinawa',
+      'jma-baiu-amami',
+    ]);
+    for (const id of ['jma-climate', 'jma-baiu', 'jma-baiu-okinawa', 'jma-baiu-amami']) {
+      const source = findSource(JAPAN, id);
+      expect(source, `${id} が無い`).toBeDefined();
+      expect(source!.verification, `${id}`).toBe('body-checked');
+      expect(source!.checkedAt, `${id} の確認日`).toBe('2026-09-21');
     }
   });
 });
@@ -1129,7 +1162,7 @@ describe('詳細カードの組み立て', () => {
     const withSources = buildDetailSections(JAPAN)
       .filter((s) => s.sources.length > 0)
       .map((s) => s.id);
-    expect(withSources).toEqual(['landmarks', 'culture']);
+    expect(withSources).toEqual(['climate', 'landmarks', 'culture']);
   });
 
   it('本文確認が終われば、事実のカードに出典が出る', () => {
@@ -1174,9 +1207,9 @@ describe('詳細カードの組み立て', () => {
     expect(buildDetailSections(JAPAN).map((s) => s.id)).not.toContain('foods');
   });
 
-  it('気候のカードは、残した3文と断り書きでできている', () => {
+  it('気候のカードは、残した2文と断り書きでできている', () => {
     const section = buildDetailSections(JAPAN).find((s) => s.id === 'climate')!;
-    expect(section.lines).toHaveLength(4);
+    expect(section.lines).toHaveLength(3);
     expect(section.lines.join('')).toMatch(/日本海側|太平洋側/);
     expect(section.lines[section.lines.length - 1]).toBe(JAPAN.clothingNote);
   });

@@ -2,20 +2,20 @@
 
 対象: `src/data/countryIntros.ts` の `countryId: 'japan'`
 作成日: 2026-09-20
-claim 件数: 46件（確認対象 17件 / 画面に出さない 29件）
-本文確認済み: **5件** / 未確認: 12件
+claim 件数: 46件（確認対象 16件 / 画面に出さない 30件）
+本文確認済み: **8件** / 未確認: 8件
 
 ---
 
 ## このチェックリストについて
 
 国紹介の画面に出す事実を1文ずつ `FactClaim` にし、claimId を付けて並べたものです。
-確認対象17件のうち、**5件が本文確認済み**です。
-残り12件が終わるまで日本の `publicationStatus` は `'draft'` のままで、
+確認対象16件のうち、**8件が本文確認済み**です。
+残り8件が終わるまで日本の `publicationStatus` は `'draft'` のままで、
 「もっと知る」も事実カードも公開導線には出していません。
 
 人が読む件数を減らすため、**公的資料に明記されていない文章は、本文を読む前に取り下げました**
-（`withdrawn`）。本文を読んだ結果の不採用（`rejected`）と合わせて29件が画面に出ませんが、
+（`withdrawn`）。本文を読んだ結果の不採用（`rejected`）と合わせて30件が画面に出ませんが、
 claimId と文章をそのまま監査記録として下に残してあります。
 取り下げは「資料に書いていない」という判定**ではありません**。資料の可否は判定していません。
 
@@ -117,16 +117,16 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 | 状態 | 件数 |
 |---|---|
-| unchecked（未確認） | 12 |
-| body-checked（確認済み） | 5 |
-| rejected（本文確認後の不採用） | 1 |
+| unchecked（未確認） | 8 |
+| body-checked（確認済み） | 8 |
+| rejected（本文確認後の不採用） | 2 |
 | withdrawn（本文確認前の取り下げ） | 28 |
 
 ---
 
-# 確認対象（17件）
+# 確認対象（16件）
 
-この17件が確認対象です。残り12件の本文を読んで判断してください。
+この16件が確認対象です。残り8件の本文を読んで判断してください。
 
 ## あいさつ（1件）
 
@@ -153,12 +153,12 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 |---|---|
 | ゲーム内の文章 | 北から南へ細長くつづく国なので、地域によって気候がちがいます。 |
 | カテゴリー | 概要（到着直後） |
-| 確認予定の資料 | 気象庁「日本の気候」 |
-| URL | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html |
-| 本文確認状態 | **unchecked** |
-| 本文中で確認した内容 | （未記入） |
-| 採用／修正／削除 | （未記入） |
-| 確認日 | （未記入） |
+| 本文確認状態 | **body-checked** |
+| 本文を確認した資料 | 気象庁「日本の気候」 |
+| そのURL | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html |
+| 本文中で確認した内容 | 気象庁「日本の気候」で、日本列島は南北に長く、北の亜寒帯から南の亜熱帯までさまざまな気候区分に属し、地方によって天候に大きな違いがあると説明されていることを確認した。現在の文章は資料の範囲内なので、そのまま採用した。 |
+| 採用／修正／削除 | 修正のうえ採用 |
+| 確認日 | 2026-09-21 |
 
 ### 3. `jp-claim-highlight-fuji`
 
@@ -222,20 +222,20 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ---
 
-## きこう（3件）
+## きこう（2件）
 
 ### 7. `jp-claim-climate-winter`
 
 | 項目 | 内容 |
 |---|---|
-| ゲーム内の文章 | 冬は日本海側で雪やくもりの日が多く、太平洋側では晴れの日が多くなります。 |
+| ゲーム内の文章 | 冬は日本海側では、くもりや雪、雨の日が多く、太平洋側では晴れの日が多くなります。 |
 | カテゴリー | きこう |
-| 確認予定の資料 | 気象庁「日本の気候」 |
-| URL | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html |
-| 本文確認状態 | **unchecked** |
-| 本文中で確認した内容 | （未記入） |
-| 採用／修正／削除 | （未記入） |
-| 確認日 | （未記入） |
+| 本文確認状態 | **body-checked** |
+| 本文を確認した資料 | 気象庁「日本の気候」 |
+| そのURL | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html |
+| 本文中で確認した内容 | 気象庁「日本の気候」で、冬は日本海側では曇りや雪または雨の日が多く、太平洋側では晴れの日が多いと説明されていることを確認した。元の文章には資料に記載された「雨」が含まれていなかったため、資料の範囲に合わせて追加した。 |
+| 採用／修正／削除 | 修正のうえ採用 |
+| 確認日 | 2026-09-21 |
 
 ### 8. `jp-claim-climate-baiu`
 
@@ -243,31 +243,18 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 |---|---|
 | ゲーム内の文章 | 春から夏へ変わるころに、雨の多い「梅雨（つゆ）」があります。沖縄や奄美では5月ごろにはじまります。 |
 | カテゴリー | きこう |
-| 確認予定の資料 | 気象庁「過去の梅雨入りと梅雨明け」 / 気象庁「日本の気候」 |
-| URL | https://www.data.jma.go.jp/cpd/baiu/index.html / https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html |
-| 本文確認状態 | **unchecked** |
-| 本文中で確認した内容 | （未記入） |
-| 採用／修正／削除 | （未記入） |
-| 確認日 | （未記入） |
-
-### 9. `jp-claim-climate-seasons`
-
-| 項目 | 内容 |
-|---|---|
-| ゲーム内の文章 | 四季があり、季節によって景色が変わります。 |
-| カテゴリー | きこう |
-| 確認予定の資料 | 気象庁「日本の気候」 |
-| URL | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html |
-| 本文確認状態 | **unchecked** |
-| 本文中で確認した内容 | （未記入） |
-| 採用／修正／削除 | （未記入） |
-| 確認日 | （未記入） |
+| 本文確認状態 | **body-checked** |
+| 本文を確認した資料 | 気象庁「過去の梅雨入りと梅雨明け」 / 気象庁「過去の梅雨入りと梅雨明け（沖縄）」 / 気象庁「過去の梅雨入りと梅雨明け（奄美）」 |
+| そのURL | https://www.data.jma.go.jp/cpd/baiu/index.html / https://www.data.jma.go.jp/cpd/baiu/kako_baiu01.html / https://www.data.jma.go.jp/cpd/baiu/kako_baiu02.html |
+| 本文中で確認した内容 | 気象庁の総合ページで、梅雨は春から夏へ移る過程で、前後の時期より雨が多く日照が少なくなる季節現象であることを確認した。同ページから直接リンクされている地方別ページで、1991〜2020年の平年の梅雨入りが沖縄は5月10日ごろ、奄美は5月12日ごろであることを確認した。現在の文章は資料の範囲内なので、そのまま採用した。 |
+| 採用／修正／削除 | 修正のうえ採用 |
+| 確認日 | 2026-09-21 |
 
 ---
 
 ## みどころ（4件）
 
-### 10. `jp-claim-landmark-fuji`
+### 9. `jp-claim-landmark-fuji`
 
 | 項目 | 内容 |
 |---|---|
@@ -280,7 +267,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | 採用／修正／削除 | 修正のうえ採用 |
 | 確認日 | 2026-09-20 |
 
-### 11. `jp-claim-landmark-horyuji`
+### 10. `jp-claim-landmark-horyuji`
 
 | 項目 | 内容 |
 |---|---|
@@ -293,7 +280,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | 採用／修正／削除 | 修正のうえ採用 |
 | 確認日 | 2026-09-20 |
 
-### 12. `jp-claim-landmark-himeji`
+### 11. `jp-claim-landmark-himeji`
 
 | 項目 | 内容 |
 |---|---|
@@ -306,7 +293,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | 採用／修正／削除 | 修正のうえ採用 |
 | 確認日 | 2026-09-20 |
 
-### 13. `jp-claim-landmark-kyoto`
+### 12. `jp-claim-landmark-kyoto`
 
 | 項目 | 内容 |
 |---|---|
@@ -323,7 +310,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ## ぶんか（1件）
 
-### 14. `jp-claim-culture-events`
+### 13. `jp-claim-culture-events`
 
 | 項目 | 内容 |
 |---|---|
@@ -340,7 +327,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ## ぶんか（マナー）（3件）
 
-### 15. `jp-claim-manner-train`
+### 14. `jp-claim-manner-train`
 
 | 項目 | 内容 |
 |---|---|
@@ -354,7 +341,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | 採用／修正／削除 | 公式MP4照合待ち |
 | 確認日 | |
 
-### 16. `jp-claim-manner-temple`
+### 15. `jp-claim-manner-temple`
 
 | 項目 | 内容 |
 |---|---|
@@ -368,7 +355,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 | 採用／修正／削除 | 公式MP4照合待ち |
 | 確認日 | |
 
-### 17. `jp-claim-manner-onsen`
+### 16. `jp-claim-manner-onsen`
 
 | 項目 | 内容 |
 |---|---|
@@ -384,17 +371,27 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ---
 
-# 画面に出さない文章（29件・監査記録）
+# 画面に出さない文章（30件・監査記録）
 
 **画面には出ません。公開も妨げません。**
 戻したくなったときのために、claimId と文章をそのまま残してあります。
 
 - 本文を読む前に取り下げたもの（`withdrawn`）… 28件
-- 本文を読んだ結果の不採用（`rejected`）… 1件
+- 本文を読んだ結果の不採用（`rejected`）… 2件
 
 `withdrawn` は「資料に書いていない」という判定ではありません。資料の可否は判定していません。
 
 ## 本文を読んだ結果の不採用
+
+### 17. `jp-claim-climate-seasons`
+
+| 項目 | 内容 |
+|---|---|
+| ゲーム内の文章 | 四季があり、季節によって景色が変わります。 |
+| 本文確認状態 | **rejected** |
+| 本文中で確認した内容 | 気象庁「日本の気候」の本文を確認したが、「四季がある」「季節によって景色が変わる」という説明は確認できなかった。候補資料が元の文章を直接支えていないため、本文確認後の不採用とした。 |
+| 採用／修正／削除 | 不採用 |
+| 確認日 | 2026-09-21 |
 
 ### 18. `jp-claim-culture-shoes`
 
@@ -692,7 +689,7 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ---
 
-## 参照した出典の一覧（21件）
+## 参照した出典の一覧（23件）
 
 
 取り下げによって、いま使われていない出典もあります。
@@ -707,8 +704,10 @@ URLの所在を確かめただけの資料には日付を入れません。
 | `tokyo-municipalities` | 東京都「都内区市町村マップ」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson | 未 | — |
 | `rinya-forest` | 林野庁「都道府県別森林率・人工林率」 | https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html | 未 | — |
 | `gsi-mountains` | 国土地理院「日本の主な山岳標高（1003山）」 | https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html | 未 | — |
-| `jma-climate` | 気象庁「日本の気候」 | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html | 未 | — |
-| `jma-baiu` | 気象庁「過去の梅雨入りと梅雨明け」 | https://www.data.jma.go.jp/cpd/baiu/index.html | 未 | — |
+| `jma-climate` | 気象庁「日本の気候」 | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html | 済 | 2026-09-21 |
+| `jma-baiu` | 気象庁「過去の梅雨入りと梅雨明け」 | https://www.data.jma.go.jp/cpd/baiu/index.html | 済 | 2026-09-21 |
+| `jma-baiu-okinawa` | 気象庁「過去の梅雨入りと梅雨明け（沖縄）」 | https://www.data.jma.go.jp/cpd/baiu/kako_baiu01.html | 済 | 2026-09-21 |
+| `jma-baiu-amami` | 気象庁「過去の梅雨入りと梅雨明け（奄美）」 | https://www.data.jma.go.jp/cpd/baiu/kako_baiu02.html | 済 | 2026-09-21 |
 | `bunka-heritage` | 文化庁「日本の世界遺産一覧」 | https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/ | 済 | 2026-09-20 |
 | `bunka-horyuji` | 文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」 | https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf | 済 | 2026-09-20 |
 | `unesco-horyuji` | UNESCO 世界遺産センター「法隆寺地域の仏教建造物」 | https://whc.unesco.org/ja/list/660 | 済 | 2026-09-20 |
