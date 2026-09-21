@@ -850,10 +850,10 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
-  it('本文確認日を持つ出典は12件、持たない出典は12件', () => {
+  it('本文確認日を持つ出典は14件、持たない出典は12件', () => {
     const withDate = JAPAN.sources.filter((s) => s.checkedAt !== undefined).map((s) => s.id);
     const withoutDate = JAPAN.sources.filter((s) => s.checkedAt === undefined).map((s) => s.id);
-    expect(withDate).toHaveLength(12);
+    expect(withDate).toHaveLength(14);
     expect(withoutDate).toHaveLength(12);
     // 日付を持つのは、本文を確認できた資料だけ。
     expect(withDate.sort()).toEqual(
@@ -892,21 +892,37 @@ describe('出典メタデータの形式確認', () => {
     }
   });
 
+  // 公的機関と、公的機関が運営する媒体のホスト。
+  // データ内の自己申告（資料名や公開主体の記載）で例外を作らない。
+  // japan.travel は日本政府観光局（JNTO）の公式サイトだが、
+  // 任意の .travel を許さないよう、ホスト名を丸ごと固定する。
+  const ALLOWED_HOST = /\.go\.jp$|\.lg\.jp$|\.unesco\.org$|^web-japan\.org$|^www\.japan\.travel$/;
+
   it('出典は公的機関・公的機関が運営する媒体のドメインに限る', () => {
-    // データ内の自己申告（資料名や公開主体の記載）で例外を作らない。
-    // 公的機関の資料は、その機関のドメインで配布されているものを引く。
-    const allowedHost = /\.go\.jp$|\.lg\.jp$|\.unesco\.org$|^web-japan\.org$/;
     for (const source of JAPAN.sources) {
       const host = new URL(source.sourceUrl).hostname;
-      expect(host, `${source.sourceLabel} のドメイン`).toMatch(allowedHost);
+      expect(host, `${source.sourceLabel} のドメイン`).toMatch(ALLOWED_HOST);
+    }
+  });
+
+  it('JNTO は正確なホスト名だけを許し、ほかの .travel は許さない', () => {
+    expect(ALLOWED_HOST.test('www.japan.travel')).toBe(true);
+    for (const host of ['japan.travel', 'evil.japan.travel', 'www.example.travel', 'notjapan.travel']) {
+      expect(ALLOWED_HOST.test(host), `${host} を許してしまっている`).toBe(false);
+    }
+  });
+
+  it('公開主体の自己申告による例外許可が復活していない', () => {
+    for (const source of JAPAN.sources) {
+      expect(Object.keys(source)).not.toContain('hostedBy');
     }
   });
 
   it('出典の状態別件数', () => {
     const count = (state: string): number =>
       JAPAN.sources.filter((s) => s.verification === state).length;
-    expect(JAPAN.sources).toHaveLength(24);
-    expect(count('body-checked')).toBe(12);
+    expect(JAPAN.sources).toHaveLength(26);
+    expect(count('body-checked')).toBe(14);
     expect(count('url-only')).toBe(12);
   });
 
@@ -1060,8 +1076,8 @@ describe('確認の進み具合', () => {
     const count = (state: string): number =>
       allClaims(JAPAN).filter((c) => c.verification === state).length;
     expect(allClaims(JAPAN)).toHaveLength(46);
-    expect(count('body-checked')).toBe(9);
-    expect(count('unchecked')).toBe(7);
+    expect(count('body-checked')).toBe(11);
+    expect(count('unchecked')).toBe(5);
     expect(count('rejected')).toBe(2);
     expect(count('withdrawn')).toBe(28);
   });
@@ -1073,10 +1089,10 @@ describe('確認の進み具合', () => {
     expect(renderedText(JAPAN)).toBe(UI.countryIntro.preparing);
   });
 
-  it('首都の一文は、首都を定める法律について書かれた資料で確認されている', () => {
+  it('首都の一文は、JNTO と首都を定める法律の資料で確認されている', () => {
     // 東京都の案内には首都に関する記述が無かったので、そちらは裏づけに使わない。
     expect(JAPAN.capitalLine.verification).toBe('body-checked');
-    expect(JAPAN.capitalLine.sourceIds).toEqual(['sangiin-capital-law']);
+    expect(JAPAN.capitalLine.sourceIds).toEqual(['jnto-tokyo', 'sangiin-capital-law']);
     expect(JAPAN.capitalLine.checkedAt).toBe('2026-09-21');
     const source = findSource(JAPAN, 'sangiin-capital-law')!;
     expect(source.verification).toBe('body-checked');
@@ -1089,6 +1105,48 @@ describe('確認の進み具合', () => {
     expect(JAPAN.capitalLine.sourceIds).not.toContain('tokyo-profile');
     // 東京都の案内は、ほかの claim の確認予定資料としては残っている。
     expect(findSource(JAPAN, 'tokyo-profile')).toBeDefined();
+  });
+
+  it('都市名の東京は JNTO のページで確認されている', () => {
+    const claim = JAPAN.capital.claim!;
+    expect(claim.verification).toBe('body-checked');
+    expect(claim.sourceIds).toEqual(['jnto-tokyo']);
+    expect(claim.checkedAt).toBe('2026-09-21');
+  });
+
+  it('森林の一文は、全国値の載っている年次版の表で確認されている', () => {
+    const claim = JAPAN.geography[0];
+    expect(claim.id).toBe('jp-claim-geo-forest');
+    expect(claim.verification).toBe('body-checked');
+    // 入口ページではなく、全国行のある年次版を根拠にする。
+    expect(claim.sourceIds).toEqual(['rinya-forest-r4']);
+    expect(claim.checkedAt).toBe('2026-09-21');
+    expect(claim.verificationNote).toContain('森林率67%');
+  });
+
+  it('入口ページは url-only のまま残り、裏づけには使われていない', () => {
+    for (const id of ['tokyo-profile', 'rinya-forest']) {
+      const source = findSource(JAPAN, id);
+      expect(source, `${id} が消えている`).toBeDefined();
+      expect(source!.verification, `${id}`).toBe('url-only');
+      for (const claim of allClaims(JAPAN)) {
+        expect(claim.sourceIds, `${claim.id} が ${id} を裏づけにしている`).not.toContain(id);
+      }
+    }
+  });
+
+  it('富士山の高さは未確認のまま、PDF・CSV本体の確認を待っている', () => {
+    const claim = JAPAN.highlight.claim!;
+    expect(claim.id).toBe('jp-claim-highlight-fuji');
+    expect(claim.text).toBe('富士山は高さ3776mで、日本でいちばん高い山です。');
+    expect(claim.verification).toBe('unchecked');
+    expect(claim.sourceIds).toEqual([]);
+    expect(claim.checkedAt).toBeUndefined();
+    expect(claim.candidateSourceIds).toEqual(['gsi-mountains']);
+    expect(claim.verificationNote).toContain('公式PDF・CSV本体の直接確認待ち');
+    const source = findSource(JAPAN, 'gsi-mountains')!;
+    expect(source.verification).toBe('url-only');
+    expect(source.checkedAt).toBeUndefined();
   });
 
   it('気候4件は本文確認が済み、四季の話だけ不採用になった', () => {
@@ -1180,7 +1238,7 @@ describe('詳細カードの組み立て', () => {
     const withSources = buildDetailSections(JAPAN)
       .filter((s) => s.sources.length > 0)
       .map((s) => s.id);
-    expect(withSources).toEqual(['cities', 'climate', 'landmarks', 'culture']);
+    expect(withSources).toEqual(['cities', 'nature', 'climate', 'landmarks', 'culture']);
   });
 
   it('本文確認が終われば、事実のカードに出典が出る', () => {
@@ -1452,6 +1510,15 @@ describe('人間確認用チェックリスト', () => {
     expect(checklist).not.toContain('所在を確かめた日');
     expect(checklist).not.toContain('所在確認日');
     expect(checklist).toContain('本文・映像確認日');
+  });
+
+  it('富士山の行は、PDF・CSV本体の確認待ちと書いてある', () => {
+    const from = checklist.indexOf('`jp-claim-highlight-fuji`');
+    const row = checklist.slice(from, checklist.indexOf('###', from + 10));
+    expect(row).toContain('**unchecked**');
+    expect(row).toContain('公式PDF・CSV本体の直接確認待ち');
+    expect(row).toContain('PDF・CSV本体の直接確認待ち');
+    expect(row).not.toContain('| 確認日 | 2026-');
   });
 
   it('チェックリストに古い公開判定が残っていない', () => {

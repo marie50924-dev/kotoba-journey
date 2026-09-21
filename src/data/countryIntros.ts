@@ -278,6 +278,14 @@ const JAPAN_SOURCES: InfoSource[] = [
     checkedAt: '2026-09-21',
     verification: 'body-checked',
   },
+  // 日本政府観光局（JNTO）の公式サイト。東京の紹介ページで首都であることを確認した。
+  {
+    id: 'jnto-tokyo',
+    sourceLabel: '日本政府観光局（JNTO）Travel Japan「Tokyo」',
+    sourceUrl: 'https://www.japan.travel/en/destinations/kanto/tokyo/',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
+  },
   {
     id: 'tokyo-municipalities',
     sourceLabel: '東京都「都内区市町村マップ」',
@@ -289,6 +297,14 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceLabel: '林野庁「都道府県別森林率・人工林率」',
     sourceUrl: 'https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html',
     verification: 'url-only',
+  },
+  // 全国の森林率が載っているのは年次版の表。入口ページ（rinya-forest）には数値が無い。
+  {
+    id: 'rinya-forest-r4',
+    sourceLabel: '林野庁「都道府県別森林率・人工林率（令和4年3月31日現在）」',
+    sourceUrl: 'https://www.rinya.maff.go.jp/j/keikaku/genkyou/r4/1.html',
+    checkedAt: '2026-09-21',
+    verification: 'body-checked',
   },
   {
     id: 'gsi-mountains',
@@ -573,8 +589,6 @@ function greetingOf(
   };
 }
 
-const NOTE_NEED_BODY = '資料の本文をまだ読めていない。本文で該当箇所を確認すること。';
-
 export const COUNTRY_INTROS: readonly CountryIntro[] = [
   {
     countryId: 'japan',
@@ -589,15 +603,21 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
     capitalLine: confirmed(
       'jp-claim-capital-line',
       '首都は東京です。',
-      ['sangiin-capital-law'],
-      '参議院法制局のコラム「首都を定める法律」で、首都を定める法律は現在存在しないこと、一方で内閣法制局長官答弁（昭和54年6月5日 参議院内閣委員会）が東京を日本の首都として述べていること、東京には国の主要な行政機関・国会・最高裁判所があり辞書的な「首都」の要件を備えていること、法律上は「首都圏」の定義があること（首都圏整備法第2条第1項ほか）を確認した。法令の明文はないが、東京が首都であるという理解は公的にも示されており、「首都は東京です。」は資料の範囲内と判断した。なお本記事は法制局職員有志による解説記事で、無断転載が禁じられているため要約で記録する。東京都「東京都プロフィール」も確認したが、首都に関する記述は無かったため裏づけには使わない。',
+      ['jnto-tokyo', 'sangiin-capital-law'],
+      '日本政府観光局（JNTO）の東京紹介ページに「As Japan’s capital」と明記されていることを確認した。元の候補だった東京都「都の概要」は関連ページへの入口であり、首都という記述を確認できなかったため根拠には使わない。あわせて、参議院法制局のコラム「首都を定める法律」で、首都を定める法律は現在存在しないこと、一方で内閣法制局長官答弁（昭和54年6月5日 参議院内閣委員会）が東京を日本の首都として述べていること、東京には国の主要な行政機関・国会・最高裁判所があり辞書的な「首都」の要件を備えていること、法律上は「首都圏」の定義があること（首都圏整備法第2条第1項ほか）を確認した。法令の明文はないが、東京が首都であるという理解は公的にも示されており、「首都は東京です。」は資料の範囲内と判断した。なお本記事は法制局職員有志による解説記事で、無断転載が禁じられているため要約で記録する。東京都「東京都プロフィール」も確認したが、首都に関する記述は無かったため裏づけには使わない。',
       '2026-09-21',
     ),
     capital: {
       id: 'jp-capital-tokyo',
       name: '東京',
       note: 'とうきょう',
-      claim: pending('jp-claim-capital-tokyo', '東京（とうきょう）', ['tokyo-profile'], NOTE_NEED_BODY),
+      claim: confirmed(
+        'jp-claim-capital-tokyo',
+        '東京（とうきょう）',
+        ['jnto-tokyo'],
+        '日本政府観光局（JNTO）のページ見出しが「Tokyo」で、本文でも東京を日本の首都として紹介していることを確認した。',
+        '2026-09-21',
+      ),
     },
     // 都市の説明は、資料が見つからないうえに主観的だったので取り下げた（retiredClaims）。
     majorCities: [],
@@ -626,16 +646,17 @@ export const COUNTRY_INTROS: readonly CountryIntro[] = [
         'jp-claim-highlight-fuji',
         '富士山は高さ3776mで、日本でいちばん高い山です。',
         ['gsi-mountains'],
-        NOTE_NEED_BODY,
+        '公式PDF・CSV本体の直接確認待ち。国土地理院「日本の主な山岳標高（1003山）」の PDF または CSV 本体で富士山の行を直接確認するまで body-checked にしない。',
       ),
     },
 
     geography: [
-      pending(
+      confirmed(
         'jp-claim-geo-forest',
         '森林が国土のおよそ3分の2をしめています。',
-        ['rinya-forest'],
-        NOTE_NEED_BODY,
+        ['rinya-forest-r4'],
+        '林野庁「都道府県別森林率・人工林率（令和4年3月31日現在）」の全国行で、森林面積25,024,810ha、国土面積37,297,154ha、森林率67%と記載されていることを確認した。67%はおよそ3分の2に当たる。全国の森林率は北方地域を除いて算出されているとの注記も確認した。',
+        '2026-09-21',
       ),
     ],
     climate: [
