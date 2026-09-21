@@ -27,6 +27,7 @@ interface ChecklistEntry {
   判定: string;
   確認した資料: string;
   URL: string;
+  直接確認: string;
   確認した内容: string;
   確認日: string;
   注意点: string;
@@ -82,6 +83,7 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
       判定: fields.get('判定') ?? '',
       確認した資料: fields.get('確認した資料') ?? '',
       URL: fields.get('URL') ?? '',
+      直接確認: fields.get('正本URLを直接開いた') ?? '',
       確認した内容: fields.get('確認した内容') ?? '',
       確認日: fields.get('確認日') ?? '',
       注意点: fields.get('注意点') ?? '',
@@ -175,6 +177,7 @@ describe('確認の進みかた', () => {
       expect(entry.判定, `${entry.pairId} の判定`).toBe('');
       expect(entry.確認した資料, `${entry.pairId} の確認した資料`).toBe('');
       expect(entry.URL, `${entry.pairId} のURL`).toBe('');
+      expect(entry.直接確認, `${entry.pairId} の直接確認`).toBe('');
       expect(entry.確認した内容, `${entry.pairId} の確認した内容`).toBe('');
       expect(entry.確認日, `${entry.pairId} の確認日`).toBe('');
     }
@@ -193,13 +196,24 @@ describe('確認の進みかた', () => {
     }
   });
 
-  it('資料確認の語は、資料名とURLを持つ', () => {
+  it('資料確認の語は、資料名と、直接開いた正本URLを持つ', () => {
     for (const entry of verified.filter((e) => e.確認の方法 === '資料確認')) {
       expect(entry.確認した資料, `${entry.pairId} の資料名が空`).not.toBe('');
-      expect(entry.URL, `${entry.pairId} のURL`).toMatch(/^https?:\/\//);
+      expect(entry.URL, `${entry.pairId} のURL`).toMatch(/^https:\/\//);
       // 台帳そのものを根拠にはできない。
       expect(entry.URL, `${entry.pairId} がこの台帳自身を資料にしている`)
         .not.toContain('VOCABULARY_CHECKLIST');
+      // 検索結果に出ただけのURLを登録させない。
+      expect(entry.直接確認, `${entry.pairId} の「正本URLを直接開いた」が はい でない`).toBe('はい');
+      // 2つの道を混ぜない。
+      expect(entry.条件.size, `${entry.pairId} は資料確認なのに基本語条件がある`).toBe(0);
+    }
+  });
+
+  it('判定は、採用・修正・見送りのうち1つだけを選ぶ', () => {
+    for (const entry of verified) {
+      const chosen = ['採用', '修正', '見送り'].filter((v) => entry.判定.includes(v));
+      expect(chosen, `${entry.pairId} の判定: ${entry.判定}`).toHaveLength(1);
     }
   });
 
@@ -345,6 +359,11 @@ describe('確認の方法が2通りあると書いてあること', () => {
       '**5行すべてが必要です。**',
       '| `名詞（不可算）` | 数えられない名詞 | みず / water |',
       '数えられない名詞を `名詞の単数形` と書いてはいけません。',
+      'その語が英語でつねに不可算だと決めつけないでください。',
+      '### 5-1. pairId は振り直しません',
+      '- pairId 1〜30 は**振り直しません**',
+      '欠番として残してかまいません',
+      '| 正本URLを直接開いた | はい |',
     ]) {
       expect(checklist, `「${phrase}」が書かれていない`).toContain(phrase);
     }
@@ -352,6 +371,28 @@ describe('確認の方法が2通りあると書いてあること', () => {
 });
 
 describe('コードの実データとの照合', () => {
+  it('ゲームデータの pairId は、台帳の同じ番号の語と一致する', () => {
+    // pairId は振り直さない決まり。欠番を詰めて別の語へ割り当てると、
+    // その番号で保存された過去の学習記録が別の語を指してしまう。
+    // SAMPLE_PAIRS が将来増えても、この検査がそのまま効く。
+    for (const pair of SAMPLE_PAIRS) {
+      const entry = byId.get(pair.pairId);
+      expect(entry, `pairId ${pair.pairId} が台帳に無い`).toBeDefined();
+      expect(entry!.ja, `pairId ${pair.pairId} の日本語が台帳と違う`).toBe(pair.ja);
+      expect(entry!.en, `pairId ${pair.pairId} の英語が台帳と違う`).toBe(pair.en);
+    }
+  });
+
+  it('見送りにした語は、ゲームデータへ入れない', () => {
+    const dropped = ENTRIES.filter((e) => e.判定.includes('見送り')).map((e) => e.pairId);
+    for (const pairId of dropped) {
+      expect(
+        SAMPLE_PAIRS.some((p) => p.pairId === pairId),
+        `見送りの pairId ${pairId} がゲームデータにある`,
+      ).toBe(false);
+    }
+  });
+
   it('既存 1〜10 は SAMPLE_PAIRS と完全一致する（採用でも表記は変わらない）', () => {
     expect(SAMPLE_PAIRS).toHaveLength(10);
     for (const pair of SAMPLE_PAIRS) {
