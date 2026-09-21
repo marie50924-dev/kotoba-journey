@@ -65,7 +65,7 @@ describe('コースと年齢層の対応', () => {
     }
   });
 
-  it('英検・TOEICは年齢層未設定なら大人へ安全に落とす', () => {
+  it('ステップ別は年齢層未設定なら大人へ安全に落とす', () => {
     const exams = COURSES.filter((c) => c.categoryId === 'exam');
     expect(exams.length).toBeGreaterThan(0);
     for (const c of exams) {
@@ -74,7 +74,7 @@ describe('コースと年齢層の対応', () => {
     }
   });
 
-  it('英検・TOEICは年齢層が保存済みならそれを使う', () => {
+  it('ステップ別は年齢層が保存済みならそれを使う', () => {
     expect(ageGroupForCourse(course('eiken-5'), 'elementary')).toBe('elementary');
     expect(ageGroupForCourse(course('toeic-730'), 'university')).toBe('university');
   });
@@ -91,7 +91,7 @@ describe('コースと年齢層の対応', () => {
 
   it('全コースが必ず定義済みの年齢層へ対応する', () => {
     const ids: AgeGroup[] = AGE_GROUPS.map((g) => g.id);
-    // 学年4 + 英検8 + TOEIC6 + 社会人6 = 24
+    // 学年4 + ことばチャレンジ8 + しごとチャレンジ6 + 社会人6 = 24
     expect(COURSES).toHaveLength(24);
     expect(coursesInCategory('grade')).toHaveLength(4);
     expect(COURSES.filter((c) => c.categoryId === 'exam')).toHaveLength(14);
@@ -102,7 +102,7 @@ describe('コースと年齢層の対応', () => {
     }
   });
 
-  it('年齢設定が効くのは英検・TOEICだけ', () => {
+  it('年齢設定が効くのはステップ別だけ', () => {
     expect(usesSavedAgeGroup(course('eiken-3'))).toBe(true);
     expect(usesSavedAgeGroup(course('toeic-600'))).toBe(true);
     expect(usesSavedAgeGroup(course('grade-high'))).toBe(false);

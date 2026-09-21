@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { COURSES, coursesInCategory, findCourse, groupedCourses } from '../data/courses';
+import {
+  COURSES,
+  COURSE_CATEGORIES,
+  coursesInCategory,
+  findCourse,
+  groupedCourses,
+} from '../data/courses';
 import { DESTINATIONS } from '../data/destinations';
+import { UI } from '../data/strings';
 
 describe('コース定義', () => {
   it('コースIDは重複しない', () => {
@@ -16,27 +23,56 @@ describe('コース定義', () => {
     ]);
   });
 
-  it('資格・試験は英検8段階とTOEIC6段階に分かれる', () => {
+  it('ステップ別は、ことばチャレンジ8段階としごとチャレンジ6段階に分かれる', () => {
     const groups = groupedCourses('exam');
-    expect(groups.map((g) => g.group)).toEqual(['英検', 'TOEIC目標']);
+    expect(groups.map((g) => g.group)).toEqual(['ことばチャレンジ', 'しごとチャレンジ']);
     expect(groups[0].courses.map((c) => c.label)).toEqual([
-      '5級',
-      '4級',
-      '3級',
-      '準2級',
-      '準2級プラス',
-      '2級',
-      '準1級',
-      '1級',
+      'ステップ1',
+      'ステップ2',
+      'ステップ3',
+      'ステップ4',
+      'ステップ5',
+      'ステップ6',
+      'ステップ7',
+      'ステップ8',
     ]);
     expect(groups[1].courses.map((c) => c.label)).toEqual([
-      '400点',
-      '500点',
-      '600点',
-      '730点',
-      '860点',
-      '900点以上',
+      'ステップ1',
+      'ステップ2',
+      'ステップ3',
+      'ステップ4',
+      'ステップ5',
+      'ステップ6',
     ]);
+  });
+
+  it('画面に出す名前へ、検定名や試験名を残していない', () => {
+    // 語彙はことばトラベルが独自に選ぶので、公式試験に準拠しているとは書かない。
+    const shown = [
+      ...COURSE_CATEGORIES.map((c) => `${c.label} ${c.description}`),
+      ...COURSES.map((c) => `${c.label} ${c.group ?? ''}`),
+    ].join(' ');
+    for (const word of ['英検', 'TOEIC', '資格', '級', '点']) {
+      expect(shown, `「${word}」が画面名に残っている`).not.toContain(word);
+    }
+  });
+
+  it('ステップ別の案内文は、開発者向けの言葉を含まない', () => {
+    const notice = UI.courseList.stepsPreparing;
+    expect(notice).toBe('各ステップのことばは準備中です。現在は共通の練習用ことばで遊べます。');
+    for (const word of ['仮データ', '未実装', 'ID', 'seed', '語彙セット', 'プール']) {
+      expect(notice, `「${word}」が案内に出ている`).not.toContain(word);
+    }
+  });
+
+  it('内部IDは互換のためそのまま残す', () => {
+    // 保存データや画面遷移が参照するので、id は変えない。画面には出ない。
+    const ids = COURSES.map((c) => c.id);
+    expect(ids).toContain('eiken-5');
+    expect(ids).toContain('eiken-1');
+    expect(ids).toContain('toeic-400');
+    expect(ids).toContain('toeic-900');
+    expect(ids).toHaveLength(24);
   });
 
   it('社会人は6コース', () => {
@@ -53,7 +89,7 @@ describe('コース定義', () => {
   it('未知のコースIDは undefined', () => {
     expect(findCourse('存在しない')).toBeUndefined();
     expect(findCourse(null)).toBeUndefined();
-    expect(findCourse('eiken-3')?.label).toBe('3級');
+    expect(findCourse('eiken-3')?.label).toBe('ステップ3');
   });
 });
 

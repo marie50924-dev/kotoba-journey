@@ -14,7 +14,7 @@ import type { Course } from './courses';
 
 export type AgeGroup = 'elementary' | 'junior' | 'high' | 'university' | 'adult';
 
-/** 年齢層が未設定の状態。英検・TOEIC では大人へフォールバックする。 */
+/** 年齢層が未設定の状態。ステップ別のコースでは大人へフォールバックする。 */
 export type SelectedAgeGroup = AgeGroup | null;
 
 /** 年齢設定がないときの既定。 */
@@ -96,7 +96,7 @@ const AGE_GROUP_BY_COURSE_ID: Record<string, AgeGroup> = {
  *
  * - 学年別    : その学年の年齢層
  * - 社会人    : 大人
- * - 英検・TOEIC: 保存済みの年齢設定があればそれ、無ければ大人へ安全に落とす
+ * - ステップ別: 保存済みの年齢設定があればそれ、無ければ大人へ安全に落とす
  *
  * course が未指定でも例外にせず、既定（大人）を返す。
  */
@@ -111,11 +111,11 @@ export function ageGroupForCourse(
 
   if (course.categoryId === 'business') return 'adult';
 
-  // 英検・TOEIC は年齢が決まらないので、任意設定があればそれを使う。
+  // ステップ別は年齢が決まらないので、任意設定があればそれを使う。
   return savedAgeGroup ?? DEFAULT_AGE_GROUP;
 }
 
-/** そのコースで年齢層の任意設定が効くか（英検・TOEIC のみ）。 */
+/** そのコースで年齢層の任意設定が効くか（ステップ別のみ）。 */
 export function usesSavedAgeGroup(course: Course | undefined): boolean {
   if (!course) return true;
   if (AGE_GROUP_BY_COURSE_ID[course.id]) return false;

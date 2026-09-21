@@ -112,7 +112,8 @@ describe('version 1 からの移行', () => {
     expect(record.characterAgeGroup).toBeNull();
     expect(record.totalPlays).toBe(4);
 
-    // v1 が保存していたコース（英検3級）でも、年齢層未設定として大人へ落ちる。
+    // v1 が保存していたコース（当時の表示名「3級」＝いまのステップ3）でも、
+    // 年齢層未設定として大人へ落ちる。保存済みのラベルは書き換えない。
     const group = ageGroupForCourse(findCourse(record.selectedCourseId), record.characterAgeGroup);
     expect(group).toBe('adult');
     expect(findAgeGroup(group)).toBeDefined();
@@ -145,14 +146,14 @@ describe('年齢層の任意設定', () => {
     expect(new LearningRecordStore(storage).get().characterAgeGroup).toBeNull();
   });
 
-  it('未知の年齢層は null へ落とし、英検・TOEICは大人へ安全に落ちる', () => {
+  it('未知の年齢層は null へ落とし、ステップ別は大人へ安全に落ちる', () => {
     const record = parseRecord(JSON.stringify({ characterAgeGroup: 'senior' }));
     expect(record.characterAgeGroup).toBeNull();
     expect(ageGroupForCourse(findCourse('eiken-1'), record.characterAgeGroup)).toBe('adult');
     expect(parseRecord(JSON.stringify({ characterAgeGroup: 42 })).characterAgeGroup).toBeNull();
   });
 
-  it('保存された年齢層は英検・TOEICでのみ反映される', () => {
+  it('保存された年齢層はステップ別でのみ反映される', () => {
     const storage = createMemoryStore();
     new LearningRecordStore(storage).update((r) => ({ ...r, characterAgeGroup: 'elementary' }));
     const saved = new LearningRecordStore(storage).get().characterAgeGroup;

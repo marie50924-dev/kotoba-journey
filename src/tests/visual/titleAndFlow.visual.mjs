@@ -180,7 +180,33 @@ try {
     await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
 
     await page.waitForSelector('.option-card--category');
+
+    // ステップ別を開き、試験名が画面に出ないことと、準備中の案内が読めることを見る。
+    // 語彙はことばトラベルが独自に選ぶので、検定・試験に準拠しているとは見せない。
+    await page.getByRole('button', { name: /ステップ別/ }).click();
+    await page.waitForSelector('.course-group');
+    const stepText = await page.evaluate(() => document.body.innerText);
+    for (const word of ['英検', 'TOEIC', '資格', '級', '点']) {
+      check(!stepText.includes(word), `${tag}: ステップ別の画面に「${word}」が出ている`);
+    }
+    check(
+      stepText.includes('各ステップのことばは準備中です。現在は共通の練習用ことばで遊べます。'),
+      `${tag}: ステップ別の準備中の案内が読めない`,
+    );
+    check(
+      (await page.getByRole('button', { name: 'ステップ1' }).count()) === 2,
+      `${tag}: ステップ1が2グループぶん出ていない`,
+    );
+    await page.getByRole('button', { name: 'もどる' }).click();
+    await page.waitForSelector('.option-card--category');
+
     await page.getByRole('button', { name: /学年別/ }).click();
+    // 学年別には、ステップ別の案内を出さない。
+    const gradeText = await page.evaluate(() => document.body.innerText);
+    check(
+      !gradeText.includes('各ステップのことばは準備中です'),
+      `${tag}: 学年別にステップ別の案内が出ている`,
+    );
     await page.getByRole('button', { name: '小学生' }).click();
 
     // コース選択のあとは、旧「コース連動キャラクター」画面を挟まず枚数選択へ進む。

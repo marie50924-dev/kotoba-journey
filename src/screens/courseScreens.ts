@@ -6,7 +6,7 @@ import { screenShell } from '../components/screenShell';
 import { npcBar } from '../components/npcBar';
 import type { AppContext } from '../app/state';
 
-/** コース入口。学年別 / 資格・試験 / 社会人 の3分類。 */
+/** コース入口。学年別 / ステップ別 / 社会人 の3分類。 */
 export function courseEntryScreen(ctx: AppContext): HTMLElement {
   const cards = COURSE_CATEGORIES.map((category) =>
     el(
@@ -43,7 +43,8 @@ export function courseEntryScreen(ctx: AppContext): HTMLElement {
 
 /**
  * 分類内のコース一覧。
- * 資格名やロゴを模した画像は作らず、文字だけでコースを選ばせる。
+ * 試験名やロゴを模した画像は作らず、文字だけでコースを選ばせる。
+ * 表示名はことばトラベル独自のもので、どの検定・試験にも結びつかない。
  */
 export function courseListScreen(ctx: AppContext, categoryId: CourseCategoryId): HTMLElement {
   const selectedId = ctx.records.get().selectedCourseId;
@@ -78,6 +79,9 @@ export function courseListScreen(ctx: AppContext, categoryId: CourseCategoryId):
   return screenShell(
     {
       title: categoryLabel(categoryId),
+      // ステップ別は、いまどのステップも同じことばを使う。先に伝えておく。
+      // ほかの分類には出さない。
+      lead: categoryId === 'exam' ? UI.courseList.stepsPreparing : undefined,
       onBack: () => ctx.back(),
     },
     groups,

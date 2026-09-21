@@ -127,6 +127,13 @@ export const UI = {
     heading: 'コースをえらぶ',
     lead: 'どのことばの旅に出ますか？',
   },
+  courseList: {
+    /**
+     * ステップ別のコースを開いたときの案内。
+     * いまはどのステップも同じ練習用のことばを使うので、それを先に伝える。
+     */
+    stepsPreparing: '各ステップのことばは準備中です。現在は共通の練習用ことばで遊べます。',
+  },
   cardCount: {
     heading: 'まい数をえらぶ',
     lead: '今日はどれくらい挑戦しますか？',
@@ -193,7 +200,7 @@ export const UI = {
     audio: '音声',
     travelAnimation: '移動の演出',
     character: '表示キャラクター',
-    characterHint: '英検・TOEICのときに使います',
+    characterHint: 'ステップ別のコースで使います',
     audioOn: 'ON',
     audioOff: 'OFF',
     clearConfirm: '学習記録をすべて消去します。よろしいですか？',
