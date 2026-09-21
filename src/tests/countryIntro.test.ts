@@ -831,19 +831,50 @@ describe('出典メタデータの形式確認', () => {
   // ここは事実が正しいことの保証ではない。出典の「書き方」がそろっているかだけを見る。
   // 内容が正しいかどうかは、人が本文を読んで FactClaim を body-checked にしたときに決まる。
 
-  it('すべての出典が名前・https のURL・確認日・確認状態を持つ', () => {
+  it('本文確認日は、本文を確認した資料だけが持つ', () => {
+    // 登録したURLの中身を直接確かめた日だけを入れる。
+    // URLの所在を確かめただけの日付は、このフィールドへ入れない。
+    for (const intro of COUNTRY_INTROS) {
+      for (const source of intro.sources) {
+        if (source.verification === 'body-checked') {
+          expect(source.checkedAt, `${source.id} に本文確認日が無い`).toMatch(
+            /^\d{4}-\d{2}-\d{2}$/,
+          );
+        } else {
+          expect(source.checkedAt, `${source.id} に本文未確認のまま日付が入っている`).toBeUndefined();
+        }
+      }
+    }
+  });
+
+  it('本文確認日を持つ出典は7件、持たない出典は14件', () => {
+    const withDate = JAPAN.sources.filter((s) => s.checkedAt !== undefined).map((s) => s.id);
+    const withoutDate = JAPAN.sources.filter((s) => s.checkedAt === undefined).map((s) => s.id);
+    expect(withDate).toHaveLength(7);
+    expect(withoutDate).toHaveLength(14);
+    // 日付を持つのは、本文を確認できた資料だけ。
+    expect(withDate.sort()).toEqual(
+      JAPAN.sources
+        .filter((s) => s.verification === 'body-checked')
+        .map((s) => s.id)
+        .sort(),
+    );
+  });
+
+  it('観光庁の4件は本文確認日を持たない', () => {
+    for (const id of ['kankocho-manners', 'kankocho-transport', 'kankocho-temples', 'kankocho-baths']) {
+      const source = findSource(JAPAN, id);
+      expect(source, `${id} が無い`).toBeDefined();
+      expect(source!.verification, `${id}`).toBe('url-only');
+      expect(source!.checkedAt, `${id} に日付が残っている`).toBeUndefined();
+    }
+  });
+
+  it('すべての出典が名前・https のURL・確認状態を持つ', () => {
     for (const intro of COUNTRY_INTROS) {
       for (const source of intro.sources) {
         expect(source.sourceLabel.length).toBeGreaterThan(0);
         expect(source.sourceUrl).toMatch(/^https:\/\//);
-        // 所在を確かめた日は任意。一度 body-checked にしたあと
-        // 確認が成立していないと分かって戻した資料では外してある。
-        if (source.checkedAt !== undefined) {
-          expect(source.checkedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-        }
-        if (source.verification === 'body-checked') {
-          expect(source.checkedAt, `${source.id} に確認日が無い`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-        }
         expect(['body-checked', 'url-only']).toContain(source.verification);
       }
     }
@@ -1347,6 +1378,29 @@ describe('人間確認用チェックリスト', () => {
       expect(row, `${id} に公式MP4のURLが無い`).toContain(file);
       expect(row, `${id} の参考記録が無い`).toContain('参考記録（公式MP4未照合）');
     }
+  });
+
+  it('出典一覧で、本文確認日は確認済みの資料だけに出ている', () => {
+    const start = checklist.indexOf('## 参照した出典の一覧');
+    const table = checklist.slice(start, checklist.indexOf('## 画面に出るが claim', start));
+    for (const source of JAPAN.sources) {
+      const row = table
+        .split('\n')
+        .find((line) => line.startsWith(`| \`${source.id}\``));
+      expect(row, `${source.id} の行が出典一覧に無い`).toBeDefined();
+      if (source.verification === 'body-checked') {
+        expect(row, `${source.id} に本文確認日が出ていない`).toContain(`| ${source.checkedAt} |`);
+        expect(row, `${source.id} が未確認と出ている`).toContain('| 済 |');
+      } else {
+        expect(row, `${source.id} に日付が出ている`).toContain('| 未 | — |');
+      }
+    }
+  });
+
+  it('URLの所在確認日と読める記述が残っていない', () => {
+    expect(checklist).not.toContain('所在を確かめた日');
+    expect(checklist).not.toContain('所在確認日');
+    expect(checklist).toContain('本文・映像確認日');
   });
 
   it('チェックリストに古い公開判定が残っていない', () => {

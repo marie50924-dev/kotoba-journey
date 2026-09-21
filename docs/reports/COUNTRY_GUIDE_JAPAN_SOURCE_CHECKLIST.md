@@ -694,32 +694,36 @@ URL が存在する／ドメインが公的機関／資料名にそれらしい�
 
 ## 参照した出典の一覧（21件）
 
+
 取り下げによって、いま使われていない出典もあります。
 将来また使うことがあるので、削除せずに残してあります。
 
-| id | 機関と資料名 | URL | 本文確認 |
-|---|---|---|---|
-| `tokyo-profile` | 東京都「東京都プロフィール　都の概要」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo | 未 |
-| `tokyo-municipalities` | 東京都「都内区市町村マップ」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson | 未 |
-| `rinya-forest` | 林野庁「都道府県別森林率・人工林率」 | https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html | 未 |
-| `gsi-mountains` | 国土地理院「日本の主な山岳標高（1003山）」 | https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html | 未 |
-| `jma-climate` | 気象庁「日本の気候」 | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html | 未 |
-| `jma-baiu` | 気象庁「過去の梅雨入りと梅雨明け」 | https://www.data.jma.go.jp/cpd/baiu/index.html | 未 |
-| `bunka-heritage` | 文化庁「日本の世界遺産一覧」 | https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/ | 済 |
-| `bunka-horyuji` | 文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」 | https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf | 済 |
-| `unesco-horyuji` | UNESCO 世界遺産センター「法隆寺地域の仏教建造物」 | https://whc.unesco.org/ja/list/660 | 済 |
-| `maff-washoku` | 農林水産省「『和食』がユネスコ無形文化遺産に登録されています」 | https://www.maff.go.jp/j/keikaku/syokubunka/ich/ | 未 |
-| `maff-local-food` | 農林水産省「うちの郷土料理　次世代に伝えたい大切な味」 | https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/index.html | 未 |
-| `maff-traditional-foods` | 農林水産省「にっぽん伝統食図鑑」 | https://www.maff.go.jp/j/keikaku/syokubunka/traditional-foods/index.html | 未 |
-| `webjapan-history` | Web Japan（外務省）Kids Web Japan「歴史」 | https://web-japan.org/kidsweb/explore/history/index.html | 未 |
-| `webjapan-annual-events` | Web Japan（外務省）Japan Fact Sheet「年中行事」 | https://web-japan.org/factsheet/archives/ja/pdf/J21_annual.pdf | 済 |
-| `kankocho-manners` | 観光庁「訪日外国人旅行者向けマナー啓発動画」 | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/manner_doga.html | 未 |
-| `kankocho-transport` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC TRANSPORTATION SCENE#04（公共交通機関編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/04-30_En_1.mp4 | 未 |
-| `kankocho-temples` | 観光庁「訪日外国人旅行者向けマナー啓発動画」TRADITIONAL BUILDINGS SCENE#05（神社仏閣・伝統的建築物編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/05-30_En_1.mp4 | 未 |
-| `kankocho-baths` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC BATHS AND HOTELS SCENE#06（温泉・宿泊施設編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/06-30_En_1.mp4 | 未 |
-| `bunka-fuji` | 文化庁 文化遺産オンライン「富士山―信仰の対象と芸術の源泉」 | https://online.bunka.go.jp/special_content/hlinkD | 済 |
-| `bunka-himeji` | 文化庁 文化遺産オンライン「姫路城」 | https://online.bunka.go.jp/special_content/hlink2 | 済 |
-| `bunka-kyoto` | 文化庁 文化遺産オンライン「古都京都の文化財（京都市、宇治市、大津市）」 | https://online.bunka.go.jp/special_content/hlink3 | 済 |
+本文確認日が入るのは、登録したURLの本文・PDF・映像を直接確認できた資料だけです。
+URLの所在を確かめただけの資料には日付を入れません。
+
+| id | 機関と資料名 | URL | 本文確認 | 本文・映像確認日 |
+|---|---|---|---|---|
+| `tokyo-profile` | 東京都「東京都プロフィール　都の概要」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo | 未 | — |
+| `tokyo-municipalities` | 東京都「都内区市町村マップ」 | https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson | 未 | — |
+| `rinya-forest` | 林野庁「都道府県別森林率・人工林率」 | https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html | 未 | — |
+| `gsi-mountains` | 国土地理院「日本の主な山岳標高（1003山）」 | https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html | 未 | — |
+| `jma-climate` | 気象庁「日本の気候」 | https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html | 未 | — |
+| `jma-baiu` | 気象庁「過去の梅雨入りと梅雨明け」 | https://www.data.jma.go.jp/cpd/baiu/index.html | 未 | — |
+| `bunka-heritage` | 文化庁「日本の世界遺産一覧」 | https://www.bunka.go.jp/seisaku/bunkazai/shokai/sekai_isan/ichiran/ | 済 | 2026-09-20 |
+| `bunka-horyuji` | 文化庁 文化遺産オンライン「法隆寺地域の仏教建造物　詳細解説」 | https://online.bunka.go.jp/docs/special_content/detailed_explanation/1_horyuji.pdf | 済 | 2026-09-20 |
+| `unesco-horyuji` | UNESCO 世界遺産センター「法隆寺地域の仏教建造物」 | https://whc.unesco.org/ja/list/660 | 済 | 2026-09-20 |
+| `maff-washoku` | 農林水産省「『和食』がユネスコ無形文化遺産に登録されています」 | https://www.maff.go.jp/j/keikaku/syokubunka/ich/ | 未 | — |
+| `maff-local-food` | 農林水産省「うちの郷土料理　次世代に伝えたい大切な味」 | https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/index.html | 未 | — |
+| `maff-traditional-foods` | 農林水産省「にっぽん伝統食図鑑」 | https://www.maff.go.jp/j/keikaku/syokubunka/traditional-foods/index.html | 未 | — |
+| `webjapan-history` | Web Japan（外務省）Kids Web Japan「歴史」 | https://web-japan.org/kidsweb/explore/history/index.html | 未 | — |
+| `webjapan-annual-events` | Web Japan（外務省）Japan Fact Sheet「年中行事」 | https://web-japan.org/factsheet/archives/ja/pdf/J21_annual.pdf | 済 | 2026-09-20 |
+| `kankocho-manners` | 観光庁「訪日外国人旅行者向けマナー啓発動画」 | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/manner_doga.html | 未 | — |
+| `kankocho-transport` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC TRANSPORTATION SCENE#04（公共交通機関編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/04-30_En_1.mp4 | 未 | — |
+| `kankocho-temples` | 観光庁「訪日外国人旅行者向けマナー啓発動画」TRADITIONAL BUILDINGS SCENE#05（神社仏閣・伝統的建築物編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/05-30_En_1.mp4 | 未 | — |
+| `kankocho-baths` | 観光庁「訪日外国人旅行者向けマナー啓発動画」PUBLIC BATHS AND HOTELS SCENE#06（温泉・宿泊施設編） | https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/content/06-30_En_1.mp4 | 未 | — |
+| `bunka-fuji` | 文化庁 文化遺産オンライン「富士山―信仰の対象と芸術の源泉」 | https://online.bunka.go.jp/special_content/hlinkD | 済 | 2026-09-20 |
+| `bunka-himeji` | 文化庁 文化遺産オンライン「姫路城」 | https://online.bunka.go.jp/special_content/hlink2 | 済 | 2026-09-20 |
+| `bunka-kyoto` | 文化庁 文化遺産オンライン「古都京都の文化財（京都市、宇治市、大津市）」 | https://online.bunka.go.jp/special_content/hlink3 | 済 | 2026-09-20 |
 
 `kankocho-manners` は、場面別動画の公式な掲載元を示す案内ページです。
 事実文章の直接の根拠ではないため、sourceIds には入れていません。

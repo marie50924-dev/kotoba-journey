@@ -42,16 +42,18 @@ export type CountryFlag = { kind: 'japan' } | { kind: 'placeholder' };
  */
 export type SourceVerification = 'body-checked' | 'url-only';
 
-/** 出典。1件ごとに確認日と確認状態を持たせる。 */
+/** 出典。1件ごとに確認状態と、本文を確認した日（確認できたものだけ）を持たせる。 */
 export interface InfoSource {
   id: string;
   /** 機関名と資料名。機関名だけでは資料を特定できないので、資料名まで書く。 */
   sourceLabel: string;
   sourceUrl: string;
   /**
-   * 所在を確かめた日（YYYY-MM-DD）。本文を読んだ日ではない。
-   * 一度 body-checked にしたあと、確認が成立していないと分かって
-   * url-only へ戻した資料では外す。確認の記録として残さないため。
+   * 登録した sourceUrl の本文・PDF・映像を直接確認した日（YYYY-MM-DD）。
+   *
+   * verification === 'body-checked' のときだけ必須。
+   * verification === 'url-only' の資料には設定しない。
+   * URLの所在を確認しただけの日付は、このフィールドへ入れない。
    */
   checkedAt?: string;
   verification: SourceVerification;
@@ -264,28 +266,24 @@ const JAPAN_SOURCES: InfoSource[] = [
     id: 'tokyo-profile',
     sourceLabel: '東京都「東京都プロフィール　都の概要」',
     sourceUrl: 'https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
     id: 'tokyo-municipalities',
     sourceLabel: '東京都「都内区市町村マップ」',
     sourceUrl: 'https://www.metro.tokyo.lg.jp/tosei/tokyoto/profile/gaiyo/kushichoson',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
     id: 'rinya-forest',
     sourceLabel: '林野庁「都道府県別森林率・人工林率」',
     sourceUrl: 'https://www.rinya.maff.go.jp/j/keikaku/genkyou/index2.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
     id: 'gsi-mountains',
     sourceLabel: '国土地理院「日本の主な山岳標高（1003山）」',
     sourceUrl: 'https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
@@ -293,14 +291,12 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceLabel: '気象庁「日本の気候」',
     sourceUrl:
       'https://www.jma.go.jp/jma/kishou/know/kisetsu_riyou/tenkou/Average_Climate_Japan.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
     id: 'jma-baiu',
     sourceLabel: '気象庁「過去の梅雨入りと梅雨明け」',
     sourceUrl: 'https://www.data.jma.go.jp/cpd/baiu/index.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
@@ -329,28 +325,24 @@ const JAPAN_SOURCES: InfoSource[] = [
     id: 'maff-washoku',
     sourceLabel: '農林水産省「『和食』がユネスコ無形文化遺産に登録されています」',
     sourceUrl: 'https://www.maff.go.jp/j/keikaku/syokubunka/ich/',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
     id: 'maff-local-food',
     sourceLabel: '農林水産省「うちの郷土料理　次世代に伝えたい大切な味」',
     sourceUrl: 'https://www.maff.go.jp/j/keikaku/syokubunka/k_ryouri/index.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
     id: 'maff-traditional-foods',
     sourceLabel: '農林水産省「にっぽん伝統食図鑑」',
     sourceUrl: 'https://www.maff.go.jp/j/keikaku/syokubunka/traditional-foods/index.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
     id: 'webjapan-history',
     sourceLabel: 'Web Japan（外務省）Kids Web Japan「歴史」',
     sourceUrl: 'https://web-japan.org/kidsweb/explore/history/index.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   {
@@ -368,7 +360,6 @@ const JAPAN_SOURCES: InfoSource[] = [
     sourceLabel: '観光庁「訪日外国人旅行者向けマナー啓発動画」',
     sourceUrl:
       'https://www.mlit.go.jp/kankocho/seisaku_seido/kihonkeikaku/jizoku_kankochi/jizokukano_taisei/torikumi/manner_doga.html',
-    checkedAt: '2026-09-20',
     verification: 'url-only',
   },
   // 観光庁のマナー啓発動画は場面ごとに内容がちがう。
