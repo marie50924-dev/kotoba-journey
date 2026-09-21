@@ -1,7 +1,7 @@
 import type { WordPair } from '../domain/types';
 
 /**
- * いまのカルタが使う、共通の練習用語彙（55語）。
+ * いまのカルタが使う、共通の練習用語彙（70語）。
  *
  * どのコースを選んでも、24コースすべてがこの同じプールから出題する。
  * コース別の語彙セットはまだ作っていない。
@@ -85,6 +85,24 @@ export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 58, ja: 'さいふ', en: 'wallet' },
   { pairId: 59, ja: 'カメラ', en: 'camera' },
   { pairId: 60, ja: 'レストラン', en: 'restaurant' },
+
+  // 工程V-2D-6で台帳の確認を終え、工程V-2D-7で足した学校の語。
+  // 場所・人・道具・本を、台帳と同じ番号のまま入れている。
+  { pairId: 61, ja: 'がっこう', en: 'school' },
+  { pairId: 62, ja: 'せんせい', en: 'teacher' },
+  { pairId: 63, ja: 'せいと', en: 'student' },
+  { pairId: 64, ja: 'きょうしつ', en: 'classroom' },
+  { pairId: 65, ja: 'こくばん', en: 'blackboard' },
+  { pairId: 66, ja: 'けしゴム', en: 'eraser' },
+  { pairId: 67, ja: 'ものさし', en: 'ruler' },
+  { pairId: 68, ja: 'ペン', en: 'pen' },
+  { pairId: 69, ja: 'クレヨン', en: 'crayon' },
+  { pairId: 70, ja: 'きょうかしょ', en: 'textbook' },
+  { pairId: 71, ja: 'としょかん', en: 'library' },
+  { pairId: 72, ja: 'じしょ', en: 'dictionary' },
+  { pairId: 73, ja: 'ロッカー', en: 'locker' },
+  { pairId: 74, ja: 'コンピューター', en: 'computer' },
+  { pairId: 75, ja: 'ページ', en: 'page' },
 ];
 
 export function findPair(pairId: number): WordPair | undefined {

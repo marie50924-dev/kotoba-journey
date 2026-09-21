@@ -24,10 +24,12 @@ const GAME_PAIR_IDS = [
   39, 40, 41, 42, 43, 44, 45,
   46, 47, 48, 49, 50, 51, 52, 53,
   54, 55, 56, 57, 58, 59, 60,
+  61, 62, 63, 64, 65, 66, 67, 68,
+  69, 70, 71, 72, 73, 74, 75,
 ];
 /** 台帳にはあるが、まだゲームへ入れていない語。番号は予約したまま。 */
 const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
-/** 工程V-2C-4・V-2D-3・V-2D-5で足した45語。 */
+/** 工程V-2C-4以降に足した60語。 */
 const ADDED_PAIRS: [number, string, string][] = [
   [11, 'うさぎ', 'rabbit'],
   [13, 'ぞう', 'elephant'],
@@ -74,6 +76,21 @@ const ADDED_PAIRS: [number, string, string][] = [
   [58, 'さいふ', 'wallet'],
   [59, 'カメラ', 'camera'],
   [60, 'レストラン', 'restaurant'],
+  [61, 'がっこう', 'school'],
+  [62, 'せんせい', 'teacher'],
+  [63, 'せいと', 'student'],
+  [64, 'きょうしつ', 'classroom'],
+  [65, 'こくばん', 'blackboard'],
+  [66, 'けしゴム', 'eraser'],
+  [67, 'ものさし', 'ruler'],
+  [68, 'ペン', 'pen'],
+  [69, 'クレヨン', 'crayon'],
+  [70, 'きょうかしょ', 'textbook'],
+  [71, 'としょかん', 'library'],
+  [72, 'じしょ', 'dictionary'],
+  [73, 'ロッカー', 'locker'],
+  [74, 'コンピューター', 'computer'],
+  [75, 'ページ', 'page'],
 ];
 
 describe('デッキ生成', () => {
@@ -93,9 +110,9 @@ describe('デッキ生成', () => {
     expect(ids.size).toBe(pairCountFor(count));
   });
 
-  it('20枚は、55語のプールから10語を選ぶ', () => {
+  it('20枚は、70語のプールから10語を選ぶ', () => {
     // 語彙が10語だった頃は、20枚を出すと必ず全語が並んでいた。
-    // いまは55語から選ぶので、出る10語は seed で変わる。
+    // いまは70語から選ぶので、出る10語は seed で変わる。
     const pool = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     for (const seed of [1, 777, 20260921]) {
       const ids = [...new Set(buildDeck(SAMPLE_PAIRS, 20, seed).map((c) => c.pairId))];
@@ -181,9 +198,9 @@ describe('語彙の選出', () => {
     expect(new Set(sets).size).toBeGreaterThan(1);
   });
 
-  it('55語すべてが、seed しだいで選ばれうる', () => {
+  it('70語すべてが、seed しだいで選ばれうる', () => {
     // 少数のseedで全語が出ると決め打ちせず、十分な数のseedを走査して、
-    // 55のどの pairId も少なくとも1回は選ばれることを見る。
+    // 70のどの pairId も少なくとも1回は選ばれることを見る。
     const TRIALS = 500;
     const seen = new Set<number>();
     for (let seed = 1; seed <= TRIALS; seed += 1) {
@@ -325,11 +342,26 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
       [58, 'さいふ', 'wallet'],
       [59, 'カメラ', 'camera'],
       [60, 'レストラン', 'restaurant'],
+      [61, 'がっこう', 'school'],
+      [62, 'せんせい', 'teacher'],
+      [63, 'せいと', 'student'],
+      [64, 'きょうしつ', 'classroom'],
+      [65, 'こくばん', 'blackboard'],
+      [66, 'けしゴム', 'eraser'],
+      [67, 'ものさし', 'ruler'],
+      [68, 'ペン', 'pen'],
+      [69, 'クレヨン', 'crayon'],
+      [70, 'きょうかしょ', 'textbook'],
+      [71, 'としょかん', 'library'],
+      [72, 'じしょ', 'dictionary'],
+      [73, 'ロッカー', 'locker'],
+      [74, 'コンピューター', 'computer'],
+      [75, 'ページ', 'page'],
     ]);
   });
 
-  it('ゲームの語は55語で、欠番を詰めていない', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(55);
+  it('ゲームの語は70語で、欠番を詰めていない', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(70);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(GAME_PAIR_IDS);
     // 資料確認が終わっていない5語は、まだゲームへ入れない。
     for (const reserved of RESERVED_PAIR_IDS) {
@@ -342,15 +374,15 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
   });
 
   it('pairId・日本語・英語に重複がない', () => {
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(55);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(55);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(55);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(70);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(70);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(70);
     for (const pair of SAMPLE_PAIRS) {
       expect(Number.isInteger(pair.pairId) && pair.pairId > 0, `${pair.pairId}`).toBe(true);
     }
   });
 
-  it('あとから足した45語を findPair で引ける', () => {
+  it('あとから足した60語を findPair で引ける', () => {
     for (const [pairId, ja, en] of ADDED_PAIRS) {
       const pair = findPair(pairId as number);
       expect(pair, `findPair(${pairId})`).toBeDefined();
@@ -384,7 +416,7 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
     const deck = buildDeck(SAMPLE_PAIRS, 6, 4242);
     const onBoard = new Set(deck.map((c) => c.pairId));
     const offBoard = SAMPLE_PAIRS.filter((p) => !onBoard.has(p.pairId)).map((p) => p.pairId);
-    expect(offBoard).toHaveLength(52);
+    expect(offBoard).toHaveLength(67);
     const questions = buildWaveQuiz({
       wavePairIds: [...onBoard],
       cardCount: 6,
