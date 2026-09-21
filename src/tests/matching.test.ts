@@ -123,10 +123,11 @@ describe('マッチング判定', () => {
     expect(s.isCleared).toBe(true);
   });
 
-  it('20枚でも全10ペア取得でクリアになる', () => {
+  it('20枚でも、出た10ペアをすべて取ればクリアになる', () => {
     const s = session(20);
-    // 20枚では手持ちの10語がすべて出る。
-    expect(pairsOn(s)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    // 語彙が25語になったので、20枚に並ぶ10語は seed で変わる。
+    // どの10語が出ても、全部取ればクリアになることを見る。
+    expect(pairsOn(s)).toHaveLength(10);
     clearAll(s, pairsOn(s));
     expect(s.isCleared).toBe(true);
     expect(s.correctSelections).toBe(10);

@@ -9,11 +9,38 @@ import {
   selectSeed,
 } from '../domain/deck';
 import { shuffle, createRng } from '../domain/random';
-import { SAMPLE_PAIRS } from '../data/wordPairs';
+import { SAMPLE_PAIRS, findPair } from '../data/wordPairs';
 import { buildWaveQuiz } from '../domain/waveQuiz';
 import type { CardCount } from '../domain/types';
 
 const COUNTS: CardCount[] = [6, 12, 20];
+
+/** ゲームに入っている25語。12・20・22・25・27 は資料確認待ちの欠番。 */
+const GAME_PAIR_IDS = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+  11, 13, 14, 15, 16, 17, 18, 19,
+  21, 23, 24, 26, 28, 29, 30,
+];
+/** 台帳にはあるが、まだゲームへ入れていない語。番号は予約したまま。 */
+const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
+/** 工程V-2C-4で足した15語。 */
+const ADDED_PAIRS: [number, string, string][] = [
+  [11, 'うさぎ', 'rabbit'],
+  [13, 'ぞう', 'elephant'],
+  [14, 'うま', 'horse'],
+  [15, 'あか', 'red'],
+  [16, 'きいろ', 'yellow'],
+  [17, 'みどり', 'green'],
+  [18, 'しろ', 'white'],
+  [19, 'くろ', 'black'],
+  [21, 'たまご', 'egg'],
+  [23, 'いちご', 'strawberry'],
+  [24, 'やま', 'mountain'],
+  [26, 'そら', 'sky'],
+  [28, 'たべる', 'eat'],
+  [29, 'のむ', 'drink'],
+  [30, 'ねる', 'sleep'],
+];
 
 describe('デッキ生成', () => {
   it('3/6/10ペアに対応する枚数を返す', () => {
@@ -32,10 +59,14 @@ describe('デッキ生成', () => {
     expect(ids.size).toBe(pairCountFor(count));
   });
 
-  it('20枚では、手持ちの10語をすべて使う', () => {
+  it('20枚は、25語のプールから10語を選ぶ', () => {
+    // 語彙が10語だった頃は、20枚を出すと必ず全語が並んでいた。
+    // 25語になったいまは選ぶ側になり、出る10語は seed で変わる。
+    const pool = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     for (const seed of [1, 777, 20260921]) {
       const ids = [...new Set(buildDeck(SAMPLE_PAIRS, 20, seed).map((c) => c.pairId))];
-      expect(ids.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(ids).toHaveLength(10);
+      expect(ids.every((id) => pool.has(id)), `seed=${seed}`).toBe(true);
     }
   });
 
@@ -116,6 +147,15 @@ describe('語彙の選出', () => {
     expect(new Set(sets).size).toBeGreaterThan(1);
   });
 
+  it('seedが違えば、20枚に出る10語の組み合わせも変わる', () => {
+    // 25語になったので、20枚でも「毎回ぜんぶ出る」状態ではなくなった。
+    // seed 2個の比較だと偶然一致しうるので、複数seedから2種類以上出ることを見る。
+    const sets = [1, 2, 3, 4, 5, 6, 7, 8].map((seed) =>
+      setOf(selectPairs(SAMPLE_PAIRS, 10, seed)).join(','),
+    );
+    expect(new Set(sets).size).toBeGreaterThan(1);
+  });
+
   it('seedが違えば、6語の組み合わせが変わる', () => {
     const sets = [1, 2, 3, 4, 5, 6, 7, 8].map((seed) =>
       setOf(selectPairs(SAMPLE_PAIRS, 6, seed)).join(','),
@@ -149,7 +189,7 @@ describe('語彙の選出', () => {
     selectPairs(SAMPLE_PAIRS, 3, 7);
     selectPairs(SAMPLE_PAIRS, 6, 8);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(before);
-    expect(before).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(before).toEqual(GAME_PAIR_IDS);
   });
 
   it('選んだ語は、渡した語彙プールの中のものだけ', () => {
@@ -182,7 +222,7 @@ describe('語彙の選出', () => {
 
 describe('語彙選出が他の仕組みを壊していないこと', () => {
   it('pairId と語の対応は変わっていない', () => {
-    // 選び方を変えただけで、1〜10 が指す語は同じ。保存データの意味も変わらない。
+    // 語を足しても、1〜10 が指す語は同じ。保存データの意味も変わらない。
     expect(SAMPLE_PAIRS.map((p) => [p.pairId, p.ja, p.en])).toEqual([
       [1, 'りんご', 'apple'],
       [2, 'ねこ', 'cat'],
@@ -194,7 +234,53 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
       [8, 'つき', 'moon'],
       [9, 'とり', 'bird'],
       [10, 'くるま', 'car'],
+      [11, 'うさぎ', 'rabbit'],
+      [13, 'ぞう', 'elephant'],
+      [14, 'うま', 'horse'],
+      [15, 'あか', 'red'],
+      [16, 'きいろ', 'yellow'],
+      [17, 'みどり', 'green'],
+      [18, 'しろ', 'white'],
+      [19, 'くろ', 'black'],
+      [21, 'たまご', 'egg'],
+      [23, 'いちご', 'strawberry'],
+      [24, 'やま', 'mountain'],
+      [26, 'そら', 'sky'],
+      [28, 'たべる', 'eat'],
+      [29, 'のむ', 'drink'],
+      [30, 'ねる', 'sleep'],
     ]);
+  });
+
+  it('ゲームの語は25語で、欠番を詰めていない', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(25);
+    expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(GAME_PAIR_IDS);
+    // 資料確認が終わっていない5語は、まだゲームへ入れない。
+    for (const reserved of RESERVED_PAIR_IDS) {
+      expect(
+        SAMPLE_PAIRS.some((p) => p.pairId === reserved),
+        `欠番 ${reserved} がゲームに入っている`,
+      ).toBe(false);
+      expect(findPair(reserved), `findPair(${reserved})`).toBeUndefined();
+    }
+  });
+
+  it('pairId・日本語・英語に重複がない', () => {
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(25);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(25);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(25);
+    for (const pair of SAMPLE_PAIRS) {
+      expect(Number.isInteger(pair.pairId) && pair.pairId > 0, `${pair.pairId}`).toBe(true);
+    }
+  });
+
+  it('あとから足した15語を findPair で引ける', () => {
+    for (const [pairId, ja, en] of ADDED_PAIRS) {
+      const pair = findPair(pairId as number);
+      expect(pair, `findPair(${pairId})`).toBeDefined();
+      expect(pair!.ja).toBe(ja);
+      expect(pair!.en).toBe(en);
+    }
   });
 
   it('確認テストは、盤面に出た語だけから出題する', () => {
@@ -222,7 +308,7 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
     const deck = buildDeck(SAMPLE_PAIRS, 6, 4242);
     const onBoard = new Set(deck.map((c) => c.pairId));
     const offBoard = SAMPLE_PAIRS.filter((p) => !onBoard.has(p.pairId)).map((p) => p.pairId);
-    expect(offBoard).toHaveLength(7);
+    expect(offBoard).toHaveLength(22);
     const questions = buildWaveQuiz({
       wavePairIds: [...onBoard],
       cardCount: 6,
