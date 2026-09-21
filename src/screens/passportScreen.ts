@@ -1,6 +1,6 @@
 import { el, button } from '../app/dom';
 import { UI, COUNTRY_LABELS } from '../data/strings';
-import { findCourse } from '../data/courses';
+import { resolveCourseLabel } from '../data/courses';
 import { findPair } from '../data/wordPairs';
 import { formatDuration } from '../domain/scoring';
 import { bestTimeOverall, computeStreak, lifetimeAccuracy, toDateKey } from '../storage/learningRecord';
@@ -12,7 +12,8 @@ export function passportScreen(ctx: AppContext): HTMLElement {
   const record = ctx.records.get();
   const streak = computeStreak(record.playedDates, toDateKey(new Date()));
   const best = bestTimeOverall(record);
-  const course = findCourse(record.selectedCourseId);
+  // 保存された文字列をそのまま出さず、必ず現在の表示名へ解決する。
+  const selectedCourseLabel = resolveCourseLabel(record.selectedCourseId);
 
   const stats = el('div', { class: 'stat-grid' }, [
     tile(UI.passport.totalPlays, `${record.totalPlays}${UI.units.times}`),
@@ -60,7 +61,9 @@ export function passportScreen(ctx: AppContext): HTMLElement {
               el('span', { class: 'history__date', text: entry.date }),
               el('span', {
                 class: 'history__course',
-                text: entry.courseLabel || UI.passport.noCourse,
+                // 旧保存データには当時の検定名が入っていることがある。
+                // 画面へは内部IDから引き直した現在の名前だけを出す。
+                text: resolveCourseLabel(entry.courseId, entry.courseLabel) || UI.passport.noCourse,
               }),
               el('span', {
                 class: 'history__score',
@@ -74,7 +77,7 @@ export function passportScreen(ctx: AppContext): HTMLElement {
     { title: UI.passport.heading, onBack: () => ctx.back(), variant: 'screen--passport' },
     [
       stats,
-      section(UI.passport.selectedCourse, el('p', { class: 'value-line', text: course?.label ?? UI.passport.noCourse })),
+      section(UI.passport.selectedCourse, el('p', { class: 'value-line', text: selectedCourseLabel || UI.passport.noCourse })),
       section(UI.passport.visitedCountries, countries),
       section(UI.passport.reviewWords, reviewWords),
       section(UI.passport.recentPlays, history),

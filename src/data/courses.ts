@@ -82,3 +82,105 @@ export function groupedCourses(categoryId: CourseCategoryId): { group: string | 
   }
   return result;
 }
+
+/**
+ * 履歴などに並べても取り違えないコース名。
+ *
+ * ステップ別は「ことばチャレンジ・ステップ1」と「しごとチャレンジ・ステップ1」が
+ * 同じ「ステップ1」になるため、グループ名を前に付けて区別する。
+ * コース一覧の画面はグループ見出しの下にボタンを並べるので、
+ * そちらでは短い label をそのまま使う。
+ */
+export function courseDisplayLabel(course: Course): string {
+  return course.group ? `${course.group}・${course.label}` : course.label;
+}
+
+/**
+ * 旧保存データに残っている「当時の表示名」→ いまの内部ID。
+ *
+ * Phase 0 から工程V-2Bまで、ステップ別のコースは検定名・試験名で表示していた。
+ * その頃に保存された履歴には当時の表示名の文字列がそのまま入っているため、
+ * 画面へ出す前にここで現在の中立名へ読み替える。
+ * 保存データそのものは書き換えない（読み出し時に解決するだけ）。
+ *
+ * 表記ゆれ（「TOEIC 600点」「英検3級」など）も、確実に判別できるものだけ拾う。
+ */
+const LEGACY_COURSE_LABEL_IDS: Readonly<Record<string, string>> = {
+  // 旧・英検表記
+  '5級': 'eiken-5',
+  '英検5級': 'eiken-5',
+  '4級': 'eiken-4',
+  '英検4級': 'eiken-4',
+  '3級': 'eiken-3',
+  '英検3級': 'eiken-3',
+  '準2級': 'eiken-pre2',
+  '英検準2級': 'eiken-pre2',
+  '準2級プラス': 'eiken-pre2-plus',
+  '英検準2級プラス': 'eiken-pre2-plus',
+  '2級': 'eiken-2',
+  '英検2級': 'eiken-2',
+  '準1級': 'eiken-pre1',
+  '英検準1級': 'eiken-pre1',
+  '1級': 'eiken-1',
+  '英検1級': 'eiken-1',
+
+  // 旧・TOEIC表記
+  '400点': 'toeic-400',
+  'TOEIC 400点': 'toeic-400',
+  'TOEIC400点': 'toeic-400',
+  '500点': 'toeic-500',
+  'TOEIC 500点': 'toeic-500',
+  'TOEIC500点': 'toeic-500',
+  '600点': 'toeic-600',
+  'TOEIC 600点': 'toeic-600',
+  'TOEIC600点': 'toeic-600',
+  '730点': 'toeic-730',
+  'TOEIC 730点': 'toeic-730',
+  'TOEIC730点': 'toeic-730',
+  '860点': 'toeic-860',
+  'TOEIC 860点': 'toeic-860',
+  'TOEIC860点': 'toeic-860',
+  '900点以上': 'toeic-900',
+  '900点': 'toeic-900',
+  'TOEIC 900点以上': 'toeic-900',
+  'TOEIC900点以上': 'toeic-900',
+};
+
+/**
+ * 内部IDからも旧表示名からも現在のコースを特定できなかったときの表示。
+ * 記録があったことは伝えつつ、当時の検定名は画面へ出さない。
+ */
+export const UNKNOWN_COURSE_LABEL = '以前のコース';
+
+/**
+ * 保存データから読んだコースを、いま画面へ出してよい名前へ解決する。
+ *
+ * コース名を画面へ出すところは、必ずこの関数を通す（解決処理の正本）。
+ * 優先順は、内部ID → 旧表示名の読み替え → 現在の表示名との一致 →「以前のコース」。
+ * 保存された文字列をそのまま画面へ出すことはしない。
+ *
+ * 空文字を返すのは、コースが記録されていないときだけ。
+ * 呼び出し側が「未選択」などの文言を選べるようにしてある。
+ */
+export function resolveCourseLabel(
+  courseId: string | null | undefined,
+  savedLabel?: string | null,
+): string {
+  const byId = findCourse(courseId);
+  if (byId) return courseDisplayLabel(byId);
+
+  const label = (savedLabel ?? '').trim();
+  if (label === '') return '';
+
+  const legacy = findCourse(LEGACY_COURSE_LABEL_IDS[label]);
+  if (legacy) return courseDisplayLabel(legacy);
+
+  // ステップ別の label は「ステップ1」が2つあって一意に決まらないので、
+  // 名前からの照合は学年別・社会人だけにする。
+  const current = COURSES.find(
+    (course) => course.categoryId !== 'exam' && course.label === label,
+  );
+  if (current) return courseDisplayLabel(current);
+
+  return UNKNOWN_COURSE_LABEL;
+}
