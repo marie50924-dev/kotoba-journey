@@ -23,6 +23,7 @@ interface ChecklistEntry {
   種類: string;
   品詞: string;
   状態: string;
+  確認の方法: string;
   判定: string;
   確認した資料: string;
   URL: string;
@@ -68,6 +69,7 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
       種類: fields.get('種類') ?? '',
       品詞: fields.get('品詞') ?? '',
       状態: fields.get('状態') ?? '',
+      確認の方法: fields.get('確認の方法') ?? '',
       判定: fields.get('判定') ?? '',
       確認した資料: fields.get('確認した資料') ?? '',
       URL: fields.get('URL') ?? '',
@@ -80,12 +82,13 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
 
 const ENTRIES = parseChecklist(checklist);
 const byId = new Map(ENTRIES.map((e) => [e.pairId, e]));
-const inUse = ENTRIES.filter((e) => e.pairId <= 10);
 const candidates = ENTRIES.filter((e) => e.pairId >= 11);
 
 describe('語彙確認チェックリストの形', () => {
-  it('30語ある', () => {
+  it('30語ある（使用中10語・候補20語）', () => {
     expect(ENTRIES).toHaveLength(30);
+    expect(ENTRIES.filter((e) => e.pairId <= 10)).toHaveLength(10);
+    expect(candidates).toHaveLength(20);
   });
 
   it('pairId は 1〜30 で重複しない', () => {
@@ -111,32 +114,60 @@ describe('語彙確認チェックリストの形', () => {
   });
 });
 
-describe('作成時点は全語が未確認であること', () => {
-  it('既存 1〜10 は 要確認（使用中）', () => {
-    expect(inUse).toHaveLength(10);
-    for (const entry of inUse) {
-      expect(entry.状態, `${entry.pairId} の状態`).toBe('要確認（使用中）');
-    }
-  });
+const STATES = ['要確認（使用中）', '要確認（候補）', '確認済み'];
+const METHODS = ['資料確認', '基本語判断'];
+const verified = ENTRIES.filter((e) => e.状態 === '確認済み');
+const pending = ENTRIES.filter((e) => e.状態 !== '確認済み');
 
-  it('候補 11〜30 は 要確認（候補）', () => {
-    expect(candidates).toHaveLength(20);
-    for (const entry of candidates) {
-      expect(entry.状態, `${entry.pairId} の状態`).toBe('要確認（候補）');
-    }
-  });
-
-  it('確認済みの語は1つも無い', () => {
-    expect(ENTRIES.filter((e) => e.状態 === '確認済み')).toHaveLength(0);
-  });
-
-  it('判定・確認した資料・URL・確認した内容・確認日 はすべて空欄', () => {
+describe('確認の進みかた', () => {
+  it('状態は3種類しか使わない', () => {
     for (const entry of ENTRIES) {
+      expect(STATES, `${entry.pairId}: ${entry.状態}`).toContain(entry.状態);
+    }
+  });
+
+  it('未確認の語は、まだ何も記入されていない', () => {
+    for (const entry of pending) {
+      const expected = entry.pairId <= 10 ? '要確認（使用中）' : '要確認（候補）';
+      expect(entry.状態, `${entry.pairId} の状態`).toBe(expected);
+      expect(entry.確認の方法, `${entry.pairId} の確認の方法`).toBe('');
       expect(entry.判定, `${entry.pairId} の判定`).toBe('');
       expect(entry.確認した資料, `${entry.pairId} の確認した資料`).toBe('');
       expect(entry.URL, `${entry.pairId} のURL`).toBe('');
       expect(entry.確認した内容, `${entry.pairId} の確認した内容`).toBe('');
       expect(entry.確認日, `${entry.pairId} の確認日`).toBe('');
+    }
+  });
+
+  it('確認済みの語は、方法・判定・確認した内容・確認日がそろっている', () => {
+    for (const entry of verified) {
+      expect(METHODS, `${entry.pairId} の確認の方法: ${entry.確認の方法}`).toContain(entry.確認の方法);
+      expect(entry.判定, `${entry.pairId} の判定が空`).not.toBe('');
+      expect(['採用', '修正', '見送り'].some((v) => entry.判定.includes(v)),
+        `${entry.pairId} の判定に 採用/修正/見送り が無い: ${entry.判定}`).toBe(true);
+      // 「採用／修正／見送り」をそのまま貼っただけの記録を弾く。
+      expect(entry.判定, `${entry.pairId} の判定が選ばれていない`).not.toBe('採用／修正／見送り');
+      expect(entry.確認した内容.length, `${entry.pairId} の確認した内容が短すぎる`).toBeGreaterThan(20);
+      expect(entry.確認日, `${entry.pairId} の確認日`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it('資料確認の語は、資料名とURLを持つ', () => {
+    for (const entry of verified.filter((e) => e.確認の方法 === '資料確認')) {
+      expect(entry.確認した資料, `${entry.pairId} の資料名が空`).not.toBe('');
+      expect(entry.URL, `${entry.pairId} のURL`).toMatch(/^https?:\/\//);
+      // 台帳そのものを根拠にはできない。
+      expect(entry.URL, `${entry.pairId} がこの台帳自身を資料にしている`)
+        .not.toContain('VOCABULARY_CHECKLIST');
+    }
+  });
+
+  it('基本語判断の語は、資料を使わない代わりに判断の理由を書く', () => {
+    for (const entry of verified.filter((e) => e.確認の方法 === '基本語判断')) {
+      expect(entry.確認した資料, `${entry.pairId} は資料欄を空にする`).toBe('');
+      expect(entry.URL, `${entry.pairId} はURL欄を空にする`).toBe('');
+      // 「基本語だから」だけの記録を弾く。
+      expect(entry.確認した内容.length, `${entry.pairId} の判断理由が短すぎる`).toBeGreaterThan(40);
     }
   });
 
@@ -148,10 +179,31 @@ describe('作成時点は全語が未確認であること', () => {
       }
     }
   });
+
+  it('いまの確認済みは pairId 5 だけ', () => {
+    expect(verified.map((e) => e.pairId)).toEqual([5]);
+    expect(pending).toHaveLength(29);
+  });
+});
+
+describe('確認の方法が2通りあると書いてあること', () => {
+  it('資料確認と基本語判断の両方を説明している', () => {
+    for (const phrase of [
+      '`資料確認`',
+      '`基本語判断`',
+      '### 3-1. `資料確認` の条件',
+      '### 3-2. `基本語判断` の条件',
+      '### 3-3. `基本語判断` を使ってはいけない語',
+      'このチェックリスト自身を資料として記録する',
+      '同じ読みの別の語が、同じ札のセットに入っていない',
+    ]) {
+      expect(checklist, `「${phrase}」が書かれていない`).toContain(phrase);
+    }
+  });
 });
 
 describe('コードの実データとの照合', () => {
-  it('既存 1〜10 は SAMPLE_PAIRS と完全一致する', () => {
+  it('既存 1〜10 は SAMPLE_PAIRS と完全一致する（採用でも表記は変わらない）', () => {
     expect(SAMPLE_PAIRS).toHaveLength(10);
     for (const pair of SAMPLE_PAIRS) {
       const entry = byId.get(pair.pairId);
