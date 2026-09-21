@@ -29,16 +29,18 @@ import type { CardCount } from '../domain/types';
  * 経路を入れても出題される語と並びが前と変わっていないこと。
  */
 
-/** 共通セットが持つ40語。src/data/wordPairs.ts と同じ並び。 */
+/** 共通セットが持つ55語。src/data/wordPairs.ts と同じ並び。 */
 const COMMON_PAIR_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
   11, 13, 14, 15, 16, 17, 18, 19,
   21, 23, 24, 26, 28, 29, 30,
   31, 32, 33, 34, 35, 36, 37, 38,
   39, 40, 41, 42, 43, 44, 45,
+  46, 47, 48, 49, 50, 51, 52, 53,
+  54, 55, 56, 57, 58, 59, 60,
 ];
-/** 工程V-2D-3でセットへ足した15語。 */
-const DAILY_PAIR_IDS = [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45];
+/** 工程V-2D-5でセットへ足した15語。 */
+const TRAVEL_PAIR_IDS = [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
 /** 資料確認待ちで、まだどのセットにも入れていない語。 */
 const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
 const COUNTS: CardCount[] = [6, 12, 20];
@@ -55,12 +57,12 @@ describe('語彙セットの定義', () => {
     expect(DEFAULT_VOCABULARY_SET_ID).toBe('common-practice');
   });
 
-  it('共通セットの pairIds は、指定の40件と完全に一致する', () => {
+  it('共通セットの pairIds は、指定の55件と完全に一致する', () => {
     const set = findVocabularySet('common-practice')!;
     expect(set.pairIds).toEqual(COMMON_PAIR_IDS);
-    expect(set.pairIds).toHaveLength(40);
+    expect(set.pairIds).toHaveLength(55);
     // 足した15語は末尾に、同じ順番で入っている。
-    expect(set.pairIds.slice(-15)).toEqual(DAILY_PAIR_IDS);
+    expect(set.pairIds.slice(-15)).toEqual(TRAVEL_PAIR_IDS);
   });
 
   it('セット内の pairId に重複がない', () => {
@@ -94,9 +96,9 @@ describe('語彙セットの定義', () => {
 });
 
 describe('セットから語を解決する', () => {
-  it('pairsInSet は40語を、セットの並びのまま返す', () => {
+  it('pairsInSet は55語を、セットの並びのまま返す', () => {
     const pairs = pairsInSet('common-practice');
-    expect(pairs).toHaveLength(40);
+    expect(pairs).toHaveLength(55);
     expect(pairs.map((p) => p.pairId)).toEqual(COMMON_PAIR_IDS);
     // 語彙データの並びとも一致する（盤面の再現性のため）。
     expect(pairs.map((p) => p.pairId)).toEqual(SAMPLE_PAIRS.map((p) => p.pairId));
@@ -173,7 +175,7 @@ describe('コースと語彙セットの結びつき', () => {
 });
 
 describe('選択中のコースから語を引く', () => {
-  it('コースを指定すると、そのセットの40語になる', () => {
+  it('コースを指定すると、そのセットの55語になる', () => {
     for (const course of COURSES) {
       const pairs = pairsForCourse(course.id);
       expect(pairs.map((p) => p.pairId), `${course.id}`).toEqual(COMMON_PAIR_IDS);
@@ -260,8 +262,8 @@ describe('カルタ画面が、語彙プールを直接使っていないこと'
 });
 
 describe('この工程で変えていないこと', () => {
-  it('ゲームの語は40語で、共通セットと同じ並び', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(40);
+  it('ゲームの語は55語で、共通セットと同じ並び', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(55);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(COMMON_PAIR_IDS);
     // ゲームデータとセットは、順番まで一致していなければならない。
     // ずれると、同じ seed で盤面が変わってしまう。
@@ -270,7 +272,7 @@ describe('この工程で変えていないこと', () => {
   });
 
   it('足した15語を findPair で引け、欠番は引けない', () => {
-    for (const pairId of DAILY_PAIR_IDS) {
+    for (const pairId of TRAVEL_PAIR_IDS) {
       expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
     }
     for (const reserved of RESERVED_PAIR_IDS) {
@@ -300,7 +302,7 @@ describe('この工程で変えていないこと', () => {
     expect(record.selectedCourseId).toBe('eiken-3');
     expect(record.history[0].courseLabel).toBe('3級');
     // 保存済みのコースIDから、いまの語彙セットを引ける。
-    expect(pairsForCourse(record.selectedCourseId)).toHaveLength(40);
+    expect(pairsForCourse(record.selectedCourseId)).toHaveLength(55);
 
     const storage = createMemoryStore({ [STORAGE_KEY]: JSON.stringify(legacy) });
     expect(() => new LearningRecordStore(storage)).not.toThrow();

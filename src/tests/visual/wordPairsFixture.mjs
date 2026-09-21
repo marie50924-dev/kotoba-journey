@@ -15,8 +15,12 @@ import { fileURLToPath } from 'node:url';
 
 const SOURCE = fileURLToPath(new URL('../../data/wordPairs.ts', import.meta.url));
 
-/** 読み取りに失敗したまま静かに通らないよう、最低限これだけは入っているはず。 */
-const MINIMUM_PAIRS = 40;
+/**
+ * 読み取りに失敗したまま静かに通らないよう、最低限これだけは入っているはず。
+ * 語が増えたらこの数も上げる。語数そのものの一致は単体テストが見るので、
+ * ここは「読み落としに気づける下限」でよい。
+ */
+const MINIMUM_PAIRS = 55;
 
 const text = await readFile(SOURCE, 'utf8');
 const entries = [...text.matchAll(/\{\s*pairId:\s*(\d+),\s*ja:\s*'([^']+)',\s*en:\s*'([^']+)'\s*\}/g)]

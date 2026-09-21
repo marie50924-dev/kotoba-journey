@@ -1,7 +1,7 @@
 import type { WordPair } from '../domain/types';
 
 /**
- * いまのカルタが使う、共通の練習用語彙（40語）。
+ * いまのカルタが使う、共通の練習用語彙（55語）。
  *
  * どのコースを選んでも、24コースすべてがこの同じプールから出題する。
  * コース別の語彙セットはまだ作っていない。
@@ -67,6 +67,24 @@ export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 43, ja: 'およぐ', en: 'swim' },
   { pairId: 44, ja: 'うたう', en: 'sing' },
   { pairId: 45, ja: 'わらう', en: 'laugh' },
+
+  // 工程V-2D-4で台帳の確認を終え、工程V-2D-5で足した旅行の語。
+  // 乗り物・場所・持ち物を、台帳と同じ番号のまま入れている。
+  { pairId: 46, ja: 'でんしゃ', en: 'train' },
+  { pairId: 47, ja: 'バス', en: 'bus' },
+  { pairId: 48, ja: 'ひこうき', en: 'airplane' },
+  { pairId: 49, ja: 'タクシー', en: 'taxi' },
+  { pairId: 50, ja: 'ホテル', en: 'hotel' },
+  { pairId: 51, ja: 'きっぷ', en: 'ticket' },
+  { pairId: 52, ja: 'パスポート', en: 'passport' },
+  { pairId: 53, ja: 'ちず', en: 'map' },
+  { pairId: 54, ja: 'くうこう', en: 'airport' },
+  { pairId: 55, ja: 'えき', en: 'station' },
+  { pairId: 56, ja: 'スーツケース', en: 'suitcase' },
+  { pairId: 57, ja: 'かぎ', en: 'key' },
+  { pairId: 58, ja: 'さいふ', en: 'wallet' },
+  { pairId: 59, ja: 'カメラ', en: 'camera' },
+  { pairId: 60, ja: 'レストラン', en: 'restaurant' },
 ];
 
 export function findPair(pairId: number): WordPair | undefined {

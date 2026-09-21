@@ -103,12 +103,11 @@ const ENTRIES = parseChecklist(checklist);
 const byId = new Map(ENTRIES.map((e) => [e.pairId, e]));
 
 describe('語彙確認チェックリストの形', () => {
-  it('60語あり、使用中40語・候補20語に分かれる', () => {
+  it('60語あり、使用中55語・候補5語に分かれる', () => {
     expect(ENTRIES).toHaveLength(60);
-    expect(inGame(ENTRIES)).toHaveLength(40);
-    expect(notInGame(ENTRIES)).toHaveLength(20);
-    expect(notInGame(ENTRIES).map((e) => e.pairId))
-      .toEqual([12, 20, 22, 25, 27, ...TRAVEL_IDS]);
+    expect(inGame(ENTRIES)).toHaveLength(55);
+    expect(notInGame(ENTRIES)).toHaveLength(5);
+    expect(notInGame(ENTRIES).map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
   });
 
   it('日本語・英語に重複がない', () => {
@@ -116,16 +115,15 @@ describe('語彙確認チェックリストの形', () => {
     expect(new Set(ENTRIES.map((e) => e.en)).size).toBe(60);
   });
 
-  it('2軸の内訳が 38・15・2・5 になる', () => {
+  it('2軸の内訳が 53・0・2・5 になる', () => {
     const verifiedInGame = inGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const verifiedOnly = notInGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const pendingInGame = inGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
     const pendingOnly = notInGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
-    expect(verifiedInGame).toHaveLength(38);
-    expect(verifiedOnly).toHaveLength(15);
+    expect(verifiedInGame).toHaveLength(53);
+    expect(verifiedOnly).toHaveLength(0);
     expect(pendingInGame).toHaveLength(2);
     expect(pendingOnly).toHaveLength(5);
-    expect(verifiedOnly.map((e) => e.pairId)).toEqual(TRAVEL_IDS);
     expect(pendingInGame.map((e) => e.pairId)).toEqual([8, 10]);
     expect(pendingOnly.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
   });
@@ -565,10 +563,11 @@ describe('工程V-2D-4で足した旅行語彙15語', () => {
     }
   });
 
-  it('15語とも 候補・確認済み・基本語判断・採用 になっている', () => {
+  it('15語とも 使用中・確認済み・基本語判断・採用 になっている', () => {
     for (const pairId of TRAVEL_IDS) {
       const entry = byId.get(pairId)!;
-      expect(entry.使用状況, `${pairId} の使用状況`).toBe('候補');
+      // 工程V-2D-5でゲームへ入れた。台帳の区分も使用中になっている。
+      expect(entry.使用状況, `${pairId} の使用状況`).toBe('使用中');
       expect(entry.状態, `${pairId} の状態`).toBe('確認済み');
       expect(entry.確認の方法, `${pairId} の確認の方法`).toBe('基本語判断');
       expect(entry.判定, `${pairId} の判定`).toBe('採用');
@@ -624,16 +623,21 @@ describe('工程V-2D-4で足した旅行語彙15語', () => {
     expect(new Set(entries.map((e) => e.確認した内容)).size).toBe(entries.length);
   });
 
-  it('まだゲームデータにも共通セットにも入っていない', () => {
+  it('ゲームデータと共通セットの、同じ番号の語と一致する', () => {
     for (const pairId of TRAVEL_IDS) {
-      expect(
-        SAMPLE_PAIRS.some((p) => p.pairId === pairId),
-        `${pairId} がゲームデータに入っている`,
-      ).toBe(false);
+      const pair = SAMPLE_PAIRS.find((p) => p.pairId === pairId);
+      expect(pair, `${pairId} がゲームデータに無い`).toBeDefined();
+      expect(pair!.ja, `${pairId} の日本語`).toBe(byId.get(pairId)!.ja);
+      expect(pair!.en, `${pairId} の英語`).toBe(byId.get(pairId)!.en);
       expect(
         COMMON_SET_PAIR_IDS.includes(pairId),
-        `${pairId} が common-practice に入っている`,
-      ).toBe(false);
+        `${pairId} が common-practice に無い`,
+      ).toBe(true);
+    }
+    // 資料確認待ちの5語だけが、いまも台帳の外にいる。
+    for (const pairId of [12, 20, 22, 25, 27]) {
+      expect(SAMPLE_PAIRS.some((p) => p.pairId === pairId)).toBe(false);
+      expect(COMMON_SET_PAIR_IDS.includes(pairId)).toBe(false);
     }
   });
 });
@@ -668,7 +672,7 @@ describe('コードの実データとの照合', () => {
       expect(entry.使用状況 === '使用中', `${entry.pairId} の区分がゲームデータと違う`)
         .toBe(isInGame);
     }
-    expect(SAMPLE_PAIRS).toHaveLength(40);
+    expect(SAMPLE_PAIRS).toHaveLength(55);
   });
 
   it('ゲームへ入れた語は、台帳で確認済みか、もとから使っていた語だけ', () => {
@@ -707,8 +711,8 @@ describe('コードの実データとの照合', () => {
     }
   });
 
-  it('ゲームの40語は、台帳の同じ番号の語と完全一致する（採用でも表記は変わらない）', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(40);
+  it('ゲームの55語は、台帳の同じ番号の語と完全一致する（採用でも表記は変わらない）', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(55);
     // 台帳は45語。資料確認待ちの5語だけがゲームの外にいる。
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).not.toContain(12);
     for (const pair of SAMPLE_PAIRS) {
@@ -724,7 +728,7 @@ describe('コードの実データとの照合', () => {
     const usedEn = new Set(SAMPLE_PAIRS.map((p) => p.en));
     const usedIds = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     const stillCandidates = notInGame(ENTRIES);
-    expect(stillCandidates.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27, ...TRAVEL_IDS]);
+    expect(stillCandidates.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
     for (const entry of stillCandidates) {
       expect(usedIds.has(entry.pairId), `仮ID ${entry.pairId} が実データにある`).toBe(false);
       expect(usedJa.has(entry.ja), `候補「${entry.ja}」が実データにある`).toBe(false);
