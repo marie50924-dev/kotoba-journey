@@ -369,6 +369,8 @@ describe('確認の方法が2通りあると書いてあること', () => {
       '| 正本URLを直接開いた | はい |',
       '### 2-1. 「使用中かどうか」と「確認したかどうか」は別です',
       '「ゲームの語はすべて確認済み」ではありません。',
+      '### 7-1. コースとの関係',
+      '**全24コースが、いまこのセットを参照しています。**',
     ]) {
       expect(checklist, `「${phrase}」が書かれていない`).toContain(phrase);
     }
@@ -386,6 +388,16 @@ describe('コードの実データとの照合', () => {
       expect(entry!.ja, `pairId ${pair.pairId} の日本語が台帳と違う`).toBe(pair.ja);
       expect(entry!.en, `pairId ${pair.pairId} の英語が台帳と違う`).toBe(pair.en);
     }
+  });
+
+  it('台帳の説明が、ゲームの実態から取り残されていない', () => {
+    // 15語をゲームへ入れたのに「まだコードのどこにも入っていません」と
+    // 書いたままにしてしまったことがある。説明文も実データで縛る。
+    expect(checklist, '候補語が未実装だという古い説明が残っている')
+      .not.toContain('まだコードのどこにも入っていません');
+    const added = SAMPLE_PAIRS.filter((p) => p.pairId > 10).map((p) => p.pairId);
+    expect(checklist, 'ゲームへ入れた語の一覧が台帳に書かれていない')
+      .toContain(`ゲームへ入れた${added.length}語: ${added.join(', ')}`);
   });
 
   it('台帳の「使用中／候補」は、実際のゲームデータと合っている', () => {

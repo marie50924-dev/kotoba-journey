@@ -1,4 +1,10 @@
 /** コース定義。学習データと表示ラベルはここにまとめ、ロジック側へ散在させない。 */
+import type { WordPair } from '../domain/types';
+import {
+  DEFAULT_VOCABULARY_SET_ID,
+  pairsInSet,
+  type VocabularySetId,
+} from './vocabularySets';
 
 export type CourseCategoryId = 'grade' | 'exam' | 'business';
 
@@ -8,6 +14,12 @@ export interface Course {
   categoryId: CourseCategoryId;
   /** 資格・試験のようにグループ分けが必要な場合の見出し。 */
   group?: string;
+  /**
+   * このコースが出題に使う語彙セット。
+   * いまは24コースとも同じ 'common-practice' を指している。
+   * コースごとに違うことばを出す仕組みは、まだ作っていない。
+   */
+  vocabularySetId: VocabularySetId;
 }
 
 export interface CourseCategory {
@@ -23,36 +35,36 @@ export const COURSE_CATEGORIES: readonly CourseCategory[] = [
 ];
 
 export const COURSES: readonly Course[] = [
-  { id: 'grade-elementary', label: '小学生', categoryId: 'grade' },
-  { id: 'grade-junior', label: '中学生', categoryId: 'grade' },
-  { id: 'grade-high', label: '高校生', categoryId: 'grade' },
-  { id: 'grade-university', label: '大学生', categoryId: 'grade' },
+  { id: 'grade-elementary', label: '小学生', categoryId: 'grade', vocabularySetId: 'common-practice' },
+  { id: 'grade-junior', label: '中学生', categoryId: 'grade', vocabularySetId: 'common-practice' },
+  { id: 'grade-high', label: '高校生', categoryId: 'grade', vocabularySetId: 'common-practice' },
+  { id: 'grade-university', label: '大学生', categoryId: 'grade', vocabularySetId: 'common-practice' },
 
   // id の eiken- / toeic- は、保存データや画面遷移との互換のために残しているだけの
   // 内部IDで、画面には出ない。語彙はことばトラベルが独自に選ぶので、
   // 表示はどの試験にも結びつかない中立なステップ名にしてある。
-  { id: 'eiken-5', label: 'ステップ1', categoryId: 'exam', group: 'ことばチャレンジ' },
-  { id: 'eiken-4', label: 'ステップ2', categoryId: 'exam', group: 'ことばチャレンジ' },
-  { id: 'eiken-3', label: 'ステップ3', categoryId: 'exam', group: 'ことばチャレンジ' },
-  { id: 'eiken-pre2', label: 'ステップ4', categoryId: 'exam', group: 'ことばチャレンジ' },
-  { id: 'eiken-pre2-plus', label: 'ステップ5', categoryId: 'exam', group: 'ことばチャレンジ' },
-  { id: 'eiken-2', label: 'ステップ6', categoryId: 'exam', group: 'ことばチャレンジ' },
-  { id: 'eiken-pre1', label: 'ステップ7', categoryId: 'exam', group: 'ことばチャレンジ' },
-  { id: 'eiken-1', label: 'ステップ8', categoryId: 'exam', group: 'ことばチャレンジ' },
+  { id: 'eiken-5', label: 'ステップ1', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'eiken-4', label: 'ステップ2', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'eiken-3', label: 'ステップ3', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'eiken-pre2', label: 'ステップ4', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'eiken-pre2-plus', label: 'ステップ5', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'eiken-2', label: 'ステップ6', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'eiken-pre1', label: 'ステップ7', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'eiken-1', label: 'ステップ8', categoryId: 'exam', group: 'ことばチャレンジ', vocabularySetId: 'common-practice' },
 
-  { id: 'toeic-400', label: 'ステップ1', categoryId: 'exam', group: 'しごとチャレンジ' },
-  { id: 'toeic-500', label: 'ステップ2', categoryId: 'exam', group: 'しごとチャレンジ' },
-  { id: 'toeic-600', label: 'ステップ3', categoryId: 'exam', group: 'しごとチャレンジ' },
-  { id: 'toeic-730', label: 'ステップ4', categoryId: 'exam', group: 'しごとチャレンジ' },
-  { id: 'toeic-860', label: 'ステップ5', categoryId: 'exam', group: 'しごとチャレンジ' },
-  { id: 'toeic-900', label: 'ステップ6', categoryId: 'exam', group: 'しごとチャレンジ' },
+  { id: 'toeic-400', label: 'ステップ1', categoryId: 'exam', group: 'しごとチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'toeic-500', label: 'ステップ2', categoryId: 'exam', group: 'しごとチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'toeic-600', label: 'ステップ3', categoryId: 'exam', group: 'しごとチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'toeic-730', label: 'ステップ4', categoryId: 'exam', group: 'しごとチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'toeic-860', label: 'ステップ5', categoryId: 'exam', group: 'しごとチャレンジ', vocabularySetId: 'common-practice' },
+  { id: 'toeic-900', label: 'ステップ6', categoryId: 'exam', group: 'しごとチャレンジ', vocabularySetId: 'common-practice' },
 
-  { id: 'biz-daily', label: '日常英会話', categoryId: 'business' },
-  { id: 'biz-travel', label: '海外旅行', categoryId: 'business' },
-  { id: 'biz-business', label: 'ビジネス', categoryId: 'business' },
-  { id: 'biz-hospitality', label: '接客・観光', categoryId: 'business' },
-  { id: 'biz-care', label: '医療・介護', categoryId: 'business' },
-  { id: 'biz-it', label: 'IT・仕事', categoryId: 'business' },
+  { id: 'biz-daily', label: '日常英会話', categoryId: 'business', vocabularySetId: 'common-practice' },
+  { id: 'biz-travel', label: '海外旅行', categoryId: 'business', vocabularySetId: 'common-practice' },
+  { id: 'biz-business', label: 'ビジネス', categoryId: 'business', vocabularySetId: 'common-practice' },
+  { id: 'biz-hospitality', label: '接客・観光', categoryId: 'business', vocabularySetId: 'common-practice' },
+  { id: 'biz-care', label: '医療・介護', categoryId: 'business', vocabularySetId: 'common-practice' },
+  { id: 'biz-it', label: 'IT・仕事', categoryId: 'business', vocabularySetId: 'common-practice' },
 ];
 
 export function coursesInCategory(categoryId: CourseCategoryId): Course[] {
@@ -183,4 +195,19 @@ export function resolveCourseLabel(
   if (current) return courseDisplayLabel(current);
 
   return UNKNOWN_COURSE_LABEL;
+}
+
+/**
+ * コースが使う語を返す。コース名から語を引くのはここだけ。
+ *
+ * 選択中のコースが無い、または保存データに古い・未知のコースIDが残っている場合は、
+ * 既定のセットで遊べるようにする。ここで例外を投げると、
+ * 過去の保存データを持っている人がカルタを始められなくなる。
+ *
+ * 定義済みコースが存在しない語彙セットを指していた場合は別で、
+ * それは設定ミスなので既定セットへ黙って戻さず、pairsInSet がその場で止める。
+ */
+export function pairsForCourse(courseId: string | null | undefined): WordPair[] {
+  const course = findCourse(courseId);
+  return pairsInSet(course ? course.vocabularySetId : DEFAULT_VOCABULARY_SET_ID);
 }

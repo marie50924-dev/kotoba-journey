@@ -1,7 +1,7 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
-import { SAMPLE_PAIRS, findPair } from '../data/wordPairs';
-import { findCourse } from '../data/courses';
+import { findPair } from '../data/wordPairs';
+import { findCourse, pairsForCourse } from '../data/courses';
 import { buildDeck } from '../domain/deck';
 import { computeBoardLayout } from '../domain/layout';
 import { createSeed } from '../domain/random';
@@ -29,7 +29,9 @@ const SAME_LANGUAGE_DISPLAY_MS = 450;
 export function kartaScreen(ctx: AppContext): HTMLElement {
   const cardCount: CardCount = ctx.selection.cardCount ?? 6;
   const seed = createSeed();
-  const deck = buildDeck(SAMPLE_PAIRS, cardCount, seed);
+  // 出題する語は、選んだコースの語彙セットから決める。
+  // いまは24コースとも同じセットなので、どのコースでも同じ25語から選ばれる。
+  const deck = buildDeck(pairsForCourse(ctx.selection.courseId), cardCount, seed);
   const session = new PlaySession(deck, performance.now());
 
   // 1つのカルタ盤面を1ウェーブとして扱う。確認テストはこの pairIds からだけ作る。
