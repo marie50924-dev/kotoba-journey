@@ -21,6 +21,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createSuite } from './visualCaseReporter.mjs';
 import { WORD_PAIRS, answerFor } from './wordPairsFixture.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
@@ -129,40 +130,7 @@ function serveDist() {
   });
 }
 
-const failures = [];
-const check = (condition, message) => {
-  if (!condition) failures.push(message);
-};
-
-/**
- * 1ケースぶんの検査をまとめて走らせ、記号を実際の成否に合わせる。
- *
- * 以前は検査の結果を見ずに ✓ を出していた。そのため盤面の語が想定と違っても
- * 「✓ …を取り切れた」と表示され、終了コードだけが失敗という食い違いが起きていた。
- * ケースの前後で失敗の件数を比べ、増えていなければ ✓、増えていれば ✗ を出す。
- * 例外もそのケースの失敗として数えるので、途中で落ちても ✓ にはならず、
- * 後続のケースはそのまま続けられる。
- *
- * body が返した文字列は、成功したときだけラベルの後ろに付ける。
- * 観測した pairId のような実測値は、想定と一致を確かめたあとにだけ出す。
- */
-async function runCase(label, failNote, body) {
-  const before = failures.length;
-  let note = '';
-  try {
-    note = (await body()) ?? '';
-  } catch (error) {
-    failures.push(`${label}: 検査の途中で例外が出た（${error && error.message}）`);
-  }
-  const added = failures.slice(before);
-  if (added.length === 0) {
-    console.log(`✓ ${label}${note}`);
-    return true;
-  }
-  console.error(`✗ ${label} ${failNote}`);
-  for (const message of added) console.error(`   - ${message}`);
-  return false;
-}
+const { check, runCase, finish } = createSuite('追加語テスト');
 
 /** 盤面の seed を固定する。ページのどのスクリプトより先に入れる。 */
 async function pinSeed(context, now) {
@@ -314,7 +282,7 @@ try {
     // ---- 1. そのまとまりの語だけの盤面を、3サイズで遊べる ----
     for (const viewport of VIEWPORTS) {
       const label = `${batch.label} ${viewport.width}x${viewport.height}`;
-      await runCase(label, `${batch.stage}の追加語テスト`, async () => {
+      await runCase(label, async () => {
         const context = await browser.newContext({ viewport });
         try {
           await pinSeed(context, batch.now);
@@ -339,13 +307,13 @@ try {
         } finally {
           await context.close();
         }
-      });
+      }, `${batch.stage}の追加語テスト`);
     }
 
     // ---- 2. 確認テスト → 結果画面 → パスポートまで通る ----
     {
       const label = `${batch.label} 通し`;
-      await runCase(label, `${batch.stage}の通しテスト`, async () => {
+      await runCase(label, async () => {
         const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
         try {
           await pinSeed(context, batch.now);
@@ -472,7 +440,7 @@ try {
         } finally {
           await context.close();
         }
-      });
+      }, `${batch.stage}の通しテスト`);
     }
   }
 } finally {
@@ -480,9 +448,4 @@ try {
   server.close();
 }
 
-if (failures.length > 0) {
-  console.error('\n追加語テスト 失敗');
-  for (const f of failures) console.error(` - ${f}`);
-  process.exit(1);
-}
-console.log('\n追加語テスト 成功');
+finish();

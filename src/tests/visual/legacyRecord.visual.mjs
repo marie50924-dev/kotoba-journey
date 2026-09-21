@@ -17,6 +17,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createSuite } from './visualCaseReporter.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
 const BASE_PATH = '/kotoba-journey/';
@@ -101,28 +102,7 @@ function serveDist() {
   });
 }
 
-const failures = [];
-const check = (condition, message) => {
-  if (!condition) failures.push(message);
-};
-
-/**
- * ケースの成否を、実際の検査結果どおりの記号で出す。
- *
- * 以前は検査に失敗していても ✓ を出していたので、
- * 終了コードだけが失敗という食い違いが起きていた。
- * 開始時点の失敗件数を渡し、増えていなければ ✓、増えていれば ✗ を出す。
- */
-function reportCase(before, label, okNote, failNote) {
-  const added = failures.slice(before);
-  if (added.length === 0) {
-    console.log(`✓ ${label}${okNote}`);
-    return true;
-  }
-  console.error(`✗ ${label} ${failNote}`);
-  for (const message of added) console.error(`   - ${message}`);
-  return false;
-}
+const { check, runCase, finish } = createSuite('旧保存データ表示テスト');
 
 /** 旧データを入れた状態でパスポートを開く。 */
 async function openPassportWithLegacyRecord(page, baseUrl) {
@@ -154,117 +134,110 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 try {
   for (const viewport of VIEWPORTS) {
     const label = `${viewport.width}x${viewport.height}`;
-    const failuresBefore = failures.length;
-    const context = await browser.newContext({ viewport });
-    const page = await context.newPage();
-    const jsErrors = [];
-    page.on('pageerror', (e) => jsErrors.push(e.message));
+    await runCase(label, async () => {
+      const context = await browser.newContext({ viewport });
+      try {
+        const page = await context.newPage();
+        const jsErrors = [];
+        page.on('pageerror', (e) => jsErrors.push(e.message));
 
-    await openPassportWithLegacyRecord(page, baseUrl);
+        await openPassportWithLegacyRecord(page, baseUrl);
 
-    // --- 旧試験名が画面のどこにも出ない（本文・属性の両方） ---
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    const bodyHtml = await page.evaluate(() => document.body.innerHTML);
-    for (const word of FORBIDDEN) {
-      check(!bodyText.includes(word), `${label}: パスポートの本文に「${word}」が出ている`);
-      check(
-        !bodyHtml.includes(word),
-        `${label}: パスポートの属性（aria-label・title・alt・data-）に「${word}」が残っている`,
-      );
-    }
-    for (const legacy of ['3級', '準2級', '400点', '900点以上', 'TOEIC 600点', '英検2級ジュニア']) {
-      check(!bodyText.includes(legacy), `${label}: 旧コース名「${legacy}」がそのまま出ている`);
-    }
+        // --- 旧試験名が画面のどこにも出ない（本文・属性の両方） ---
+        const bodyText = await page.evaluate(() => document.body.innerText);
+        const bodyHtml = await page.evaluate(() => document.body.innerHTML);
+        for (const word of FORBIDDEN) {
+          check(!bodyText.includes(word), `${label}: パスポートの本文に「${word}」が出ている`);
+          check(
+            !bodyHtml.includes(word),
+            `${label}: パスポートの属性（aria-label・title・alt・data-）に「${word}」が残っている`,
+          );
+        }
+        for (const legacy of ['3級', '準2級', '400点', '900点以上', 'TOEIC 600点', '英検2級ジュニア']) {
+          check(!bodyText.includes(legacy), `${label}: 旧コース名「${legacy}」がそのまま出ている`);
+        }
 
-    // --- 現在の中立名、または「以前のコース」が出る ---
-    const shown = await page.$$eval('.history__course', (nodes) =>
-      nodes.map((n) => n.textContent.trim()),
-    );
-    check(
-      JSON.stringify(shown) === JSON.stringify(EXPECTED_HISTORY),
-      `${label}: 履歴のコース名が想定と違う（${shown.join(' / ')}）`,
-    );
-    const selected = await page.locator('.value-line').first().textContent();
-    check(
-      selected.trim() === 'ことばチャレンジ・ステップ3',
-      `${label}: 選択中コースが中立名になっていない（${selected.trim()}）`,
-    );
+        // --- 現在の中立名、または「以前のコース」が出る ---
+        const shown = await page.$$eval('.history__course', (nodes) =>
+          nodes.map((n) => n.textContent.trim()),
+        );
+        check(
+          JSON.stringify(shown) === JSON.stringify(EXPECTED_HISTORY),
+          `${label}: 履歴のコース名が想定と違う（${shown.join(' / ')}）`,
+        );
+        const selected = await page.locator('.value-line').first().textContent();
+        check(
+          selected.trim() === 'ことばチャレンジ・ステップ3',
+          `${label}: 選択中コースが中立名になっていない（${selected.trim()}）`,
+        );
 
-    // --- 記録そのものは消えていない ---
-    check(bodyText.includes('7回'), `${label}: 総プレイ回数が失われている`);
-    const saved = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
-    const savedLabels = JSON.parse(saved).history.map((h) => h.courseLabel);
-    check(
-      savedLabels.includes('3級') && savedLabels.includes('900点以上'),
-      `${label}: 保存データの元値が書き換えられている（${savedLabels.join(' / ')}）`,
-    );
-    check(JSON.parse(saved).history.length === 7, `${label}: 保存データの履歴が減っている`);
+        // --- 記録そのものは消えていない ---
+        check(bodyText.includes('7回'), `${label}: 総プレイ回数が失われている`);
+        const saved = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+        const savedLabels = JSON.parse(saved).history.map((h) => h.courseLabel);
+        check(
+          savedLabels.includes('3級') && savedLabels.includes('900点以上'),
+          `${label}: 保存データの元値が書き換えられている（${savedLabels.join(' / ')}）`,
+        );
+        check(JSON.parse(saved).history.length === 7, `${label}: 保存データの履歴が減っている`);
 
-    // --- 読めること・はみ出さないこと ---
-    const scrollX = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    check(scrollX <= 0, `${label}: 横スクロールが出ている（${scrollX}px）`);
-    const offscreen = await page.evaluate(offscreenControls);
-    check(offscreen.length === 0, `${label}: 画面外の操作がある（${offscreen.join(', ')}）`);
-    check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
+        // --- 読めること・はみ出さないこと ---
+        const scrollX = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        check(scrollX <= 0, `${label}: 横スクロールが出ている（${scrollX}px）`);
+        const offscreen = await page.evaluate(offscreenControls);
+        check(offscreen.length === 0, `${label}: 画面外の操作がある（${offscreen.join(', ')}）`);
+        check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
 
-    reportCase(
-      failuresBefore,
-      label,
-      ' 旧保存データでも旧試験名0件・記録は7回のまま',
-      '旧保存データ表示テスト',
-    );
-    await context.close();
+        return ' 旧保存データでも旧試験名0件・記録は7回のまま';
+      } finally {
+        await context.close();
+      }
+    });
   }
 
   // ---- prefers-reduced-motion でも同じ ----
   {
-    const failuresBefore = failures.length;
-    const context = await browser.newContext({
-      viewport: { width: 393, height: 852 },
-      reducedMotion: 'reduce',
+    await runCase('prefers-reduced-motion', async () => {
+      const context = await browser.newContext({
+        viewport: { width: 393, height: 852 },
+        reducedMotion: 'reduce',
+      });
+      try {
+        const page = await context.newPage();
+        const jsErrors = [];
+        page.on('pageerror', (e) => jsErrors.push(e.message));
+
+        await openPassportWithLegacyRecord(page, baseUrl);
+
+        const bodyText = await page.evaluate(() => document.body.innerText);
+        const bodyHtml = await page.evaluate(() => document.body.innerHTML);
+        for (const word of FORBIDDEN) {
+          check(!bodyText.includes(word), `reduced-motion: 本文に「${word}」が出ている`);
+          check(!bodyHtml.includes(word), `reduced-motion: 属性に「${word}」が残っている`);
+        }
+        const shown = await page.$$eval('.history__course', (nodes) =>
+          nodes.map((n) => n.textContent.trim()),
+        );
+        check(
+          JSON.stringify(shown) === JSON.stringify(EXPECTED_HISTORY),
+          `reduced-motion: 履歴のコース名が想定と違う（${shown.join(' / ')}）`,
+        );
+        const history = page.locator('.history__item').first();
+        const box = await history.boundingBox();
+        check(box !== null && box.height > 0, 'reduced-motion: 履歴が読めない');
+        check(jsErrors.length === 0, `reduced-motion: JavaScriptエラー（${jsErrors.join(' / ')}）`);
+
+        return ' でも履歴が読め、旧試験名0件';
+      } finally {
+        await context.close();
+      }
     });
-    const page = await context.newPage();
-    const jsErrors = [];
-    page.on('pageerror', (e) => jsErrors.push(e.message));
-
-    await openPassportWithLegacyRecord(page, baseUrl);
-
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    const bodyHtml = await page.evaluate(() => document.body.innerHTML);
-    for (const word of FORBIDDEN) {
-      check(!bodyText.includes(word), `reduced-motion: 本文に「${word}」が出ている`);
-      check(!bodyHtml.includes(word), `reduced-motion: 属性に「${word}」が残っている`);
-    }
-    const shown = await page.$$eval('.history__course', (nodes) =>
-      nodes.map((n) => n.textContent.trim()),
-    );
-    check(
-      JSON.stringify(shown) === JSON.stringify(EXPECTED_HISTORY),
-      `reduced-motion: 履歴のコース名が想定と違う（${shown.join(' / ')}）`,
-    );
-    const history = page.locator('.history__item').first();
-    const box = await history.boundingBox();
-    check(box !== null && box.height > 0, 'reduced-motion: 履歴が読めない');
-    check(jsErrors.length === 0, `reduced-motion: JavaScriptエラー（${jsErrors.join(' / ')}）`);
-
-    reportCase(
-      failuresBefore,
-      'prefers-reduced-motion',
-      ' でも履歴が読め、旧試験名0件',
-      '旧保存データ表示テスト',
-    );
-    await context.close();
   }
 } finally {
   await browser.close();
   server.close();
 }
 
-if (failures.length > 0) {
-  console.error('\n旧保存データ表示テスト 失敗');
-  for (const f of failures) console.error(` - ${f}`);
-  process.exit(1);
-}
-console.log('\n旧保存データ表示テスト 成功');
+finish();

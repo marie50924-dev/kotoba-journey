@@ -20,6 +20,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createSuite } from './visualCaseReporter.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
 const BASE_PATH = '/kotoba-journey/';
@@ -157,10 +158,7 @@ function collectMetrics() {
   };
 }
 
-const failures = [];
-const check = (condition, message) => {
-  if (!condition) failures.push(message);
-};
+const { check, runCase, finish } = createSuite('表示回帰テスト');
 
 const { server, port } = await serveDist();
 const baseUrl = `http://127.0.0.1:${port}${BASE_PATH}`;
@@ -171,57 +169,52 @@ const browser = await chromium.launch({
 try {
   for (const viewport of VIEWPORTS) {
     const label = `${viewport.width}x${viewport.height}`;
-    const context = await browser.newContext({ viewport });
-    const page = await context.newPage();
-    const jsErrors = [];
-    page.on('pageerror', (error) => jsErrors.push(error.message));
+    await runCase(label, async () => {
+      const context = await browser.newContext({ viewport });
+      try {
+        const page = await context.newPage();
+        const jsErrors = [];
+        page.on('pageerror', (error) => jsErrors.push(error.message));
 
-    await openPronunciationPanel(page, baseUrl);
-    const metrics = await page.evaluate(collectMetrics);
+        await openPronunciationPanel(page, baseUrl);
+        const metrics = await page.evaluate(collectMetrics);
 
-    const replay = metrics.buttons.find((b) => b.text === 'もういちど聞く');
-    const next = metrics.buttons.find((b) => b.text === 'つぎへ');
+        const replay = metrics.buttons.find((b) => b.text === 'もういちど聞く');
+        const next = metrics.buttons.find((b) => b.text === 'つぎへ');
 
-    check(replay !== undefined, `${label}: 「もういちど聞く」ボタンが見つからない`);
-    check(next !== undefined, `${label}: 「つぎへ」ボタンが見つからない`);
+        check(replay !== undefined, `${label}: 「もういちど聞く」ボタンが見つからない`);
+        check(next !== undefined, `${label}: 「つぎへ」ボタンが見つからない`);
 
-    for (const button of metrics.buttons) {
-      const name = `${label}: 「${button.text}」`;
-      check(button.insidePanel, `${name} がパネル外へ出ている`);
-      check(button.scrollWidth <= button.clientWidth, `${name} に横方向のはみ出しがある`);
-      check(button.scrollHeight <= button.clientHeight, `${name} に縦方向のはみ出しがある`);
-      check(button.lines === 1, `${name} が ${button.lines} 行に折り返している（全文1行表示が必要）`);
-      check(button.textInsideButton, `${name} の文字がボタン外へ出ている`);
-      check(
-        button.rect.width >= 44 && button.rect.height >= 44,
-        `${name} のタップ領域が 44x44 未満（${button.rect.width}x${button.rect.height}）`,
-      );
-    }
+        for (const button of metrics.buttons) {
+          const name = `${label}: 「${button.text}」`;
+          check(button.insidePanel, `${name} がパネル外へ出ている`);
+          check(button.scrollWidth <= button.clientWidth, `${name} に横方向のはみ出しがある`);
+          check(button.scrollHeight <= button.clientHeight, `${name} に縦方向のはみ出しがある`);
+          check(button.lines === 1, `${name} が ${button.lines} 行に折り返している（全文1行表示が必要）`);
+          check(button.textInsideButton, `${name} の文字がボタン外へ出ている`);
+          check(
+            button.rect.width >= 44 && button.rect.height >= 44,
+            `${name} のタップ領域が 44x44 未満（${button.rect.width}x${button.rect.height}）`,
+          );
+        }
 
-    check(!metrics.buttonsOverlap, `${label}: 2つのボタンの外接矩形が重なっている`);
-    check(metrics.panelNoXOverflow, `${label}: パネルに横方向の overflow がある`);
-    check(metrics.actionsNoXOverflow, `${label}: ボタン行に横方向の overflow がある`);
-    check(metrics.panelInViewport, `${label}: パネルが画面内に収まっていない`);
-    check(!metrics.hScroll, `${label}: 横スクロールが発生している`);
-    check(metrics.overlayBlocksInput, `${label}: 背景カードへの入力ロックが効いていない`);
-    check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
+        check(!metrics.buttonsOverlap, `${label}: 2つのボタンの外接矩形が重なっている`);
+        check(metrics.panelNoXOverflow, `${label}: パネルに横方向の overflow がある`);
+        check(metrics.actionsNoXOverflow, `${label}: ボタン行に横方向の overflow がある`);
+        check(metrics.panelInViewport, `${label}: パネルが画面内に収まっていない`);
+        check(!metrics.hScroll, `${label}: 横スクロールが発生している`);
+        check(metrics.overlayBlocksInput, `${label}: 背景カードへの入力ロックが効いていない`);
+        check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
 
-    if (failures.length === 0) {
-      console.log(
-        `✓ ${label}  もういちど聞く=${replay.rect.width.toFixed(1)}px(1行)  つぎへ=${next.rect.width.toFixed(1)}px(1行)`,
-      );
-    }
-    await context.close();
+        return `  もういちど聞く=${replay.rect.width.toFixed(1)}px(1行)  つぎへ=${next.rect.width.toFixed(1)}px(1行)`;
+      } finally {
+        await context.close();
+      }
+    });
   }
 } finally {
   await browser.close();
   server.close();
 }
 
-if (failures.length > 0) {
-  console.error('\n表示回帰テスト 失敗:');
-  for (const failure of failures) console.error(`  ✗ ${failure}`);
-  process.exit(1);
-}
-
-console.log(`\n表示回帰テスト 成功（${VIEWPORTS.length}サイズ × 6項目）`);
+finish(`（${VIEWPORTS.length}サイズ × 6項目）`);

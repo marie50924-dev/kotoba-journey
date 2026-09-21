@@ -17,6 +17,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createSuite } from './visualCaseReporter.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
 const BASE_PATH = '/kotoba-journey/';
@@ -59,10 +60,7 @@ function serveDist() {
   });
 }
 
-const failures = [];
-const check = (condition, message) => {
-  if (!condition) failures.push(message);
-};
+const { check, runCase, finish } = createSuite('Phase 1-C3 国紹介テスト（下書き表示）');
 
 /** 画面の外へ出ているボタン・リンクを数える。 */
 function offscreenControls() {
@@ -117,164 +115,164 @@ try {
   // 首都・都市・自然・気候・名所・食・歴史・文化の文章は公開導線へ出さない。
   for (const viewport of VIEWPORTS) {
     const label = `${viewport.width}x${viewport.height}`;
-    const context = await browser.newContext({ viewport });
-    const page = await context.newPage();
-    const jsErrors = [];
-    page.on('pageerror', (e) => jsErrors.push(e.message));
+    await runCase(label, async () => {
+      const context = await browser.newContext({ viewport });
+      try {
+        const page = await context.newPage();
+        const jsErrors = [];
+        page.on('pageerror', (e) => jsErrors.push(e.message));
 
-    await reachIntro(page, baseUrl);
+        await reachIntro(page, baseUrl);
 
-    // --- 事実ではない案内は出る ---
-    const title = await page.locator('.screen--intro .screen__title').textContent();
-    check(
-      title.includes('日本') && title.includes('Japan'),
-      `${label}: 国名と英語名が出ていない（${title}）`,
-    );
-    check((await page.locator('.intro__flag').count()) === 1, `${label}: 国旗が出ていない`);
+        // --- 事実ではない案内は出る ---
+        const title = await page.locator('.screen--intro .screen__title').textContent();
+        check(
+          title.includes('日本') && title.includes('Japan'),
+          `${label}: 国名と英語名が出ていない（${title}）`,
+        );
+        check((await page.locator('.intro__flag').count()) === 1, `${label}: 国旗が出ていない`);
 
-    // --- あいさつは学習情報なので、下書きでは出さない ---
-    check(
-      (await page.locator('.intro__greeting').count()) === 0,
-      `${label}: 下書きなのにあいさつ欄が出ている`,
-    );
-    check(
-      (await page.locator('.intro__greeting-ja').count()) === 0,
-      `${label}: 下書きなのに現地のあいさつが出ている`,
-    );
-    check(
-      (await page.locator('.intro__greeting-en').count()) === 0,
-      `${label}: 下書きなのに英語のあいさつが出ている`,
-    );
+        // --- あいさつは学習情報なので、下書きでは出さない ---
+        check(
+          (await page.locator('.intro__greeting').count()) === 0,
+          `${label}: 下書きなのにあいさつ欄が出ている`,
+        );
+        check(
+          (await page.locator('.intro__greeting-ja').count()) === 0,
+          `${label}: 下書きなのに現地のあいさつが出ている`,
+        );
+        check(
+          (await page.locator('.intro__greeting-en').count()) === 0,
+          `${label}: 下書きなのに英語のあいさつが出ている`,
+        );
 
-    // --- 下書きの案内が読める ---
-    const preparing = page.locator('.intro__preparing');
-    check((await preparing.count()) === 1, `${label}: 準備中の案内が無い`);
-    const preparingText = (await preparing.textContent()).trim();
-    check(
-      preparingText === 'この国の紹介は準備中です。',
-      `${label}: 準備中の案内の文言が違う（${preparingText}）`,
-    );
-    await preparing.scrollIntoViewIfNeeded();
-    const preparingBox = await preparing.boundingBox();
-    check(
-      preparingBox !== null && preparingBox.height > 0,
-      `${label}: 準備中の案内が読めない`,
-    );
+        // --- 下書きの案内が読める ---
+        const preparing = page.locator('.intro__preparing');
+        check((await preparing.count()) === 1, `${label}: 準備中の案内が無い`);
+        const preparingText = (await preparing.textContent()).trim();
+        check(
+          preparingText === 'この国の紹介は準備中です。',
+          `${label}: 準備中の案内の文言が違う（${preparingText}）`,
+        );
+        await preparing.scrollIntoViewIfNeeded();
+        const preparingBox = await preparing.boundingBox();
+        check(
+          preparingBox !== null && preparingBox.height > 0,
+          `${label}: 準備中の案内が読めない`,
+        );
 
-    // --- 「もっと知る」を出さない ---
-    check(
-      (await page.locator('.intro__more-toggle').count()) === 0,
-      `${label}: 下書きなのに「もっと知る」が出ている`,
-    );
-    check(
-      (await page.locator('.intro__more').count()) === 0,
-      `${label}: 下書きなのに詳細パネルがある`,
-    );
-    check(
-      (await page.locator('.intro-card').count()) === 0,
-      `${label}: 下書きなのに事実カードが出ている`,
-    );
-    check(
-      (await page.locator('.intro-sources').count()) === 0,
-      `${label}: 下書きなのに情報源一覧が出ている`,
-    );
-    check(
-      (await page.locator('.intro__facts').count()) === 0,
-      `${label}: 下書きなのに首都と有名なものが出ている`,
-    );
-    check(
-      (await page.locator('.intro__summary').count()) === 0,
-      `${label}: 下書きなのに紹介文が出ている`,
-    );
+        // --- 「もっと知る」を出さない ---
+        check(
+          (await page.locator('.intro__more-toggle').count()) === 0,
+          `${label}: 下書きなのに「もっと知る」が出ている`,
+        );
+        check(
+          (await page.locator('.intro__more').count()) === 0,
+          `${label}: 下書きなのに詳細パネルがある`,
+        );
+        check(
+          (await page.locator('.intro-card').count()) === 0,
+          `${label}: 下書きなのに事実カードが出ている`,
+        );
+        check(
+          (await page.locator('.intro-sources').count()) === 0,
+          `${label}: 下書きなのに情報源一覧が出ている`,
+        );
+        check(
+          (await page.locator('.intro__facts').count()) === 0,
+          `${label}: 下書きなのに首都と有名なものが出ている`,
+        );
+        check(
+          (await page.locator('.intro__summary').count()) === 0,
+          `${label}: 下書きなのに紹介文が出ている`,
+        );
 
-    // --- 未確認の事実が画面のどこにも出ていない ---
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    for (const phrase of [
-      'こんにちは',
-      'Hello',
-      '東京',
-      '富士山',
-      '森林',
-      '梅雨',
-      '法隆寺',
-      'すし',
-      '武士',
-      'おじぎ',
-    ]) {
-      check(
-        !bodyText.includes(phrase),
-        `${label}: 未確認の事実「${phrase}」が画面に出ている`,
-      );
-    }
+        // --- 未確認の事実が画面のどこにも出ていない ---
+        const bodyText = await page.evaluate(() => document.body.innerText);
+        for (const phrase of [
+          'こんにちは',
+          'Hello',
+          '東京',
+          '富士山',
+          '森林',
+          '梅雨',
+          '法隆寺',
+          'すし',
+          '武士',
+          'おじぎ',
+        ]) {
+          check(
+            !bodyText.includes(phrase),
+            `${label}: 未確認の事実「${phrase}」が画面に出ている`,
+          );
+        }
 
-    // --- 技術的な説明を子ども向け画面に出さない ---
-    for (const phrase of ['未確認', '確認中', 'draft', '通信']) {
-      check(
-        !bodyText.includes(phrase),
-        `${label}: 開発向けの説明「${phrase}」が画面に出ている`,
-      );
-    }
+        // --- 技術的な説明を子ども向け画面に出さない ---
+        for (const phrase of ['未確認', '確認中', 'draft', '通信']) {
+          check(
+            !bodyText.includes(phrase),
+            `${label}: 開発向けの説明「${phrase}」が画面に出ている`,
+          );
+        }
 
-    // --- カルタへ進める ---
-    const startButton = page.getByRole('button', { name: 'この国でことばを集める' });
-    check((await startButton.count()) === 1, `${label}: 開始ボタンが無い`);
-    await startButton.scrollIntoViewIfNeeded();
-    check(await startButton.isVisible(), `${label}: 開始ボタンが見えない`);
+        // --- カルタへ進める ---
+        const startButton = page.getByRole('button', { name: 'この国でことばを集める' });
+        check((await startButton.count()) === 1, `${label}: 開始ボタンが無い`);
+        await startButton.scrollIntoViewIfNeeded();
+        check(await startButton.isVisible(), `${label}: 開始ボタンが見えない`);
 
-    // --- はみ出しとタップ領域 ---
-    const hScroll = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth + 1,
-    );
-    check(!hScroll, `${label}: 横スクロールが発生している`);
-    const offscreen = await page.evaluate(offscreenControls);
-    check(offscreen.length === 0, `${label}: 画面外へ出ている操作 ${offscreen.join(', ')}`);
-    const small = await page.evaluate(smallControls);
-    check(small.length === 0, `${label}: タップ領域 44px 未満 ${small.join(', ')}`);
+        // --- はみ出しとタップ領域 ---
+        const hScroll = await page.evaluate(
+          () => document.documentElement.scrollWidth > window.innerWidth + 1,
+        );
+        check(!hScroll, `${label}: 横スクロールが発生している`);
+        const offscreen = await page.evaluate(offscreenControls);
+        check(offscreen.length === 0, `${label}: 画面外へ出ている操作 ${offscreen.join(', ')}`);
+        const small = await page.evaluate(smallControls);
+        check(small.length === 0, `${label}: タップ領域 44px 未満 ${small.join(', ')}`);
 
-    await startButton.click();
-    await page.waitForSelector('.card', { timeout: 6000 });
-    const cards = await page.locator('.card').count();
-    check(cards === 6, `${label}: カルタが始まらない（カード${cards}枚）`);
+        await startButton.click();
+        await page.waitForSelector('.card', { timeout: 6000 });
+        const cards = await page.locator('.card').count();
+        check(cards === 6, `${label}: カルタが始まらない（カード${cards}枚）`);
 
-    check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
-    if (failures.length === 0) {
-      console.log(
-        `✓ ${label} 下書き表示（国名と国旗のみ・あいさつ0件・事実カード0件・カルタ開始OK）`,
-      );
-    }
-    await context.close();
+        check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
+        return ' 下書き表示（国名と国旗のみ・あいさつ0件・事実カード0件・カルタ開始OK）';
+      } finally {
+        await context.close();
+      }
+    });
   }
 
   // ---- 2. prefers-reduced-motion でも案内が読める ----
   {
-    const context = await browser.newContext({
-      viewport: { width: 393, height: 852 },
-      reducedMotion: 'reduce',
+    await runCase('prefers-reduced-motion', async () => {
+      const context = await browser.newContext({
+        viewport: { width: 393, height: 852 },
+        reducedMotion: 'reduce',
+      });
+      try {
+        const page = await context.newPage();
+        await reachIntro(page, baseUrl);
+        const text = await page.locator('.intro__preparing').textContent();
+        check(text.trim().length > 0, 'reduced-motion: 準備中の案内が読めない');
+        check(
+          (await page.locator('.intro__greeting').count()) === 0,
+          'reduced-motion: あいさつが出ている',
+        );
+        check(
+          (await page.locator('.intro__more-toggle').count()) === 0,
+          'reduced-motion: 「もっと知る」が出ている',
+        );
+        return ' でも案内が読める';
+      } finally {
+        await context.close();
+      }
     });
-    const page = await context.newPage();
-    await reachIntro(page, baseUrl);
-    const text = await page.locator('.intro__preparing').textContent();
-    check(text.trim().length > 0, 'reduced-motion: 準備中の案内が読めない');
-    check(
-      (await page.locator('.intro__greeting').count()) === 0,
-      'reduced-motion: あいさつが出ている',
-    );
-    check(
-      (await page.locator('.intro__more-toggle').count()) === 0,
-      'reduced-motion: 「もっと知る」が出ている',
-    );
-    if (failures.length === 0) console.log('✓ prefers-reduced-motion でも案内が読める');
-    await context.close();
   }
 } finally {
   await browser.close();
   server.close();
 }
 
-if (failures.length > 0) {
-  console.error('\nPhase 1-C3 国紹介テスト（下書き表示） 失敗:');
-  for (const failure of failures) console.error(`  ✗ ${failure}`);
-  process.exit(1);
-}
-
-console.log('\nPhase 1-C3 国紹介テスト（下書き表示） 成功');
+finish();

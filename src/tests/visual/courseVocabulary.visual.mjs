@@ -17,6 +17,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createSuite } from './visualCaseReporter.mjs';
 import { WORD_PAIRS, answerFor } from './wordPairsFixture.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
@@ -80,28 +81,7 @@ function serveDist() {
   });
 }
 
-const failures = [];
-const check = (condition, message) => {
-  if (!condition) failures.push(message);
-};
-
-/**
- * ケースの成否を、実際の検査結果どおりの記号で出す。
- *
- * 以前は検査に失敗していても ✓ を出していたので、
- * 終了コードだけが失敗という食い違いが起きていた。
- * 開始時点の失敗件数を渡し、増えていなければ ✓、増えていれば ✗ を出す。
- */
-function reportCase(before, label, okNote, failNote) {
-  const added = failures.slice(before);
-  if (added.length === 0) {
-    console.log(`✓ ${label}${okNote}`);
-    return true;
-  }
-  console.error(`✗ ${label} ${failNote}`);
-  for (const message of added) console.error(`   - ${message}`);
-  return false;
-}
+const { check, runCase, finish } = createSuite('コース別語彙セットテスト');
 
 /** 指定したコースでカルタ盤面まで進める。案内文の有無もそのとき見る。 */
 async function reachBoard(page, baseUrl, { category, course, notice }, label) {
@@ -198,125 +178,119 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 try {
   for (const target of COURSES) {
     const label = `${target.course}`;
-    const failuresBefore = failures.length;
-    const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
-    await context.addInitScript((now) => {
-      Date.now = () => now;
-      Math.random = () => 0;
-    }, FIXED_NOW);
-    const page = await context.newPage();
-    const jsErrors = [];
-    page.on('pageerror', (e) => jsErrors.push(e.message));
+    await runCase(label, async () => {
+      const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
+      await context.addInitScript((now) => {
+        Date.now = () => now;
+        Math.random = () => 0;
+      }, FIXED_NOW);
+      try {
+        const page = await context.newPage();
+        const jsErrors = [];
+        page.on('pageerror', (e) => jsErrors.push(e.message));
 
-    await reachBoard(page, baseUrl, target, label);
+        await reachBoard(page, baseUrl, target, label);
 
-    // --- 出題は共通セットの語に収まっている ---
-    const ids = await boardPairIds(page);
-    check(ids.length === 3, `${label}: 6枚の盤面が3語になっていない（${ids.join(',')}）`);
-    for (const id of ids) {
-      check(COMMON.has(id), `${label}: 共通セットに無い pairId ${id} が出ている`);
-    }
+        // --- 出題は共通セットの語に収まっている ---
+        const ids = await boardPairIds(page);
+        check(ids.length === 3, `${label}: 6枚の盤面が3語になっていない（${ids.join(',')}）`);
+        for (const id of ids) {
+          check(COMMON.has(id), `${label}: 共通セットに無い pairId ${id} が出ている`);
+        }
 
-    // --- 札の文字が語彙データのとおり ---
-    for (const id of ids) {
-      const [ja, en] = COMMON.get(id) ?? [];
-      const jaText = (await page.locator(`[data-card-id="${id}-ja"]`).textContent()).trim();
-      const enText = (await page.locator(`[data-card-id="${id}-en"]`).textContent()).trim();
-      check(jaText === ja, `${label}: ${id} の日本語札が違う（${jaText}）`);
-      check(enText === en, `${label}: ${id} の英語札が違う（${enText}）`);
-    }
+        // --- 札の文字が語彙データのとおり ---
+        for (const id of ids) {
+          const [ja, en] = COMMON.get(id) ?? [];
+          const jaText = (await page.locator(`[data-card-id="${id}-ja"]`).textContent()).trim();
+          const enText = (await page.locator(`[data-card-id="${id}-en"]`).textContent()).trim();
+          check(jaText === ja, `${label}: ${id} の日本語札が違う（${jaText}）`);
+          check(enText === en, `${label}: ${id} の英語札が違う（${enText}）`);
+        }
 
-    // --- 資料確認待ちの語は出ない ---
-    const boardText = await page.evaluate(() => document.body.innerText);
-    for (const [id, ja, en] of RESERVED) {
-      check(!ids.includes(id), `${label}: 未確認の pairId ${id} が盤面に出ている`);
-      check(!boardText.includes(ja), `${label}: 未確認の語「${ja}」が出ている`);
-      check(!boardText.includes(en), `${label}: 未確認の語「${en}」が出ている`);
-    }
+        // --- 資料確認待ちの語は出ない ---
+        const boardText = await page.evaluate(() => document.body.innerText);
+        for (const [id, ja, en] of RESERVED) {
+          check(!ids.includes(id), `${label}: 未確認の pairId ${id} が盤面に出ている`);
+          check(!boardText.includes(ja), `${label}: 未確認の語「${ja}」が出ている`);
+          check(!boardText.includes(en), `${label}: 未確認の語「${en}」が出ている`);
+        }
 
-    const scrollX = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    check(scrollX <= 0, `${label}: 横スクロールが出ている（${scrollX}px）`);
+        const scrollX = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        check(scrollX <= 0, `${label}: 横スクロールが出ている（${scrollX}px）`);
 
-    // --- 最後まで遊べる ---
-    await makeMistakes(page, ids);
-    await clearBoard(page);
-    await page.waitForSelector('.screen--quiz-prompt', { timeout: 6000 });
-    await page.getByRole('button', { name: 'テストを受ける' }).click();
-    await page.waitForSelector('.screen--quiz');
+        // --- 最後まで遊べる ---
+        await makeMistakes(page, ids);
+        await clearBoard(page);
+        await page.waitForSelector('.screen--quiz-prompt', { timeout: 6000 });
+        await page.getByRole('button', { name: 'テストを受ける' }).click();
+        await page.waitForSelector('.screen--quiz');
 
-    const total = Number(
-      (await page.locator('.quiz__progress').textContent()).split('/')[1].trim().split(' ')[0],
-    );
-    const lang = await page.locator('.quiz__input').getAttribute('lang');
-    for (let i = 1; i <= total; i += 1) {
-      const prompt = await page.locator('.quiz__prompt').textContent();
-      const answer = answerFor(prompt, lang);
-      check(answer.length > 0, `${label}: ${i}問目の正答を共通セットから引けない（${prompt.trim()}）`);
-      await page.locator('.quiz__input').fill(answer);
-      await page.locator('.quiz__submit').click();
-      await page.waitForSelector('.quiz__feedback .quiz__verdict', { timeout: 3000 });
-      await page.locator('.quiz__next').click();
-      await page.waitForTimeout(120);
-    }
+        const total = Number(
+          (await page.locator('.quiz__progress').textContent()).split('/')[1].trim().split(' ')[0],
+        );
+        const lang = await page.locator('.quiz__input').getAttribute('lang');
+        for (let i = 1; i <= total; i += 1) {
+          const prompt = await page.locator('.quiz__prompt').textContent();
+          const answer = answerFor(prompt, lang);
+          check(answer.length > 0, `${label}: ${i}問目の正答を共通セットから引けない（${prompt.trim()}）`);
+          await page.locator('.quiz__input').fill(answer);
+          await page.locator('.quiz__submit').click();
+          await page.waitForSelector('.quiz__feedback .quiz__verdict', { timeout: 3000 });
+          await page.locator('.quiz__next').click();
+          await page.waitForTimeout(120);
+        }
 
-    await page.waitForSelector('.screen--quiz-result', { timeout: 6000 });
-    await page.getByRole('button', { name: 'つぎへ' }).click();
-    await page.waitForSelector('.screen--result', { timeout: 6000 });
+        await page.waitForSelector('.screen--quiz-result', { timeout: 6000 });
+        await page.getByRole('button', { name: 'つぎへ' }).click();
+        await page.waitForSelector('.screen--result', { timeout: 6000 });
 
-    // --- 結果画面に、盤面の語が出る ---
-    const resultText = await page.evaluate(() => document.body.innerText);
-    for (const id of ids) {
-      const [ja, en] = COMMON.get(id) ?? [];
-      check(resultText.includes(ja), `${label}: 結果画面に「${ja}」が出ていない`);
-      check(resultText.includes(en), `${label}: 結果画面に「${en}」が出ていない`);
-    }
+        // --- 結果画面に、盤面の語が出る ---
+        const resultText = await page.evaluate(() => document.body.innerText);
+        for (const id of ids) {
+          const [ja, en] = COMMON.get(id) ?? [];
+          check(resultText.includes(ja), `${label}: 結果画面に「${ja}」が出ていない`);
+          check(resultText.includes(en), `${label}: 結果画面に「${en}」が出ていない`);
+        }
 
-    // --- パスポートまで進める ---
-    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
-    check(stored.version === 3, `${label}: 保存が version 3 でない（${stored.version}）`);
-    check(
-      stored.selectedCourseId !== null,
-      `${label}: 選んだコースが保存されていない`,
-    );
-    await page.goto(baseUrl, { waitUntil: 'networkidle' });
-    await page.getByRole('button', { name: 'マイパスポート' }).click();
-    await page.waitForSelector('.screen--passport');
-    const passportText = await page.evaluate(() => document.body.innerText);
-    check(
-      passportText.includes('総プレイ回数'),
-      `${label}: パスポートが開けていない`,
-    );
-    const reviewWords = await page.$$eval('.word-list__item', (nodes) =>
-      nodes.map((n) => n.textContent.trim()),
-    );
-    check(
-      !reviewWords.some((w) => w.includes('?')),
-      `${label}: パスポートの復習語に引けない語がある（${reviewWords.join(' / ')}）`,
-    );
-    const passportScrollX = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    check(passportScrollX <= 0, `${label}: パスポートで横スクロールが出ている`);
-    check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
+        // --- パスポートまで進める ---
+        const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+        check(stored.version === 3, `${label}: 保存が version 3 でない（${stored.version}）`);
+        check(
+          stored.selectedCourseId !== null,
+          `${label}: 選んだコースが保存されていない`,
+        );
+        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: 'マイパスポート' }).click();
+        await page.waitForSelector('.screen--passport');
+        const passportText = await page.evaluate(() => document.body.innerText);
+        check(
+          passportText.includes('総プレイ回数'),
+          `${label}: パスポートが開けていない`,
+        );
+        const reviewWords = await page.$$eval('.word-list__item', (nodes) =>
+          nodes.map((n) => n.textContent.trim()),
+        );
+        check(
+          !reviewWords.some((w) => w.includes('?')),
+          `${label}: パスポートの復習語に引けない語がある（${reviewWords.join(' / ')}）`,
+        );
+        const passportScrollX = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        check(passportScrollX <= 0, `${label}: パスポートで横スクロールが出ている`);
+        check(jsErrors.length === 0, `${label}: JavaScriptエラー（${jsErrors.join(' / ')}）`);
 
-    reportCase(
-      failuresBefore,
-      label,
-      ` 共通${COMMON.size}語（${ids.join(',')}）で最後まで遊べた`,
-      'コース別語彙セットテスト',
-    );
-    await context.close();
+        return ` 共通${COMMON.size}語（${ids.join(",")}）で最後まで遊べた`;
+      } finally {
+        await context.close();
+      }
+    });
   }
 } finally {
   await browser.close();
   server.close();
 }
 
-if (failures.length > 0) {
-  console.error('\nコース別語彙セットテスト 失敗');
-  for (const f of failures) console.error(` - ${f}`);
-  process.exit(1);
-}
-console.log('\nコース別語彙セットテスト 成功');
+finish();
