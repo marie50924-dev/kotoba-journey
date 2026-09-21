@@ -127,6 +127,29 @@ describe('語彙確認チェックリストの形', () => {
 const STATES = ['要確認（使用中）', '要確認（候補）', '確認済み'];
 const METHODS = ['資料確認', '基本語判断'];
 /** 基本語判断の5条件。番号と見出しの対応。 */
+const WORD_FORMS = ['名詞の単数形', '名詞（不可算）', '動詞の原形', '色'];
+/** 今回まとめて基本語判断で確認した語と、確認を残した語。 */
+const VERIFIED_IDS = [1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 26, 28, 29, 30];
+const PENDING_IDS = [8, 10, 12, 20, 22, 25, 27];
+const COLOR_IDS = [3, 15, 16, 17, 18, 19];
+const VERB_IDS = [28, 29, 30];
+const UNCOUNTABLE_IDS = [7];
+const COUNTABLE_NOUN_IDS = VERIFIED_IDS.filter(
+  (id) => ![...COLOR_IDS, ...VERB_IDS, ...UNCOUNTABLE_IDS].includes(id),
+);
+/** 基本語判断の5条件。番号と見出しの対応。 */
+/**
+ * 条件3から語形を取り出す。
+ * 語形は「適合：」のすぐ後ろに書く決まりなので、含まれるかではなく先頭で見る。
+ * 「色（名詞にも形容詞にもせず…）」のように説明が続いても正しく読める。
+ */
+function wordForm(entry: ChecklistEntry): string {
+  const value = (entry.条件.get(3) ?? '').split('\t')[1] ?? '';
+  const body = value.replace('適合：', '');
+  return WORD_FORMS.find((form) => body.startsWith(form)) ?? '';
+}
+
+/** 基本語判断の5条件。番号と見出しの対応。 */
 const CONDITION_NAMES: [number, string][] = [
   [1, '具体性'],
   [2, '対応'],
@@ -210,14 +233,50 @@ describe('確認の進みかた', () => {
     }
   });
 
-  it('条件3・語形には、名詞の単数形・動詞の原形・色 のどれかを書く', () => {
+  it('条件3・語形には、4種類のどれかを書く', () => {
     for (const entry of verified.filter((e) => e.確認の方法 === '基本語判断')) {
-      const 語形 = entry.条件.get(3) ?? '';
       expect(
-        ['名詞の単数形', '動詞の原形', '色'].some((form) => 語形.includes(form)),
-        `${entry.pairId} の条件3に語形が書かれていない: ${語形}`,
-      ).toBe(true);
+        wordForm(entry),
+        `${entry.pairId} の条件3に語形が書かれていない: ${entry.条件.get(3)}`,
+      ).not.toBe('');
     }
+  });
+
+  it('数えられない名詞は「名詞の単数形」と書かない', () => {
+    // みず / water は a water や waters の形にしないため、不可算名詞として記録する。
+    for (const pairId of UNCOUNTABLE_IDS) {
+      expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('名詞（不可算）');
+    }
+  });
+
+  it('色6語は条件3に「色」を書く', () => {
+    for (const pairId of COLOR_IDS) {
+      expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('色');
+    }
+  });
+
+  it('動詞3語は条件3に「動詞の原形」を書く', () => {
+    for (const pairId of VERB_IDS) {
+      expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('動詞の原形');
+    }
+  });
+
+  it('数えられる名詞は条件3に「名詞の単数形」を書く', () => {
+    for (const pairId of COUNTABLE_NOUN_IDS) {
+      expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('名詞の単数形');
+    }
+  });
+
+  it('同じ定型文を全語へ複製していない', () => {
+    const basic = verified.filter((e) => e.確認の方法 === '基本語判断');
+    for (const number of [1, 2, 3, 4, 5]) {
+      const rows = basic.map((e) => e.条件.get(number) ?? '');
+      // 条件3（語形）は4種類しかないので、そこだけは重複してよい。
+      const unique = new Set(rows).size;
+      const least = number === 3 ? 4 : rows.length;
+      expect(unique, `条件${number} の書きぶりが使い回されている`).toBeGreaterThanOrEqual(least);
+    }
+    expect(new Set(basic.map((e) => e.確認した内容)).size).toBe(basic.length);
   });
 
   it('条件4・同音は、同じ読みの語が本当に他にないときだけ書ける', () => {
@@ -255,9 +314,20 @@ describe('確認の進みかた', () => {
     }
   });
 
-  it('いまの確認済みは pairId 5 だけ', () => {
-    expect(verified.map((e) => e.pairId)).toEqual([5]);
-    expect(pending).toHaveLength(29);
+  it('確認済み23語・要確認7語が、指定の集合と完全に一致する', () => {
+    expect(verified.map((e) => e.pairId)).toEqual(VERIFIED_IDS);
+    expect(pending.map((e) => e.pairId)).toEqual(PENDING_IDS);
+    expect(verified).toHaveLength(23);
+    expect(pending).toHaveLength(7);
+    expect(ENTRIES).toHaveLength(30);
+  });
+
+  it('状態別・方法別の件数が合っている', () => {
+    expect(pending.filter((e) => e.状態 === '要確認（使用中）').map((e) => e.pairId)).toEqual([8, 10]);
+    expect(pending.filter((e) => e.状態 === '要確認（候補）').map((e) => e.pairId))
+      .toEqual([12, 20, 22, 25, 27]);
+    expect(verified.filter((e) => e.確認の方法 === '基本語判断')).toHaveLength(23);
+    expect(verified.filter((e) => e.確認の方法 === '資料確認')).toHaveLength(0);
   });
 });
 
@@ -273,6 +343,8 @@ describe('確認の方法が2通りあると書いてあること', () => {
       '同じ読みの別の語が、同じ札のセットに入っていない',
       '### 3-2-1. 5条件は、語ごとに1行ずつ書く',
       '**5行すべてが必要です。**',
+      '| `名詞（不可算）` | 数えられない名詞 | みず / water |',
+      '数えられない名詞を `名詞の単数形` と書いてはいけません。',
     ]) {
       expect(checklist, `「${phrase}」が書かれていない`).toContain(phrase);
     }
