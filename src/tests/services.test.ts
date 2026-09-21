@@ -29,7 +29,11 @@ describe('音声サービス', () => {
     const audio: AudioService = new NullAudioService();
     const session = new PlaySession(buildDeck(SAMPLE_PAIRS, 6, 11), 0);
 
-    for (const pairId of [1, 2, 3]) {
+    // 盤面に出る語は seed で決まるので、盤面から取る。
+    const pairIds = [...new Set(session.cards.map((c) => c.pairId))];
+    expect(pairIds).toHaveLength(3);
+
+    for (const pairId of pairIds) {
       const ja = session.cards.find((c) => c.pairId === pairId && c.lang === 'ja')!;
       const en = session.cards.find((c) => c.pairId === pairId && c.lang === 'en')!;
       session.selectCard(ja.id);
