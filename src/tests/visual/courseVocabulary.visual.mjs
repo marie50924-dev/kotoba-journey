@@ -3,11 +3,11 @@
  *
  * カルタ画面は、選んだコースの語彙セットから語を引く。
  * セットは3つある。小学生・中学生が学校のことば30語、海外旅行が旅のことば30語、
- * 残り21コースは共通の70語。
+ * 残り21コースは共通の85語。
  *
  * 確かめるのは、3分類のどのコースからでも最後まで遊べることと、
  * **そのコースへ割り当てたセットの中に出題が収まっていること**。
- * 「ゲーム内70語に含まれる」だけでは、旅の30語は70語の一部なので、
+ * 「ゲーム内85語に含まれる」だけでは、旅の30語は85語の一部なので、
  * 割り当てが壊れても気づけない。コースごとに期待する集合を持たせる。
  *
  * 盤面の語は seed で決まる。偶然に頼らないよう、ページを開く前に
@@ -30,10 +30,14 @@ const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
 const FIXED_NOW = 1700000000001;
 
 /**
- * ゲームの70語。src/data/wordPairs.ts から読むので、語を足しても直す必要がない。
+ * ゲームの85語。src/data/wordPairs.ts から読むので、語を足しても直す必要がない。
  * 共通セットを使うコースは、この中から出題される。
  */
 const COMMON = WORD_PAIRS;
+/** 工程V-2F-2で共通セットへ足した接客・飲食・宿泊の15語。 */
+const HOSPITALITY_PAIR_IDS = [
+  76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
+];
 
 /**
  * 旅のことば30語（src/data/vocabularySets.ts の travel-practice と同じ）。
@@ -84,7 +88,7 @@ const RESERVED = [
  * 検査するコース。カテゴリ名・コース名・案内の有無・期待する語彙セット。
  *
  * `expected` は、そのコースの盤面に出てよい pairId の集合。
- * 共通セットのコースは `null`（=ゲームの70語ぜんぶ）。
+ * 共通セットのコースは `null`（=ゲームの85語ぜんぶ）。
  * `board` を持つコースは、固定seedで必ずその盤面になる（実測して固定した値）。
  * `core` / `shared` は、そのセットの専用語と共有基礎語。両方が盤面に出ることを見る。
  * `historyLabel` を持つコースは、パスポートの履歴表示名も確かめる。
@@ -102,8 +106,25 @@ const COURSES = [
     shared: SCHOOL_SHARED_IDS,
     historyLabel: '小学生',
   },
-  { category: /ステップ別/, course: 'ステップ1', courseId: 'eiken-5', notice: true, setLabel: '共通', expected: null },
-  { category: /社会人/, course: 'IT・仕事', courseId: 'biz-it', notice: false, setLabel: '共通', expected: null },
+  {
+    category: /ステップ別/,
+    course: 'ステップ1',
+    courseId: 'eiken-5',
+    notice: true,
+    setLabel: '共通',
+    expected: null,
+    // 85語になって盤面が変わったので、実測して取り直した値。
+    board: [24, 32, 73],
+  },
+  {
+    category: /社会人/,
+    course: 'IT・仕事',
+    courseId: 'biz-it',
+    notice: false,
+    setLabel: '共通',
+    expected: null,
+    board: [24, 32, 73],
+  },
   {
     category: /社会人/,
     course: '海外旅行',
@@ -302,21 +323,38 @@ try {
             JSON.stringify(ids) === JSON.stringify(target.board),
             `${label}: 固定seedの盤面が想定と違う（期待: ${target.board.join(',')} / 実際: ${ids.join(',')}）`,
           );
-          // そのセットだけの語と、共通セットと共有する基礎語が、どちらも出ている。
-          check(
-            ids.some((id) => target.core.includes(id)),
-            `${label}: ${target.setLabel}専用の語が盤面に無い（${ids.join(',')}）`,
-          );
-          check(
-            ids.some((id) => target.shared.includes(id)),
-            `${label}: 共有する基礎語が盤面に無い（${ids.join(',')}）`,
-          );
-          // 資料確認が終わっていない 8・10 は、テーマ別のセットに入れていない。
-          for (const pairId of UNVERIFIED_IN_USE) {
+          if (target.core !== undefined) {
+            // そのセットだけの語と、共通セットと共有する基礎語が、どちらも出ている。
             check(
-              !ids.includes(pairId),
-              `${label}: 未確認の ${pairId} が${target.setLabel}の盤面に出ている`,
+              ids.some((id) => target.core.includes(id)),
+              `${label}: ${target.setLabel}専用の語が盤面に無い（${ids.join(',')}）`,
             );
+            check(
+              ids.some((id) => target.shared.includes(id)),
+              `${label}: 共有する基礎語が盤面に無い（${ids.join(',')}）`,
+            );
+            // 資料確認が終わっていない 8・10 は、テーマ別のセットに入れていない。
+            for (const pairId of UNVERIFIED_IN_USE) {
+              check(
+                !ids.includes(pairId),
+                `${label}: 未確認の ${pairId} が${target.setLabel}の盤面に出ている`,
+              );
+            }
+            // 接客・観光の専用セットはまだ無い。76〜90 はテーマ別セットへ広げていない。
+            for (const pairId of HOSPITALITY_PAIR_IDS) {
+              check(
+                !allowed.includes(pairId),
+                `${label}: ${target.setLabel}セットに ${pairId} が混ざっている`,
+              );
+            }
+          } else {
+            // 共通セットのコースでは、工程V-2F-2で足した15語も出題されうる。
+            for (const pairId of HOSPITALITY_PAIR_IDS) {
+              check(
+                allowed.includes(pairId),
+                `${label}: 共通セットに ${pairId} が無い`,
+              );
+            }
           }
         }
 

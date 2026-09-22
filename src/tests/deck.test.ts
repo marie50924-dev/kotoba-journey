@@ -16,7 +16,7 @@ import type { CardCount } from '../domain/types';
 
 const COUNTS: CardCount[] = [6, 12, 20];
 
-/** ゲームに入っている25語。12・20・22・25・27 は資料確認待ちの欠番。 */
+/** ゲームに入っている85語。12・20・22・25・27 は資料確認待ちの欠番。 */
 const GAME_PAIR_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
   11, 13, 14, 15, 16, 17, 18, 19,
@@ -27,10 +27,12 @@ const GAME_PAIR_IDS = [
   54, 55, 56, 57, 58, 59, 60,
   61, 62, 63, 64, 65, 66, 67, 68,
   69, 70, 71, 72, 73, 74, 75,
+  76, 77, 78, 79, 80, 81, 82, 83,
+  84, 85, 86, 87, 88, 89, 90,
 ];
 /** 台帳にはあるが、まだゲームへ入れていない語。番号は予約したまま。 */
 const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
-/** 工程V-2C-4以降に足した60語。 */
+/** 工程V-2C-4以降に足した75語。 */
 const ADDED_PAIRS: [number, string, string][] = [
   [11, 'うさぎ', 'rabbit'],
   [13, 'ぞう', 'elephant'],
@@ -92,6 +94,21 @@ const ADDED_PAIRS: [number, string, string][] = [
   [73, 'ロッカー', 'locker'],
   [74, 'コンピューター', 'computer'],
   [75, 'ページ', 'page'],
+  [76, 'メニュー', 'menu'],
+  [77, 'テーブル', 'table'],
+  [78, 'スプーン', 'spoon'],
+  [79, 'フォーク', 'fork'],
+  [80, 'ナイフ', 'knife'],
+  [81, 'おさら', 'plate'],
+  [82, 'タオル', 'towel'],
+  [83, 'ベッド', 'bed'],
+  [84, 'へや', 'room'],
+  [85, 'シャワー', 'shower'],
+  [86, 'エレベーター', 'elevator'],
+  [87, 'まつ', 'wait'],
+  [88, 'はこぶ', 'carry'],
+  [89, 'あける', 'open'],
+  [90, 'しめる', 'close'],
 ];
 
 describe('デッキ生成', () => {
@@ -111,9 +128,9 @@ describe('デッキ生成', () => {
     expect(ids.size).toBe(pairCountFor(count));
   });
 
-  it('20枚は、70語のプールから10語を選ぶ', () => {
+  it('20枚は、85語のプールから10語を選ぶ', () => {
     // 語彙が10語だった頃は、20枚を出すと必ず全語が並んでいた。
-    // いまは70語から選ぶので、出る10語は seed で変わる。
+    // いまは85語から選ぶので、出る10語は seed で変わる。
     const pool = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     for (const seed of [1, 777, 20260921]) {
       const ids = [...new Set(buildDeck(SAMPLE_PAIRS, 20, seed).map((c) => c.pairId))];
@@ -199,7 +216,7 @@ describe('語彙の選出', () => {
     expect(new Set(sets).size).toBeGreaterThan(1);
   });
 
-  it('70語すべてが、seed しだいで選ばれうる', () => {
+  it('85語すべてが、seed しだいで選ばれうる', () => {
     // 少数のseedで全語が出ると決め打ちせず、十分な数のseedを走査して、
     // 70のどの pairId も少なくとも1回は選ばれることを見る。
     const TRIALS = 500;
@@ -358,11 +375,26 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
       [73, 'ロッカー', 'locker'],
       [74, 'コンピューター', 'computer'],
       [75, 'ページ', 'page'],
+      [76, 'メニュー', 'menu'],
+      [77, 'テーブル', 'table'],
+      [78, 'スプーン', 'spoon'],
+      [79, 'フォーク', 'fork'],
+      [80, 'ナイフ', 'knife'],
+      [81, 'おさら', 'plate'],
+      [82, 'タオル', 'towel'],
+      [83, 'ベッド', 'bed'],
+      [84, 'へや', 'room'],
+      [85, 'シャワー', 'shower'],
+      [86, 'エレベーター', 'elevator'],
+      [87, 'まつ', 'wait'],
+      [88, 'はこぶ', 'carry'],
+      [89, 'あける', 'open'],
+      [90, 'しめる', 'close'],
     ]);
   });
 
-  it('ゲームの語は70語で、欠番を詰めていない', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(70);
+  it('ゲームの語は85語で、欠番を詰めていない', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(85);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(GAME_PAIR_IDS);
     // 資料確認が終わっていない5語は、まだゲームへ入れない。
     for (const reserved of RESERVED_PAIR_IDS) {
@@ -375,9 +407,9 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
   });
 
   it('pairId・日本語・英語に重複がない', () => {
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(70);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(70);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(70);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(85);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(85);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(85);
     for (const pair of SAMPLE_PAIRS) {
       expect(Number.isInteger(pair.pairId) && pair.pairId > 0, `${pair.pairId}`).toBe(true);
     }
@@ -417,7 +449,7 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
     const deck = buildDeck(SAMPLE_PAIRS, 6, 4242);
     const onBoard = new Set(deck.map((c) => c.pairId));
     const offBoard = SAMPLE_PAIRS.filter((p) => !onBoard.has(p.pairId)).map((p) => p.pairId);
-    expect(offBoard).toHaveLength(67);
+    expect(offBoard).toHaveLength(82);
     const questions = buildWaveQuiz({
       wavePairIds: [...onBoard],
       cardCount: 6,
@@ -469,7 +501,7 @@ describe('seed付きシャッフル', () => {
 /**
  * 旅のことば30語のプール。
  *
- * 70語の検査はそのまま残したうえで、狭いプールでも同じ性質が保たれるかを見る。
+ * 85語の検査はそのまま残したうえで、狭いプールでも同じ性質が保たれるかを見る。
  * ここで渡すのはセット定義から解決した本番データそのもの。
  */
 describe('旅のことば30語のプール', () => {
@@ -549,7 +581,7 @@ describe('旅のことば30語のプール', () => {
 /**
  * 学校のことば30語のプール。
  *
- * 70語・旅の30語の検査はそのまま残したうえで、学校のプールでも
+ * 85語・旅の30語の検査はそのまま残したうえで、学校のプールでも
  * 同じ性質が保たれるかを見る。渡すのはセット定義から解決した本番データ。
  */
 describe('学校のことば30語のプール', () => {

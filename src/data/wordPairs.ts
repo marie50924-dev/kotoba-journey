@@ -1,10 +1,10 @@
 import type { WordPair } from '../domain/types';
 
 /**
- * いまのカルタが使う語彙（70語）。
+ * いまのカルタが使う語彙（85語）。
  *
- * 語彙セットは、この70語の中から「どの語を使うか」を選ぶ入れ物で、
- * src/data/vocabularySets.ts にある。いまは共通セットが70語ぜんぶを、
+ * 語彙セットは、この85語の中から「どの語を使うか」を選ぶ入れ物で、
+ * src/data/vocabularySets.ts にある。いまは共通セットが85語ぜんぶを、
  * 旅のセットと学校のセットがそれぞれ30語を指していて、コースがどれかを参照する。
  * 同じ語が複数のセットへ入ることもある。
  * どのセットに入っているかは、語の確認状態とも学年の難易度とも別の軸。
@@ -106,6 +106,24 @@ export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 73, ja: 'ロッカー', en: 'locker' },
   { pairId: 74, ja: 'コンピューター', en: 'computer' },
   { pairId: 75, ja: 'ページ', en: 'page' },
+
+  // 工程V-2F-1で台帳の確認を終え、工程V-2F-2で足した接客・飲食・宿泊の語。
+  // 飲食の物・宿泊や建物の物・接客の場面で見える動作を、台帳と同じ番号のまま入れている。
+  { pairId: 76, ja: 'メニュー', en: 'menu' },
+  { pairId: 77, ja: 'テーブル', en: 'table' },
+  { pairId: 78, ja: 'スプーン', en: 'spoon' },
+  { pairId: 79, ja: 'フォーク', en: 'fork' },
+  { pairId: 80, ja: 'ナイフ', en: 'knife' },
+  { pairId: 81, ja: 'おさら', en: 'plate' },
+  { pairId: 82, ja: 'タオル', en: 'towel' },
+  { pairId: 83, ja: 'ベッド', en: 'bed' },
+  { pairId: 84, ja: 'へや', en: 'room' },
+  { pairId: 85, ja: 'シャワー', en: 'shower' },
+  { pairId: 86, ja: 'エレベーター', en: 'elevator' },
+  { pairId: 87, ja: 'まつ', en: 'wait' },
+  { pairId: 88, ja: 'はこぶ', en: 'carry' },
+  { pairId: 89, ja: 'あける', en: 'open' },
+  { pairId: 90, ja: 'しめる', en: 'close' },
 ];
 
 export function findPair(pairId: number): WordPair | undefined {
