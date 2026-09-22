@@ -549,7 +549,7 @@ describe('旅のことば30語のプール', () => {
     expect(TRAVEL.map((p) => p.pairId)).toEqual(before);
   });
 
-  it('盤面に出るのは旅の30語だけで、欠番も未確認の 8・10 も出ない', () => {
+  it('盤面に出るのは旅の30語だけで、欠番と場面別セットに含めていない 8・10 は出ない', () => {
     for (const count of COUNTS) {
       for (let seed = 1; seed <= 200; seed += 1) {
         for (const card of buildDeck(TRAVEL, count, seed)) {
@@ -628,7 +628,7 @@ describe('学校のことば30語のプール', () => {
     expect(SCHOOL.map((p) => p.pairId)).toEqual(before);
   });
 
-  it('盤面に出るのは学校の30語だけで、欠番も未確認の 8・10 も出ない', () => {
+  it('盤面に出るのは学校の30語だけで、欠番と場面別セットに含めていない 8・10 は出ない', () => {
     for (const count of COUNTS) {
       for (let seed = 1; seed <= 200; seed += 1) {
         for (const card of buildDeck(SCHOOL, count, seed)) {
@@ -706,7 +706,7 @@ describe('接客・観光のことば30語のプール', () => {
     expect(HOSPITALITY.map((p) => p.pairId)).toEqual(before);
   });
 
-  it('盤面に出るのは接客・観光の30語だけで、欠番も未確認の 8・10 も出ない', () => {
+  it('盤面に出るのは接客・観光の30語だけで、欠番と場面別セットに含めていない 8・10 は出ない', () => {
     for (const count of COUNTS) {
       for (let seed = 1; seed <= 200; seed += 1) {
         for (const card of buildDeck(HOSPITALITY, count, seed)) {
