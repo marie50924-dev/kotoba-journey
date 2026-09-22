@@ -18,11 +18,11 @@ export interface Course {
    * このコースが出題に使う語彙セット。
    *
    * いまは小学生・中学生が 'school-practice'、海外旅行が 'travel-practice'、
-   * 残り21コースが 'common-practice'。
+   * 接客・観光が 'hospitality-practice'、残り20コースが 'common-practice'。
    * 語彙と場面の対応がはっきりしているコースから、少しずつ分けていく。
    *
-   * セットは場面で分けたものであって、学年別の難易度ではない。
-   * どの語がどの学年に向くかを決められるデータは、まだ持っていない。
+   * セットは場面で分けたものであって、学年別の難易度でも、
+   * 仕事で必要な力でもない。それを決められるデータは、まだ持っていない。
    */
   vocabularySetId: VocabularySetId;
 }
@@ -72,7 +72,9 @@ export const COURSES: readonly Course[] = [
   // ほかのコースは、語彙と場面の対応が決まるまで共通セットのまま。
   { id: 'biz-travel', label: '海外旅行', categoryId: 'business', vocabularySetId: 'travel-practice' },
   { id: 'biz-business', label: 'ビジネス', categoryId: 'business', vocabularySetId: 'common-practice' },
-  { id: 'biz-hospitality', label: '接客・観光', categoryId: 'business', vocabularySetId: 'common-practice' },
+  // 接客・観光は、接客・飲食・宿泊・観光の場面のことばを使う。
+  // 場面で分けたセットで、接客の技能や職業の基準を確かめたものではない。
+  { id: 'biz-hospitality', label: '接客・観光', categoryId: 'business', vocabularySetId: 'hospitality-practice' },
   { id: 'biz-care', label: '医療・介護', categoryId: 'business', vocabularySetId: 'common-practice' },
   { id: 'biz-it', label: 'IT・仕事', categoryId: 'business', vocabularySetId: 'common-practice' },
 ];

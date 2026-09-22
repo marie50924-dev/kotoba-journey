@@ -24,9 +24,10 @@ import type { CardCount } from '../domain/types';
 /**
  * 「コース → 語彙セット → 語」の経路の検査。
  *
- * いまセットは3つある。小学生・中学生が学校のことば30語、
- * 海外旅行が旅のことば30語、残り21コースが共通の85語を使う。
- * セットは場面で分けたもので、学年別の難易度ではない。
+ * いまセットは4つある。小学生・中学生が学校のことば30語、
+ * 海外旅行が旅のことば30語、接客・観光が接客・観光のことば30語、
+ * 残り20コースが共通の85語を使う。
+ * セットは場面で分けたもので、学年別の難易度でも仕事で必要な力でもない。
  * ここで固定したいのは、経路が通っていること、どのコースがどのセットを使うか、
  * そして共通セットで遊ぶコースの出題が以前と変わっていないこと。
  */
@@ -62,6 +63,19 @@ const SCHOOL_SET_PAIR_IDS = [
 const SCHOOL_SHARED_IDS = [3, 6, 15, 16, 17, 18, 19, 28, 37, 38, 39, 40, 41, 43, 44];
 /** 学校セットを使うコース。 */
 const SCHOOL_COURSE_IDS = ['grade-elementary', 'grade-junior'];
+/** 接客・観光のことば30語。並びも定義どおりに固定する。 */
+const HOSPITALITY_SET_PAIR_IDS = [
+  7,
+  28, 29, 30,
+  38, 40,
+  46, 47, 49, 50, 51, 52, 53, 57, 60,
+  76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
+  86, 87, 88, 89, 90,
+];
+/** 接客・観光だけの核15語（= 工程V-2F-2で足した語）。 */
+const HOSPITALITY_CORE_IDS = [76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90];
+/** 旅のセットと共有する15語。 */
+const HOSPITALITY_SHARED_IDS = [7, 28, 29, 30, 38, 40, 46, 47, 49, 50, 51, 52, 53, 57, 60];
 /** 資料確認待ちで、まだどのセットにも入れていない語。 */
 const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
 /** 旅のことば30語。並びも定義どおりに固定する。 */
@@ -78,8 +92,9 @@ const TRAVEL_SHARED_IDS = [1, 7, 21, 23, 24, 26, 28, 29, 30, 36, 38, 39, 40, 42,
 /** 台帳でまだ資料確認が終わっていない、使用中の2語。旅のセットへは入れない。 */
 const UNVERIFIED_IN_USE = [8, 10];
 /** 共通セットを使うコース。小学生・中学生・海外旅行だけが別。 */
-const COMMON_COURSE_IDS = COURSES.map((c) => c.id)
-  .filter((id) => id !== 'biz-travel' && !SCHOOL_COURSE_IDS.includes(id));
+const COMMON_COURSE_IDS = COURSES.map((c) => c.id).filter(
+  (id) => id !== 'biz-travel' && id !== 'biz-hospitality' && !SCHOOL_COURSE_IDS.includes(id),
+);
 const COUNTS: CardCount[] = [6, 12, 20];
 /**
  * セットが違えば盤面も食い違う seed。
@@ -93,13 +108,15 @@ describe('語彙セットの定義', () => {
     expect(new Set(VOCABULARY_SETS.map((s) => s.id)).size).toBe(VOCABULARY_SETS.length);
   });
 
-  it('いまは common・travel・school の3件がある', () => {
-    expect(VOCABULARY_SETS).toHaveLength(3);
-    expect(VOCABULARY_SETS.map((s) => s.id))
-      .toEqual(['common-practice', 'travel-practice', 'school-practice']);
+  it('いまは common・travel・school・hospitality の4件がある', () => {
+    expect(VOCABULARY_SETS).toHaveLength(4);
+    expect(VOCABULARY_SETS.map((s) => s.id)).toEqual([
+      'common-practice', 'travel-practice', 'school-practice', 'hospitality-practice',
+    ]);
     expect(findVocabularySet('common-practice')!.label).toBe('共通の練習用ことば');
     expect(findVocabularySet('travel-practice')!.label).toBe('旅のことば');
     expect(findVocabularySet('school-practice')!.label).toBe('学校のことば');
+    expect(findVocabularySet('hospitality-practice')!.label).toBe('接客・観光のことば');
   });
 
   it('既定セットは common-practice のまま', () => {
@@ -251,6 +268,54 @@ describe('語彙セットの定義', () => {
     }
   });
 
+  it('接客・観光のセットの pairIds は、指定の30件と並びまで一致する', () => {
+    const set = findVocabularySet('hospitality-practice')!;
+    expect(set.pairIds).toEqual(HOSPITALITY_SET_PAIR_IDS);
+    expect(set.pairIds).toHaveLength(30);
+    // 前半15件が共有語、後半15件が核15語（76〜90の昇順）。
+    expect([...set.pairIds].slice(0, 15)).toEqual(HOSPITALITY_SHARED_IDS);
+    expect([...set.pairIds].slice(-15)).toEqual(HOSPITALITY_CORE_IDS);
+  });
+
+  it('接客・観光のセットは、核15語をすべて含む', () => {
+    const ids = new Set(findVocabularySet('hospitality-practice')!.pairIds);
+    for (const pairId of HOSPITALITY_CORE_IDS) {
+      expect(ids.has(pairId), `核の ${pairId} が入っていない`).toBe(true);
+    }
+    // 学校だけの語（61〜75）は入れない。
+    for (const pairId of SCHOOL_PAIR_IDS) {
+      expect(ids.has(pairId), `学校の ${pairId} が接客のセットに入っている`).toBe(false);
+    }
+  });
+
+  it('接客・観光のセットには、8・10 と予約欠番を入れない', () => {
+    const ids = new Set(findVocabularySet('hospitality-practice')!.pairIds);
+    for (const pairId of [...UNVERIFIED_IN_USE, ...RESERVED_PAIR_IDS]) {
+      expect(ids.has(pairId), `${pairId} が接客のセットに入っている`).toBe(false);
+    }
+  });
+
+  it('接客・観光の30語は、すべてゲームに入っている確認済みの語', () => {
+    const known = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
+    for (const pairId of HOSPITALITY_SET_PAIR_IDS) {
+      expect(known.has(pairId), `${pairId} がゲームデータに無い`).toBe(true);
+      expect(UNVERIFIED_IN_USE, `${pairId} は未確認のまま入っている`).not.toContain(pairId);
+    }
+  });
+
+  it('旅のセットと接客・観光のセットは、15語を共有する', () => {
+    const travel = new Set(findVocabularySet('travel-practice')!.pairIds);
+    const hospitality = new Set(findVocabularySet('hospitality-practice')!.pairIds);
+    const shared = [...hospitality].filter((id) => travel.has(id)).sort((a, b) => a - b);
+    expect(shared).toEqual(HOSPITALITY_SHARED_IDS);
+    expect([...travel].filter((id) => !hospitality.has(id))).toHaveLength(15);
+    expect([...hospitality].filter((id) => !travel.has(id))).toHaveLength(15);
+    // 和集合45語・Jaccard係数 15/45。
+    const union = new Set([...travel, ...hospitality]);
+    expect(union.size).toBe(45);
+    expect(shared.length / union.size).toBeCloseTo(1 / 3, 5);
+  });
+
   it('どのセットも、20枚に必要な10語以上を持つ', () => {
     for (const set of VOCABULARY_SETS) {
       expect(set.pairIds.length, `${set.id}`).toBeGreaterThanOrEqual(pairCountFor(20));
@@ -272,6 +337,15 @@ describe('セットから語を解決する', () => {
     expect(pairs).toHaveLength(30);
     expect(pairs.map((p) => p.pairId)).toEqual(TRAVEL_PAIR_IDS);
     // 語そのものは語彙データと同じ。セットは並べ替えも書き換えもしない。
+    for (const pair of pairs) {
+      expect(pair).toEqual(findPair(pair.pairId));
+    }
+  });
+
+  it('pairsInSet は接客・観光のセットの30語を、セットの並びのまま返す', () => {
+    const pairs = pairsInSet('hospitality-practice');
+    expect(pairs).toHaveLength(30);
+    expect(pairs.map((p) => p.pairId)).toEqual(HOSPITALITY_SET_PAIR_IDS);
     for (const pair of pairs) {
       expect(pair).toEqual(findPair(pair.pairId));
     }
@@ -357,6 +431,13 @@ describe('コースと語彙セットの結びつき', () => {
     expect(findCourse('grade-junior')!.label).toBe('中学生');
   });
 
+  it('接客・観光のセットを指すコースは、接客・観光1件だけ', () => {
+    const courses = COURSES.filter((c) => c.vocabularySetId === 'hospitality-practice');
+    expect(courses.map((c) => c.id)).toEqual(['biz-hospitality']);
+    expect(findCourse('biz-hospitality')!.label).toBe('接客・観光');
+    expect(findCourse('biz-hospitality')!.categoryId).toBe('business');
+  });
+
   it('高校生・大学生は共通セットのまま', () => {
     // 学校30語は教室の道具が多く、その学年に合うかを示せるデータがまだ無い。
     // セットは場面で分けたもので、学年別の難易度ではない。
@@ -364,9 +445,9 @@ describe('コースと語彙セットの結びつき', () => {
     expect(findCourse('grade-university')!.vocabularySetId).toBe('common-practice');
   });
 
-  it('学校・旅行以外の21コースは common-practice のまま', () => {
+  it('テーマ別セット以外の20コースは common-practice のまま', () => {
     const commonCourses = COURSES.filter((c) => c.vocabularySetId === 'common-practice');
-    expect(commonCourses).toHaveLength(21);
+    expect(commonCourses).toHaveLength(20);
     expect(commonCourses.map((c) => c.id)).toEqual(COMMON_COURSE_IDS);
     // 分類ごとにも確かめる。名前だけを理由にセットを変えていないこと。
     const grade = COURSES.filter((c) => c.categoryId === 'grade');
@@ -381,12 +462,13 @@ describe('コースと語彙セットの結びつき', () => {
     const business = COURSES.filter((c) => c.categoryId === 'business');
     expect(business.filter((c) => c.vocabularySetId === 'travel-practice').map((c) => c.id))
       .toEqual(['biz-travel']);
-    expect(business.filter((c) => c.vocabularySetId === 'common-practice')).toHaveLength(5);
+    expect(business.filter((c) => c.vocabularySetId === 'hospitality-practice').map((c) => c.id))
+      .toEqual(['biz-hospitality']);
+    expect(business.filter((c) => c.vocabularySetId === 'common-practice')).toHaveLength(4);
   });
 
-  it('接客・観光と日常英会話は、今回まだ共通セットのまま', () => {
-    expect(findCourse('biz-hospitality')!.vocabularySetId).toBe('common-practice');
-    // 日常英会話は追加語の回帰テストが使うので、共通85語のまま動かさない。
+  it('日常英会話は、今回も共通セットのまま', () => {
+    // 追加語の回帰テストが使うので、共通85語のまま動かさない。
     expect(findCourse('biz-daily')!.vocabularySetId).toBe('common-practice');
   });
 
@@ -422,6 +504,16 @@ describe('選択中のコースから語を引く', () => {
     expect(pairs).toHaveLength(30);
     for (const pairId of [...UNVERIFIED_IN_USE, ...RESERVED_PAIR_IDS]) {
       expect(pairs.map((p) => p.pairId), `${pairId} が海外旅行の語に入っている`)
+        .not.toContain(pairId);
+    }
+  });
+
+  it('接客・観光を指定すると、接客・観光の30語になる', () => {
+    const pairs = pairsForCourse('biz-hospitality');
+    expect(pairs.map((p) => p.pairId)).toEqual(HOSPITALITY_SET_PAIR_IDS);
+    expect(pairs).toHaveLength(30);
+    for (const pairId of [...UNVERIFIED_IN_USE, ...RESERVED_PAIR_IDS]) {
+      expect(pairs.map((p) => p.pairId), `${pairId} が接客・観光の語に入っている`)
         .not.toContain(pairId);
     }
   });
@@ -486,12 +578,14 @@ describe('経路を入れても、出題は変わっていないこと', () => {
       buildDeck(pairsForCourse(courseId), count, seed).map((card) => card.id).join(',');
     for (const count of COUNTS) {
       for (const seed of DIFFERENT_BOARD_SEEDS) {
-        const school = board('grade-elementary', count, seed);
-        const travel = board('biz-travel', count, seed);
-        const common = board('biz-daily', count, seed);
-        expect(school, `学校と共通 count=${count} seed=${seed}`).not.toBe(common);
-        expect(travel, `旅行と共通 count=${count} seed=${seed}`).not.toBe(common);
-        expect(school, `学校と旅行 count=${count} seed=${seed}`).not.toBe(travel);
+        const boards = {
+          学校: board('grade-elementary', count, seed),
+          旅行: board('biz-travel', count, seed),
+          接客: board('biz-hospitality', count, seed),
+          共通: board('biz-daily', count, seed),
+        };
+        // 4セットの盤面が、どの2つを比べても一致しない。
+        expect(new Set(Object.values(boards)).size, `count=${count} seed=${seed}`).toBe(4);
       }
     }
   });
@@ -510,7 +604,7 @@ describe('経路を入れても、出題は変わっていないこと', () => {
   });
 
   it('どのセットでも、同じseedなら毎回同じ結果になる', () => {
-    for (const courseId of ['biz-travel', 'grade-elementary', 'biz-daily']) {
+    for (const courseId of ['biz-travel', 'grade-elementary', 'biz-hospitality', 'biz-daily']) {
       for (const count of COUNTS) {
         const first = buildDeck(pairsForCourse(courseId), count, 4321)
           .map((card) => `${card.id}:${card.text}`);
@@ -526,6 +620,7 @@ describe('経路を入れても、出題は変わっていないこと', () => {
       ['biz-travel', TRAVEL_PAIR_IDS],
       ['grade-elementary', SCHOOL_SET_PAIR_IDS],
       ['grade-junior', SCHOOL_SET_PAIR_IDS],
+      ['biz-hospitality', HOSPITALITY_SET_PAIR_IDS],
       ['biz-it', COMMON_PAIR_IDS],
     ];
     for (const [courseId, allowed] of cases) {
@@ -540,7 +635,7 @@ describe('経路を入れても、出題は変わっていないこと', () => {
   });
 
   it('6枚は3語・12枚は6語・20枚は10語のまま（どちらのセットでも）', () => {
-    for (const courseId of ['biz-it', 'biz-travel', 'grade-elementary']) {
+    for (const courseId of ['biz-it', 'biz-travel', 'grade-elementary', 'biz-hospitality']) {
       for (const count of COUNTS) {
         const ids = new Set(buildDeck(pairsForCourse(courseId), count, 2024).map((c) => c.pairId));
         expect(ids.size, `${courseId} ${count}枚`).toBe(pairCountFor(count));

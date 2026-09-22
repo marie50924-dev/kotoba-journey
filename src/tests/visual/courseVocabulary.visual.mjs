@@ -2,8 +2,8 @@
  * 表示・操作回帰テスト（コース → 語彙セット → 盤面）。
  *
  * カルタ画面は、選んだコースの語彙セットから語を引く。
- * セットは3つある。小学生・中学生が学校のことば30語、海外旅行が旅のことば30語、
- * 残り21コースは共通の85語。
+ * セットは4つある。小学生・中学生が学校のことば30語、海外旅行が旅のことば30語、
+ * 接客・観光が接客・観光のことば30語、残り20コースは共通の85語。
  *
  * 確かめるのは、3分類のどのコースからでも最後まで遊べることと、
  * **そのコースへ割り当てたセットの中に出題が収まっていること**。
@@ -34,10 +34,6 @@ const FIXED_NOW = 1700000000001;
  * 共通セットを使うコースは、この中から出題される。
  */
 const COMMON = WORD_PAIRS;
-/** 工程V-2F-2で共通セットへ足した接客・飲食・宿泊の15語。 */
-const HOSPITALITY_PAIR_IDS = [
-  76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
-];
 
 /**
  * 旅のことば30語（src/data/vocabularySets.ts の travel-practice と同じ）。
@@ -73,7 +69,24 @@ const SCHOOL_CORE_IDS = SCHOOL_PAIR_IDS.filter((id) => id >= 61);
 /** 共通セットと共有する基礎15語。 */
 const SCHOOL_SHARED_IDS = SCHOOL_PAIR_IDS.filter((id) => id < 61);
 
-/** 台帳でまだ資料確認が終わっていない、使用中の2語。旅・学校のセットには入れない。 */
+/**
+ * 接客・観光のことば30語（src/data/vocabularySets.ts の hospitality-practice と同じ）。
+ * 旅・学校のセットと同じ理由で、ここも手書きにする。
+ */
+const HOSPITALITY_PAIR_IDS = [
+  7,
+  28, 29, 30,
+  38, 40,
+  46, 47, 49, 50, 51, 52, 53, 57, 60,
+  76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
+  86, 87, 88, 89, 90,
+];
+/** 接客・観光だけの核15語。 */
+const HOSPITALITY_CORE_IDS = HOSPITALITY_PAIR_IDS.filter((id) => id >= 76);
+/** 旅のセットと共有する15語。 */
+const HOSPITALITY_SHARED_IDS = HOSPITALITY_PAIR_IDS.filter((id) => id < 76);
+
+/** 台帳でまだ資料確認が終わっていない、使用中の2語。テーマ別セットには入れない。 */
 const UNVERIFIED_IN_USE = [8, 10];
 /** まだどのセットにも入れていない語。盤面へ出てはいけない。 */
 const RESERVED = [
@@ -148,6 +161,19 @@ const COURSES = [
     core: SCHOOL_CORE_IDS,
     shared: SCHOOL_SHARED_IDS,
     historyLabel: '中学生',
+  },
+  {
+    category: /社会人/,
+    course: '接客・観光',
+    courseId: 'biz-hospitality',
+    notice: false,
+    setLabel: '接客',
+    expected: HOSPITALITY_PAIR_IDS,
+    // 既存の固定seedのまま実測した盤面。核と共有語がどちらも出る。
+    board: [30, 86, 89],
+    core: HOSPITALITY_CORE_IDS,
+    shared: HOSPITALITY_SHARED_IDS,
+    historyLabel: '接客・観光',
   },
 ];
 
@@ -340,16 +366,16 @@ try {
                 `${label}: 未確認の ${pairId} が${target.setLabel}の盤面に出ている`,
               );
             }
-            // 接客・観光の専用セットはまだ無い。76〜90 はテーマ別セットへ広げていない。
-            for (const pairId of HOSPITALITY_PAIR_IDS) {
+            // 76〜90 は、接客・観光のセットの核。旅・学校のセットへは広げていない。
+            for (const pairId of HOSPITALITY_CORE_IDS) {
               check(
-                !allowed.includes(pairId),
-                `${label}: ${target.setLabel}セットに ${pairId} が混ざっている`,
+                allowed.includes(pairId) === (target.courseId === 'biz-hospitality'),
+                `${label}: ${target.setLabel}セットの ${pairId} の扱いが違う`,
               );
             }
           } else {
             // 共通セットのコースでは、工程V-2F-2で足した15語も出題されうる。
-            for (const pairId of HOSPITALITY_PAIR_IDS) {
+            for (const pairId of HOSPITALITY_CORE_IDS) {
               check(
                 allowed.includes(pairId),
                 `${label}: 共通セットに ${pairId} が無い`,

@@ -655,3 +655,99 @@ describe('学校のことば30語のプール', () => {
     }
   });
 });
+
+/**
+ * 接客・観光のことば30語のプール。
+ *
+ * 85語・旅の30語・学校の30語の検査はそのまま残したうえで、
+ * 接客・観光のプールでも同じ性質が保たれるかを見る。
+ */
+describe('接客・観光のことば30語のプール', () => {
+  const HOSPITALITY = pairsInSet('hospitality-practice');
+  const HOSPITALITY_IDS = HOSPITALITY.map((p) => p.pairId);
+  const RESERVED = [12, 20, 22, 25, 27];
+  const UNVERIFIED = [8, 10];
+
+  it('30語ある', () => {
+    expect(HOSPITALITY).toHaveLength(30);
+  });
+
+  it.each(COUNTS)('%i枚で、枚数ぶんの語を選べる', (count) => {
+    const ids = new Set(buildDeck(HOSPITALITY, count, 2024).map((c) => c.pairId));
+    expect(ids.size).toBe(pairCountFor(count));
+  });
+
+  it('同じseedなら同じ結果になる', () => {
+    for (const count of COUNTS) {
+      const a = buildDeck(HOSPITALITY, count, 555).map((c) => `${c.id}:${c.text}`);
+      const b = buildDeck(HOSPITALITY, count, 555).map((c) => `${c.id}:${c.text}`);
+      expect(a, `${count}枚`).toEqual(b);
+    }
+  });
+
+  it('異なるseedでは、異なる組み合わせになり得る', () => {
+    for (const count of COUNTS) {
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 30; seed += 1) {
+        seen.add(
+          [...new Set(buildDeck(HOSPITALITY, count, seed).map((c) => c.pairId))]
+            .sort((a, b) => a - b)
+            .join(','),
+        );
+      }
+      expect(seen.size, `${count}枚`).toBeGreaterThan(1);
+    }
+  });
+
+  it('元の接客・観光語彙配列を並べ替えない', () => {
+    const before = HOSPITALITY.map((p) => p.pairId);
+    buildDeck(HOSPITALITY, 20, 31337);
+    selectPairs(HOSPITALITY, 10, 31337);
+    expect(HOSPITALITY.map((p) => p.pairId)).toEqual(before);
+  });
+
+  it('盤面に出るのは接客・観光の30語だけで、欠番も未確認の 8・10 も出ない', () => {
+    for (const count of COUNTS) {
+      for (let seed = 1; seed <= 200; seed += 1) {
+        for (const card of buildDeck(HOSPITALITY, count, seed)) {
+          expect(HOSPITALITY_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
+            .toContain(card.pairId);
+          expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
+          expect(UNVERIFIED, `未確認の ${card.pairId} が出た`).not.toContain(card.pairId);
+        }
+      }
+    }
+  });
+
+  it('30語すべてが、seed しだいで選ばれうる', () => {
+    const TRIALS = 500;
+    for (const count of COUNTS) {
+      const seen = new Set<number>();
+      for (let seed = 1; seed <= TRIALS; seed += 1) {
+        for (const card of buildDeck(HOSPITALITY, count, seed)) seen.add(card.pairId);
+        if (seen.size === HOSPITALITY.length) break;
+      }
+      expect([...seen].sort((a, b) => a - b), `${count}枚`).toEqual(
+        [...HOSPITALITY_IDS].sort((a, b) => a - b),
+      );
+    }
+  });
+
+  it('4つのセットは、固定した検査seedで盤面が分かれる', () => {
+    // 偶然そろう seed を避けるため、4つとも食い違う seed を実測して固定してある。
+    const POOLS = {
+      共通: pairsInSet('common-practice'),
+      旅行: pairsInSet('travel-practice'),
+      学校: pairsInSet('school-practice'),
+      接客: HOSPITALITY,
+    };
+    for (const count of COUNTS) {
+      for (const seed of [1, 2, 3]) {
+        const boards = Object.values(POOLS).map((pool) =>
+          buildDeck(pool, count, seed).map((c) => c.id).join(','),
+        );
+        expect(new Set(boards).size, `count=${count} seed=${seed}`).toBe(4);
+      }
+    }
+  });
+});

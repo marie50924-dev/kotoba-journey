@@ -94,13 +94,34 @@ describe('コース定義', () => {
 });
 
 describe('コースと語彙セットの割り当て', () => {
-  it('学校2コース・旅行1コース・共通21コースに分かれる', () => {
+  it('共通20・旅行1・学校2・接客1に分かれる', () => {
     expect(COURSES).toHaveLength(24);
     const bySet = (id: string) =>
       COURSES.filter((c) => c.vocabularySetId === id).map((c) => c.id);
     expect(bySet('school-practice')).toEqual(['grade-elementary', 'grade-junior']);
     expect(bySet('travel-practice')).toEqual(['biz-travel']);
-    expect(bySet('common-practice')).toHaveLength(21);
+    expect(bySet('hospitality-practice')).toEqual(['biz-hospitality']);
+    expect(bySet('common-practice')).toHaveLength(20);
+  });
+
+  it('4つの集合を合わせて24コースになり、重なりがない', () => {
+    const sets = ['common-practice', 'travel-practice', 'school-practice', 'hospitality-practice'];
+    const ids = sets.flatMap((id) =>
+      COURSES.filter((c) => c.vocabularySetId === id).map((c) => c.id),
+    );
+    expect(ids).toHaveLength(24);
+    // 同じコースが2つの集合へ入っていない。
+    expect(new Set(ids).size).toBe(24);
+    expect([...ids].sort()).toEqual([...COURSES.map((c) => c.id)].sort());
+  });
+
+  it('接客・観光の画面名・内部ID・分類・表示順は変わっていない', () => {
+    const course = findCourse('biz-hospitality')!;
+    expect(course.label).toBe('接客・観光');
+    expect(course.categoryId).toBe('business');
+    expect(course.group).toBeUndefined();
+    // 社会人の4番目のまま。
+    expect(coursesInCategory('business').map((c) => c.id)[3]).toBe('biz-hospitality');
   });
 
   it('海外旅行の画面名・内部ID・分類は変わっていない', () => {
@@ -123,15 +144,15 @@ describe('コースと語彙セットの割り当て', () => {
     ]);
   });
 
-  it('社会人6コースのうち、海外旅行だけが旅のことば', () => {
+  it('社会人6コースのうち、海外旅行と接客・観光だけがテーマ別セット', () => {
     const business = coursesInCategory('business');
     expect(business.map((c) => c.vocabularySetId)).toEqual([
-      'common-practice',  // 日常英会話
-      'travel-practice',  // 海外旅行
-      'common-practice',  // ビジネス
-      'common-practice',  // 接客・観光
-      'common-practice',  // 医療・介護
-      'common-practice',  // IT・仕事
+      'common-practice',        // 日常英会話
+      'travel-practice',        // 海外旅行
+      'common-practice',        // ビジネス
+      'hospitality-practice',   // 接客・観光
+      'common-practice',        // 医療・介護
+      'common-practice',        // IT・仕事
     ]);
   });
 
