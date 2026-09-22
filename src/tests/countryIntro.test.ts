@@ -661,7 +661,7 @@ describe('公開の可否', () => {
     // UI.countryIntro.preparing だけを出す。
     expect(showsDetails(JAPAN)).toBe(false);
     expect(UI.countryIntro.preparing).toBe('この国の紹介は準備中です。');
-    // 子ども向けの画面に、技術的な説明を混ぜない。
+    // ゲーム画面に、技術的な説明を混ぜない。
     expect(UI.countryIntro.preparing).not.toMatch(/未確認|確認中|draft|通信/);
   });
 

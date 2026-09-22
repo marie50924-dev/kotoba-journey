@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "ことばトラベル / KOTOBA JOURNEY - graybox prototype",
+  "description": "KOTOBA JOURNEY - a Japanese-English karuta learning game for children and adults (graybox prototype)",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

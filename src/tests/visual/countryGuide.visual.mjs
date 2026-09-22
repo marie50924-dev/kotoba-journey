@@ -207,7 +207,7 @@ try {
           );
         }
 
-        // --- 技術的な説明を子ども向け画面に出さない ---
+        // --- 技術的な説明をゲーム画面に出さない ---
         for (const phrase of ['未確認', '確認中', 'draft', '通信']) {
           check(
             !bodyText.includes(phrase),
