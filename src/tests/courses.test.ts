@@ -94,11 +94,13 @@ describe('コース定義', () => {
 });
 
 describe('コースと語彙セットの割り当て', () => {
-  it('海外旅行だけが旅のことばを使い、残り23コースは共通セット', () => {
+  it('学校2コース・旅行1コース・共通21コースに分かれる', () => {
     expect(COURSES).toHaveLength(24);
-    const travel = COURSES.filter((c) => c.vocabularySetId === 'travel-practice');
-    expect(travel.map((c) => c.id)).toEqual(['biz-travel']);
-    expect(COURSES.filter((c) => c.vocabularySetId === 'common-practice')).toHaveLength(23);
+    const bySet = (id: string) =>
+      COURSES.filter((c) => c.vocabularySetId === id).map((c) => c.id);
+    expect(bySet('school-practice')).toEqual(['grade-elementary', 'grade-junior']);
+    expect(bySet('travel-practice')).toEqual(['biz-travel']);
+    expect(bySet('common-practice')).toHaveLength(21);
   });
 
   it('海外旅行の画面名・内部ID・分類は変わっていない', () => {
@@ -110,11 +112,15 @@ describe('コースと語彙セットの割り当て', () => {
     expect(coursesInCategory('business').map((c) => c.id)[1]).toBe('biz-travel');
   });
 
-  it('学年別の4コースは共通セットのまま', () => {
-    // 学年は難易度の軸で、テーマの軸ではない。難易度の裏づけが無いので動かさない。
-    for (const course of coursesInCategory('grade')) {
-      expect(course.vocabularySetId, course.id).toBe('common-practice');
-    }
+  it('学年別は、小学生・中学生だけが学校のことば', () => {
+    // 学校という場面との対応で分けたもので、学年別の難易度ではない。
+    // 高校生・大学生は、学校30語がその学年に合うかを示せるデータが無いので動かさない。
+    expect(coursesInCategory('grade').map((c) => [c.label, c.vocabularySetId])).toEqual([
+      ['小学生', 'school-practice'],
+      ['中学生', 'school-practice'],
+      ['高校生', 'common-practice'],
+      ['大学生', 'common-practice'],
+    ]);
   });
 
   it('社会人6コースのうち、海外旅行だけが旅のことば', () => {

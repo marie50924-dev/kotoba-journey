@@ -16,8 +16,13 @@ export interface Course {
   group?: string;
   /**
    * このコースが出題に使う語彙セット。
-   * いまは海外旅行だけが 'travel-practice'、残り23コースが 'common-practice'。
+   *
+   * いまは小学生・中学生が 'school-practice'、海外旅行が 'travel-practice'、
+   * 残り21コースが 'common-practice'。
    * 語彙と場面の対応がはっきりしているコースから、少しずつ分けていく。
+   *
+   * セットは場面で分けたものであって、学年別の難易度ではない。
+   * どの語がどの学年に向くかを決められるデータは、まだ持っていない。
    */
   vocabularySetId: VocabularySetId;
 }
@@ -35,8 +40,11 @@ export const COURSE_CATEGORIES: readonly CourseCategory[] = [
 ];
 
 export const COURSES: readonly Course[] = [
-  { id: 'grade-elementary', label: '小学生', categoryId: 'grade', vocabularySetId: 'common-practice' },
-  { id: 'grade-junior', label: '中学生', categoryId: 'grade', vocabularySetId: 'common-practice' },
+  // 小学生・中学生は、学校という場面との対応が分かりやすいので学校のことばを使う。
+  // 高校生・大学生は共通セットのまま。学校30語は教室の道具が多く、
+  // その学年に合うかどうかを示せるデータをまだ持っていないため。
+  { id: 'grade-elementary', label: '小学生', categoryId: 'grade', vocabularySetId: 'school-practice' },
+  { id: 'grade-junior', label: '中学生', categoryId: 'grade', vocabularySetId: 'school-practice' },
   { id: 'grade-high', label: '高校生', categoryId: 'grade', vocabularySetId: 'common-practice' },
   { id: 'grade-university', label: '大学生', categoryId: 'grade', vocabularySetId: 'common-practice' },
 

@@ -30,7 +30,8 @@ export function kartaScreen(ctx: AppContext): HTMLElement {
   const cardCount: CardCount = ctx.selection.cardCount ?? 6;
   const seed = createSeed();
   // 出題する語は、選んだコースの語彙セットから決める。
-  // 海外旅行は旅のことば30語、残り23コースは共通の70語。
+  // 小学生・中学生は学校のことば30語、海外旅行は旅のことば30語、
+  // 残り21コースは共通の70語。
   // どのセットを使うかはコース定義が持つので、この画面は語の中身を知らない。
   const deck = buildDeck(pairsForCourse(ctx.selection.courseId), cardCount, seed);
   const session = new PlaySession(deck, performance.now());

@@ -545,3 +545,81 @@ describe('旅のことば30語のプール', () => {
     }
   });
 });
+
+/**
+ * 学校のことば30語のプール。
+ *
+ * 70語・旅の30語の検査はそのまま残したうえで、学校のプールでも
+ * 同じ性質が保たれるかを見る。渡すのはセット定義から解決した本番データ。
+ */
+describe('学校のことば30語のプール', () => {
+  const SCHOOL = pairsInSet('school-practice');
+  const SCHOOL_IDS = SCHOOL.map((p) => p.pairId);
+  const RESERVED = [12, 20, 22, 25, 27];
+  const UNVERIFIED = [8, 10];
+
+  it('30語ある', () => {
+    expect(SCHOOL).toHaveLength(30);
+  });
+
+  it.each(COUNTS)('%i枚で、枚数ぶんの語を選べる', (count) => {
+    const ids = new Set(buildDeck(SCHOOL, count, 2024).map((c) => c.pairId));
+    expect(ids.size).toBe(pairCountFor(count));
+  });
+
+  it('同じseedなら同じ結果になる', () => {
+    for (const count of COUNTS) {
+      const a = buildDeck(SCHOOL, count, 555).map((c) => `${c.id}:${c.text}`);
+      const b = buildDeck(SCHOOL, count, 555).map((c) => `${c.id}:${c.text}`);
+      expect(a, `${count}枚`).toEqual(b);
+    }
+  });
+
+  it('異なるseedでは、異なる組み合わせになり得る', () => {
+    for (const count of COUNTS) {
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 30; seed += 1) {
+        seen.add(
+          [...new Set(buildDeck(SCHOOL, count, seed).map((c) => c.pairId))]
+            .sort((a, b) => a - b)
+            .join(','),
+        );
+      }
+      expect(seen.size, `${count}枚`).toBeGreaterThan(1);
+    }
+  });
+
+  it('元の学校語彙配列を並べ替えない', () => {
+    const before = SCHOOL.map((p) => p.pairId);
+    buildDeck(SCHOOL, 20, 31337);
+    selectPairs(SCHOOL, 10, 31337);
+    expect(SCHOOL.map((p) => p.pairId)).toEqual(before);
+  });
+
+  it('盤面に出るのは学校の30語だけで、欠番も未確認の 8・10 も出ない', () => {
+    for (const count of COUNTS) {
+      for (let seed = 1; seed <= 200; seed += 1) {
+        for (const card of buildDeck(SCHOOL, count, seed)) {
+          expect(SCHOOL_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
+            .toContain(card.pairId);
+          expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
+          expect(UNVERIFIED, `未確認の ${card.pairId} が出た`).not.toContain(card.pairId);
+        }
+      }
+    }
+  });
+
+  it('30語すべてが、seed しだいで選ばれうる', () => {
+    const TRIALS = 500;
+    for (const count of COUNTS) {
+      const seen = new Set<number>();
+      for (let seed = 1; seed <= TRIALS; seed += 1) {
+        for (const card of buildDeck(SCHOOL, count, seed)) seen.add(card.pairId);
+        if (seen.size === SCHOOL.length) break;
+      }
+      expect([...seen].sort((a, b) => a - b), `${count}枚`).toEqual(
+        [...SCHOOL_IDS].sort((a, b) => a - b),
+      );
+    }
+  });
+});

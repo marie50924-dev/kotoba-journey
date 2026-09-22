@@ -2,7 +2,8 @@
  * 表示・操作回帰テスト（コース → 語彙セット → 盤面）。
  *
  * カルタ画面は、選んだコースの語彙セットから語を引く。
- * セットは2つある。海外旅行だけが旅のことば30語、残り23コースは共通の70語。
+ * セットは3つある。小学生・中学生が学校のことば30語、海外旅行が旅のことば30語、
+ * 残り21コースは共通の70語。
  *
  * 確かめるのは、3分類のどのコースからでも最後まで遊べることと、
  * **そのコースへ割り当てたセットの中に出題が収まっていること**。
@@ -50,7 +51,25 @@ const TRAVEL_PAIR_IDS = [
 const TRAVEL_CORE_IDS = TRAVEL_PAIR_IDS.filter((id) => id >= 46);
 /** 共通セットと共有する基礎15語。 */
 const TRAVEL_SHARED_IDS = TRAVEL_PAIR_IDS.filter((id) => id < 46);
-/** 台帳でまだ資料確認が終わっていない、使用中の2語。旅のセットには入れない。 */
+
+/**
+ * 学校のことば30語（src/data/vocabularySets.ts の school-practice と同じ）。
+ * 旅のセットと同じ理由で、ここも手書きにする。
+ */
+const SCHOOL_PAIR_IDS = [
+  3, 6, 15, 16, 17, 18, 19,
+  28,
+  37, 38, 39, 40, 41,
+  43, 44,
+  61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+  71, 72, 73, 74, 75,
+];
+/** 学校だけの核15語。 */
+const SCHOOL_CORE_IDS = SCHOOL_PAIR_IDS.filter((id) => id >= 61);
+/** 共通セットと共有する基礎15語。 */
+const SCHOOL_SHARED_IDS = SCHOOL_PAIR_IDS.filter((id) => id < 61);
+
+/** 台帳でまだ資料確認が終わっていない、使用中の2語。旅・学校のセットには入れない。 */
 const UNVERIFIED_IN_USE = [8, 10];
 /** まだどのセットにも入れていない語。盤面へ出てはいけない。 */
 const RESERVED = [
@@ -66,9 +85,23 @@ const RESERVED = [
  *
  * `expected` は、そのコースの盤面に出てよい pairId の集合。
  * 共通セットのコースは `null`（=ゲームの70語ぜんぶ）。
+ * `board` を持つコースは、固定seedで必ずその盤面になる（実測して固定した値）。
+ * `core` / `shared` は、そのセットの専用語と共有基礎語。両方が盤面に出ることを見る。
+ * `historyLabel` を持つコースは、パスポートの履歴表示名も確かめる。
  */
 const COURSES = [
-  { category: /学年別/, course: '小学生', courseId: 'grade-elementary', notice: false, setLabel: '共通', expected: null },
+  {
+    category: /学年別/,
+    course: '小学生',
+    courseId: 'grade-elementary',
+    notice: false,
+    setLabel: '学校',
+    expected: SCHOOL_PAIR_IDS,
+    board: [16, 71, 74],
+    core: SCHOOL_CORE_IDS,
+    shared: SCHOOL_SHARED_IDS,
+    historyLabel: '小学生',
+  },
   { category: /ステップ別/, course: 'ステップ1', courseId: 'eiken-5', notice: true, setLabel: '共通', expected: null },
   { category: /社会人/, course: 'IT・仕事', courseId: 'biz-it', notice: false, setLabel: '共通', expected: null },
   {
@@ -78,8 +111,22 @@ const COURSES = [
     notice: false,
     setLabel: '旅',
     expected: TRAVEL_PAIR_IDS,
-    // 固定seedで必ずこの3語になる。偶然ではなく実測して固定した値。
     board: [23, 56, 59],
+    core: TRAVEL_CORE_IDS,
+    shared: TRAVEL_SHARED_IDS,
+  },
+  {
+    // 中学生は小学生と同じ学校セット・同じ並びなので、同じ固定seedなら盤面も同じになる。
+    category: /学年別/,
+    course: '中学生',
+    courseId: 'grade-junior',
+    notice: false,
+    setLabel: '学校',
+    expected: SCHOOL_PAIR_IDS,
+    board: [16, 71, 74],
+    core: SCHOOL_CORE_IDS,
+    shared: SCHOOL_SHARED_IDS,
+    historyLabel: '中学生',
   },
 ];
 
@@ -255,18 +302,21 @@ try {
             JSON.stringify(ids) === JSON.stringify(target.board),
             `${label}: 固定seedの盤面が想定と違う（期待: ${target.board.join(',')} / 実際: ${ids.join(',')}）`,
           );
-          // 旅行だけの語と、共通セットと共有する基礎語が、どちらも出ている。
+          // そのセットだけの語と、共通セットと共有する基礎語が、どちらも出ている。
           check(
-            ids.some((id) => TRAVEL_CORE_IDS.includes(id)),
-            `${label}: 旅行専用の語（46〜60）が盤面に無い（${ids.join(',')}）`,
+            ids.some((id) => target.core.includes(id)),
+            `${label}: ${target.setLabel}専用の語が盤面に無い（${ids.join(',')}）`,
           );
           check(
-            ids.some((id) => TRAVEL_SHARED_IDS.includes(id)),
+            ids.some((id) => target.shared.includes(id)),
             `${label}: 共有する基礎語が盤面に無い（${ids.join(',')}）`,
           );
-          // 資料確認が終わっていない 8・10 は、旅のセットに入れていない。
+          // 資料確認が終わっていない 8・10 は、テーマ別のセットに入れていない。
           for (const pairId of UNVERIFIED_IN_USE) {
-            check(!ids.includes(pairId), `${label}: 未確認の ${pairId} が旅の盤面に出ている`);
+            check(
+              !ids.includes(pairId),
+              `${label}: 未確認の ${pairId} が${target.setLabel}の盤面に出ている`,
+            );
           }
         }
 
@@ -341,6 +391,15 @@ try {
           passportText.includes('総プレイ回数'),
           `${label}: パスポートが開けていない`,
         );
+        if (target.historyLabel !== undefined) {
+          const shownCourses = await page.$$eval('.history__course', (nodes) =>
+            nodes.map((n) => n.textContent.trim()),
+          );
+          check(
+            shownCourses[0] === target.historyLabel,
+            `${label}: 履歴の表示名が「${target.historyLabel}」でない（${shownCourses.join(' / ')}）`,
+          );
+        }
         const reviewWords = await page.$$eval('.word-list__item', (nodes) =>
           nodes.map((n) => n.textContent.trim()),
         );
