@@ -508,7 +508,7 @@ describe('旅のことば30語のプール', () => {
   const TRAVEL = pairsInSet('travel-practice');
   const TRAVEL_IDS = TRAVEL.map((p) => p.pairId);
   const RESERVED = [12, 20, 22, 25, 27];
-  const UNVERIFIED = [8, 10];
+  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10];
 
   it('30語ある', () => {
     expect(TRAVEL).toHaveLength(30);
@@ -556,7 +556,7 @@ describe('旅のことば30語のプール', () => {
           expect(TRAVEL_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
             .toContain(card.pairId);
           expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
-          expect(UNVERIFIED, `未確認の ${card.pairId} が出た`).not.toContain(card.pairId);
+          expect(PAIR_IDS_NOT_IN_THEME_SET, `${card.pairId} はこの場面別セットに含めていない`).not.toContain(card.pairId);
         }
       }
     }
@@ -588,7 +588,7 @@ describe('学校のことば30語のプール', () => {
   const SCHOOL = pairsInSet('school-practice');
   const SCHOOL_IDS = SCHOOL.map((p) => p.pairId);
   const RESERVED = [12, 20, 22, 25, 27];
-  const UNVERIFIED = [8, 10];
+  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10];
 
   it('30語ある', () => {
     expect(SCHOOL).toHaveLength(30);
@@ -635,7 +635,7 @@ describe('学校のことば30語のプール', () => {
           expect(SCHOOL_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
             .toContain(card.pairId);
           expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
-          expect(UNVERIFIED, `未確認の ${card.pairId} が出た`).not.toContain(card.pairId);
+          expect(PAIR_IDS_NOT_IN_THEME_SET, `${card.pairId} はこの場面別セットに含めていない`).not.toContain(card.pairId);
         }
       }
     }
@@ -666,7 +666,7 @@ describe('接客・観光のことば30語のプール', () => {
   const HOSPITALITY = pairsInSet('hospitality-practice');
   const HOSPITALITY_IDS = HOSPITALITY.map((p) => p.pairId);
   const RESERVED = [12, 20, 22, 25, 27];
-  const UNVERIFIED = [8, 10];
+  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10];
 
   it('30語ある', () => {
     expect(HOSPITALITY).toHaveLength(30);
@@ -713,7 +713,7 @@ describe('接客・観光のことば30語のプール', () => {
           expect(HOSPITALITY_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
             .toContain(card.pairId);
           expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
-          expect(UNVERIFIED, `未確認の ${card.pairId} が出た`).not.toContain(card.pairId);
+          expect(PAIR_IDS_NOT_IN_THEME_SET, `${card.pairId} はこの場面別セットに含めていない`).not.toContain(card.pairId);
         }
       }
     }
