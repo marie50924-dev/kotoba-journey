@@ -93,6 +93,56 @@ describe('コース定義', () => {
   });
 });
 
+describe('コースと語彙セットの割り当て', () => {
+  it('海外旅行だけが旅のことばを使い、残り23コースは共通セット', () => {
+    expect(COURSES).toHaveLength(24);
+    const travel = COURSES.filter((c) => c.vocabularySetId === 'travel-practice');
+    expect(travel.map((c) => c.id)).toEqual(['biz-travel']);
+    expect(COURSES.filter((c) => c.vocabularySetId === 'common-practice')).toHaveLength(23);
+  });
+
+  it('海外旅行の画面名・内部ID・分類は変わっていない', () => {
+    const course = findCourse('biz-travel')!;
+    expect(course.label).toBe('海外旅行');
+    expect(course.categoryId).toBe('business');
+    expect(course.group).toBeUndefined();
+    // 表示順も変えない（社会人の2番目）。
+    expect(coursesInCategory('business').map((c) => c.id)[1]).toBe('biz-travel');
+  });
+
+  it('学年別の4コースは共通セットのまま', () => {
+    // 学年は難易度の軸で、テーマの軸ではない。難易度の裏づけが無いので動かさない。
+    for (const course of coursesInCategory('grade')) {
+      expect(course.vocabularySetId, course.id).toBe('common-practice');
+    }
+  });
+
+  it('社会人6コースのうち、海外旅行だけが旅のことば', () => {
+    const business = coursesInCategory('business');
+    expect(business.map((c) => c.vocabularySetId)).toEqual([
+      'common-practice',  // 日常英会話
+      'travel-practice',  // 海外旅行
+      'common-practice',  // ビジネス
+      'common-practice',  // 接客・観光
+      'common-practice',  // 医療・介護
+      'common-practice',  // IT・仕事
+    ]);
+  });
+
+  it('ステップ別の案内文と、その14コースの語彙セットが食い違っていない', () => {
+    // 案内文は「現在は共通の練習用ことばで遊べます」と言っている。
+    // 将来ステップ別を別セットへ変えたとき、文言の更新を忘れたらここで落ちる。
+    const notice = UI.courseList.stepsPreparing;
+    expect(notice).toContain('共通の練習用ことば');
+    const steps = coursesInCategory('exam');
+    expect(steps).toHaveLength(14);
+    for (const course of steps) {
+      expect(course.vocabularySetId, `${course.id} が案内文と食い違っている`)
+        .toBe('common-practice');
+    }
+  });
+});
+
 describe('世界マップ', () => {
   it('日本だけが選択可能で、ロンドンとパリはロック', () => {
     expect(DESTINATIONS.filter((d) => d.unlocked).map((d) => d.id)).toEqual(['japan']);

@@ -16,8 +16,8 @@ export interface Course {
   group?: string;
   /**
    * このコースが出題に使う語彙セット。
-   * いまは24コースとも同じ 'common-practice' を指している。
-   * コースごとに違うことばを出す仕組みは、まだ作っていない。
+   * いまは海外旅行だけが 'travel-practice'、残り23コースが 'common-practice'。
+   * 語彙と場面の対応がはっきりしているコースから、少しずつ分けていく。
    */
   vocabularySetId: VocabularySetId;
 }
@@ -60,7 +60,9 @@ export const COURSES: readonly Course[] = [
   { id: 'toeic-900', label: 'ステップ6', categoryId: 'exam', group: 'しごとチャレンジ', vocabularySetId: 'common-practice' },
 
   { id: 'biz-daily', label: '日常英会話', categoryId: 'business', vocabularySetId: 'common-practice' },
-  { id: 'biz-travel', label: '海外旅行', categoryId: 'business', vocabularySetId: 'common-practice' },
+  // 海外旅行だけ、旅の場面の30語を使う。
+  // ほかのコースは、語彙と場面の対応が決まるまで共通セットのまま。
+  { id: 'biz-travel', label: '海外旅行', categoryId: 'business', vocabularySetId: 'travel-practice' },
   { id: 'biz-business', label: 'ビジネス', categoryId: 'business', vocabularySetId: 'common-practice' },
   { id: 'biz-hospitality', label: '接客・観光', categoryId: 'business', vocabularySetId: 'common-practice' },
   { id: 'biz-care', label: '医療・介護', categoryId: 'business', vocabularySetId: 'common-practice' },

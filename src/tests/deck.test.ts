@@ -10,6 +10,7 @@ import {
 } from '../domain/deck';
 import { shuffle, createRng } from '../domain/random';
 import { SAMPLE_PAIRS, findPair } from '../data/wordPairs';
+import { pairsInSet } from '../data/vocabularySets';
 import { buildWaveQuiz } from '../domain/waveQuiz';
 import type { CardCount } from '../domain/types';
 
@@ -461,6 +462,86 @@ describe('seed付きシャッフル', () => {
       const value = rng();
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThan(1);
+    }
+  });
+});
+
+/**
+ * 旅のことば30語のプール。
+ *
+ * 70語の検査はそのまま残したうえで、狭いプールでも同じ性質が保たれるかを見る。
+ * ここで渡すのはセット定義から解決した本番データそのもの。
+ */
+describe('旅のことば30語のプール', () => {
+  const TRAVEL = pairsInSet('travel-practice');
+  const TRAVEL_IDS = TRAVEL.map((p) => p.pairId);
+  const RESERVED = [12, 20, 22, 25, 27];
+  const UNVERIFIED = [8, 10];
+
+  it('30語ある', () => {
+    expect(TRAVEL).toHaveLength(30);
+  });
+
+  it.each(COUNTS)('%i枚で、枚数ぶんの語を選べる', (count) => {
+    const ids = new Set(buildDeck(TRAVEL, count, 2024).map((c) => c.pairId));
+    expect(ids.size).toBe(pairCountFor(count));
+  });
+
+  it('同じseedなら同じ結果になる', () => {
+    for (const count of COUNTS) {
+      const a = buildDeck(TRAVEL, count, 555).map((c) => `${c.id}:${c.text}`);
+      const b = buildDeck(TRAVEL, count, 555).map((c) => `${c.id}:${c.text}`);
+      expect(a, `${count}枚`).toEqual(b);
+    }
+  });
+
+  it('異なるseedでは、異なる組み合わせになり得る', () => {
+    // 「必ず違う」ではなく「違う組み合わせが現れる」ことを見る。
+    for (const count of COUNTS) {
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 30; seed += 1) {
+        seen.add(
+          [...new Set(buildDeck(TRAVEL, count, seed).map((c) => c.pairId))]
+            .sort((a, b) => a - b)
+            .join(','),
+        );
+      }
+      expect(seen.size, `${count}枚`).toBeGreaterThan(1);
+    }
+  });
+
+  it('元の旅行語彙配列を並べ替えない', () => {
+    const before = TRAVEL.map((p) => p.pairId);
+    buildDeck(TRAVEL, 20, 31337);
+    selectPairs(TRAVEL, 10, 31337);
+    expect(TRAVEL.map((p) => p.pairId)).toEqual(before);
+  });
+
+  it('盤面に出るのは旅の30語だけで、欠番も未確認の 8・10 も出ない', () => {
+    for (const count of COUNTS) {
+      for (let seed = 1; seed <= 200; seed += 1) {
+        for (const card of buildDeck(TRAVEL, count, seed)) {
+          expect(TRAVEL_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
+            .toContain(card.pairId);
+          expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
+          expect(UNVERIFIED, `未確認の ${card.pairId} が出た`).not.toContain(card.pairId);
+        }
+      }
+    }
+  });
+
+  it('30語すべてが、seed しだいで選ばれうる', () => {
+    // 少数のseedで出ると決め打ちせず、上限を設けて出そろったら打ち切る。
+    const TRIALS = 500;
+    for (const count of COUNTS) {
+      const seen = new Set<number>();
+      for (let seed = 1; seed <= TRIALS; seed += 1) {
+        for (const card of buildDeck(TRAVEL, count, seed)) seen.add(card.pairId);
+        if (seen.size === TRAVEL.length) break;
+      }
+      expect([...seen].sort((a, b) => a - b), `${count}枚`).toEqual(
+        [...TRAVEL_IDS].sort((a, b) => a - b),
+      );
     }
   });
 });
