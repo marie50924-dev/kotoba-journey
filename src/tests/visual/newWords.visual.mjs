@@ -9,6 +9,12 @@
  *
  * 足したまとまりごとに盤面を1つずつ作る。古いまとまりの確認は消さない。
  *
+ * このテストは「日常英会話」コースで遊ぶ。特定のコースを確かめたいのではなく、
+ * **足した70語ぜんぶを盤面へ出せるコースが要る**ため。
+ * 日常英会話は common-practice（70語）を使うので、どのまとまりの語も出せる。
+ * コースごとの語彙セットの割り当ては courseVocabulary.visual.mjs が見る。
+ * 役割分担を混ぜないよう、ここではコースが変わっていないことだけ確かめる。
+ *
  * 盤面の語は seed で決まる。偶然に頼らないよう、ページを開く前に
  * Date.now と Math.random を固定して、seed を狙った値へ寄せる。
  * createSeed() は (Date.now() ^ Math.random()*0xffffffff) >>> 0 なので、
@@ -98,6 +104,27 @@ const BATCHES = [
 /** まだどのセットにも入れていない語。盤面へ出てはいけない。 */
 const RESERVED = [12, 20, 22, 25, 27];
 
+/**
+ * 追加語の回帰確認に使うコース。
+ *
+ * 足した語を4まとまりとも盤面へ出したいので、共通の70語を使うコースを選ぶ。
+ * 名前が「日常英会話」だから選んだのではなく、語彙セットが common-practice
+ * （70語）だから選んでいる。ここが別のセットへ変わると、
+ * 旅行語や学校語のまとまりが盤面へ出せなくなり、この回帰確認が成立しない。
+ */
+const REGRESSION_COURSE = {
+  /** コース入口の分類ボタン。 */
+  categoryLabel: /社会人/,
+  /** 画面に出るコース名。 */
+  label: '日常英会話',
+  /** 保存データに入る内部ID。 */
+  courseId: 'biz-daily',
+  /** このコースが使うはずの語彙セット。 */
+  setId: 'common-practice',
+  /** そのセットの語数。 */
+  poolSize: 70,
+};
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -151,8 +178,8 @@ async function reachBoard(page, baseUrl, cardLabel) {
   await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
 
   await page.waitForSelector('.option-card--category');
-  await page.getByRole('button', { name: /学年別/ }).click();
-  await page.getByRole('button', { name: '小学生' }).click();
+  await page.getByRole('button', { name: REGRESSION_COURSE.categoryLabel }).click();
+  await page.getByRole('button', { name: REGRESSION_COURSE.label, exact: true }).first().click();
   await page.getByRole('button', { name: cardLabel }).click();
   await page.getByRole('button', { name: '出発する' }).click();
   await page.waitForSelector('.screen--travel');
@@ -160,6 +187,31 @@ async function reachBoard(page, baseUrl, cardLabel) {
   await page.waitForSelector('.screen--intro');
   await page.getByRole('button', { name: 'この国でことばを集める' }).click();
   await page.waitForSelector('.card');
+}
+
+/**
+ * 狙ったコースで遊べているかを、保存された選択状態から確かめる。
+ *
+ * 盤面だけを見ても、語彙プールが同じなら別のコースでも同じ盤面になる。
+ * それではコース経路が入れ替わったことに気づけないので、保存値で見る。
+ * 保存形式は変えず、いま入っている値を読むだけ。
+ */
+async function checkCourse(page, label) {
+  const courseId = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key) ?? '{}').selectedCourseId ?? null,
+    STORAGE_KEY,
+  );
+  check(
+    courseId === REGRESSION_COURSE.courseId,
+    `${label}: 選択中コースが想定と違う` +
+      `（期待: ${REGRESSION_COURSE.courseId} / 実際: ${courseId}）`,
+  );
+  // 70語ぜんぶを出せるプールで遊んでいること。
+  check(
+    WORD_PAIRS.size === REGRESSION_COURSE.poolSize,
+    `${label}: 語彙データが${REGRESSION_COURSE.poolSize}語でない（${WORD_PAIRS.size}語）`,
+  );
+  return courseId;
 }
 
 /** 盤面に出ている pairId を取り出す。 */
@@ -291,6 +343,7 @@ try {
           page.on('pageerror', (e) => jsErrors.push(e.message));
 
           await reachBoard(page, baseUrl, batch.cardLabel);
+          await checkCourse(page, label);
           const ids = await checkBoard(page, batch, label);
 
           const scrollX = await page.evaluate(
@@ -322,6 +375,7 @@ try {
           page.on('pageerror', (e) => jsErrors.push(e.message));
 
           await reachBoard(page, baseUrl, batch.cardLabel);
+          await checkCourse(page, label);
           const ids = await boardPairIds(page);
           // 先頭の語を2回まちがえて、復習対象にする。
           await makeMistakes(page, ids);
@@ -407,10 +461,27 @@ try {
               `（盤面: ${ids.join(',')} / 保存: ${savedIds.join(',')}）`,
           );
 
+          // --- 遊んだ記録も、狙ったコースで残っている ---
+          const latest = stored.history[0];
+          check(
+            latest !== undefined && latest.courseId === REGRESSION_COURSE.courseId,
+            `${label}: 履歴のコースIDが想定と違う` +
+              `（期待: ${REGRESSION_COURSE.courseId} / 実際: ${latest && latest.courseId}）`,
+          );
+
           // --- パスポートの復習語で、足した語を解決できる ---
           await page.goto(baseUrl, { waitUntil: 'networkidle' });
           await page.getByRole('button', { name: 'マイパスポート' }).click();
           await page.waitForSelector('.screen--passport');
+
+          // 履歴の画面表示は、内部IDではなくいまのコース名になる。
+          const shownCourses = await page.$$eval('.history__course', (nodes) =>
+            nodes.map((n) => n.textContent.trim()),
+          );
+          check(
+            shownCourses[0] === REGRESSION_COURSE.label,
+            `${label}: 履歴の表示名が「${REGRESSION_COURSE.label}」でない（${shownCourses.join(' / ')}）`,
+          );
 
           const reviewIds = stored.reviewPairIds;
           check(reviewIds.length > 0, `${label}: 復習対象が記録されていない`);
