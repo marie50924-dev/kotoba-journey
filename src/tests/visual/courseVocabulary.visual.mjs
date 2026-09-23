@@ -123,6 +123,8 @@ const COURSES = [
     courseId: 'grade-elementary',
     notice: false,
     setLabel: '学校',
+    setId: 'school-practice',
+    size: 30,
     expected: SCHOOL_PAIR_IDS,
     board: [16, 71, 74],
     core: SCHOOL_CORE_IDS,
@@ -133,11 +135,16 @@ const COURSES = [
     category: /ステップ別/,
     course: 'ステップ1',
     courseId: 'eiken-5',
+    // 「ステップ1」は eiken-5 と toeic-400 の2つある。どちらの見出しの下かで選び分ける。
+    group: 'ことばチャレンジ',
     notice: true,
     setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
     expected: null,
     // 90語になって盤面が変わったので、実測して取り直した値。
     board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ1',
   },
   {
     category: /社会人/,
@@ -145,9 +152,12 @@ const COURSES = [
     courseId: 'biz-it',
     notice: false,
     setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
     expected: null,
     // ステップ1と同じ共通セット・同じ並びなので、同じ固定seedなら盤面も同じ。
     board: [30, 31, 43],
+    historyLabel: 'IT・仕事',
   },
   {
     category: /社会人/,
@@ -155,10 +165,13 @@ const COURSES = [
     courseId: 'biz-travel',
     notice: false,
     setLabel: '旅',
+    setId: 'travel-practice',
+    size: 30,
     expected: TRAVEL_PAIR_IDS,
     board: [23, 56, 59],
     core: TRAVEL_CORE_IDS,
     shared: TRAVEL_SHARED_IDS,
+    historyLabel: '海外旅行',
   },
   {
     // 中学生は小学生と同じ学校セット・同じ並びなので、同じ固定seedなら盤面も同じになる。
@@ -167,6 +180,8 @@ const COURSES = [
     courseId: 'grade-junior',
     notice: false,
     setLabel: '学校',
+    setId: 'school-practice',
+    size: 30,
     expected: SCHOOL_PAIR_IDS,
     board: [16, 71, 74],
     core: SCHOOL_CORE_IDS,
@@ -179,6 +194,8 @@ const COURSES = [
     courseId: 'biz-hospitality',
     notice: false,
     setLabel: '接客',
+    setId: 'hospitality-practice',
+    size: 30,
     expected: HOSPITALITY_PAIR_IDS,
     // 既存の固定seedのまま実測した盤面。核と共有語がどちらも出る。
     board: [30, 86, 89],
@@ -186,7 +203,342 @@ const COURSES = [
     shared: HOSPITALITY_SHARED_IDS,
     historyLabel: '接客・観光',
   },
+  // ---- ここから工程V-2L-1で足した18コース ----
+  // 共通セットのコースは、同じ固定seed・同じ90語・同じ並びなので、
+  // 盤面も上のステップ1・IT・仕事と同じ3語になる。seedは探索し直していない。
+  //
+  // 「ステップN」は ことばチャレンジ と しごとチャレンジ に1つずつある。
+  // 表示名だけでは選び分けられないので、group で見出しを指定して取り違えを防ぐ。
+  {
+    category: /学年別/,
+    course: '高校生',
+    courseId: 'grade-high',
+    notice: false,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: '高校生',
+  },
+  {
+    category: /学年別/,
+    course: '大学生',
+    courseId: 'grade-university',
+    notice: false,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: '大学生',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ2',
+    courseId: 'eiken-4',
+    group: 'ことばチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ2',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ3',
+    courseId: 'eiken-3',
+    group: 'ことばチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ3',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ4',
+    courseId: 'eiken-pre2',
+    group: 'ことばチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ4',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ5',
+    courseId: 'eiken-pre2-plus',
+    group: 'ことばチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ5',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ6',
+    courseId: 'eiken-2',
+    group: 'ことばチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ6',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ7',
+    courseId: 'eiken-pre1',
+    group: 'ことばチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ7',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ8',
+    courseId: 'eiken-1',
+    group: 'ことばチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ことばチャレンジ・ステップ8',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ1',
+    courseId: 'toeic-400',
+    group: 'しごとチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'しごとチャレンジ・ステップ1',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ2',
+    courseId: 'toeic-500',
+    group: 'しごとチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'しごとチャレンジ・ステップ2',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ3',
+    courseId: 'toeic-600',
+    group: 'しごとチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'しごとチャレンジ・ステップ3',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ4',
+    courseId: 'toeic-730',
+    group: 'しごとチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'しごとチャレンジ・ステップ4',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ5',
+    courseId: 'toeic-860',
+    group: 'しごとチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'しごとチャレンジ・ステップ5',
+  },
+  {
+    category: /ステップ別/,
+    course: 'ステップ6',
+    courseId: 'toeic-900',
+    group: 'しごとチャレンジ',
+    notice: true,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'しごとチャレンジ・ステップ6',
+  },
+  {
+    category: /社会人/,
+    course: '日常英会話',
+    courseId: 'biz-daily',
+    notice: false,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: '日常英会話',
+  },
+  {
+    category: /社会人/,
+    course: 'ビジネス',
+    courseId: 'biz-business',
+    notice: false,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: 'ビジネス',
+  },
+  {
+    category: /社会人/,
+    course: '医療・介護',
+    courseId: 'biz-care',
+    notice: false,
+    setLabel: '共通',
+    setId: 'common-practice',
+    size: 90,
+    expected: null,
+    board: [30, 31, 43],
+    historyLabel: '医療・介護',
+  },
 ];
+
+/**
+ * ケース一覧そのものの検査。
+ *
+ * 本番の COURSES 配列から期待値を作ると、本番が壊れたとき期待値まで同時に壊れて
+ * 気づけない。だから24件の courseId と内訳は、ここへ手で書いて固定する。
+ *
+ * ブラウザを起動する前に走らせる。一覧が欠けたまま全ケース通って「成功」に
+ * 見えるのを防ぐため。
+ */
+const EXPECTED_COURSE_IDS = [
+  'grade-elementary', 'grade-junior', 'grade-high', 'grade-university',
+  'eiken-5', 'eiken-4', 'eiken-3', 'eiken-pre2', 'eiken-pre2-plus',
+  'eiken-2', 'eiken-pre1', 'eiken-1',
+  'toeic-400', 'toeic-500', 'toeic-600', 'toeic-730', 'toeic-860', 'toeic-900',
+  'biz-daily', 'biz-travel', 'biz-business', 'biz-hospitality', 'biz-care', 'biz-it',
+];
+/** courseId → 画面に出るコース名。表示名が重なる「ステップN」も、ここで1対1に決める。 */
+const EXPECTED_COURSE_LABELS = {
+  'grade-elementary': '小学生', 'grade-junior': '中学生',
+  'grade-high': '高校生', 'grade-university': '大学生',
+  'eiken-5': 'ステップ1', 'eiken-4': 'ステップ2', 'eiken-3': 'ステップ3',
+  'eiken-pre2': 'ステップ4', 'eiken-pre2-plus': 'ステップ5', 'eiken-2': 'ステップ6',
+  'eiken-pre1': 'ステップ7', 'eiken-1': 'ステップ8',
+  'toeic-400': 'ステップ1', 'toeic-500': 'ステップ2', 'toeic-600': 'ステップ3',
+  'toeic-730': 'ステップ4', 'toeic-860': 'ステップ5', 'toeic-900': 'ステップ6',
+  'biz-daily': '日常英会話', 'biz-travel': '海外旅行', 'biz-business': 'ビジネス',
+  'biz-hospitality': '接客・観光', 'biz-care': '医療・介護', 'biz-it': 'IT・仕事',
+};
+/** セットごとのコース件数。共通20・旅1・学校2・接客1で合計24。 */
+const EXPECTED_SET_COUNTS = {
+  'common-practice': 20,
+  'travel-practice': 1,
+  'school-practice': 2,
+  'hospitality-practice': 1,
+};
+
+function checkCaseList() {
+  const label = 'ケース一覧';
+  const ids = COURSES.map((c) => c.courseId);
+
+  check(COURSES.length === 24, `${label}: ケース数が24件でない（${COURSES.length}件）`);
+
+  // 同じコースを2回検査して、別のコースを検査し忘れるのを防ぐ。
+  const duplicated = ids.filter((id, i) => ids.indexOf(id) !== i);
+  check(
+    duplicated.length === 0,
+    `${label}: courseId が重複している（${[...new Set(duplicated)].join(', ')}）`,
+  );
+
+  const missing = EXPECTED_COURSE_IDS.filter((id) => !ids.includes(id));
+  const unexpected = ids.filter((id) => !EXPECTED_COURSE_IDS.includes(id));
+  check(missing.length === 0, `${label}: 検査していない courseId がある（${missing.join(', ')}）`);
+  check(
+    unexpected.length === 0,
+    `${label}: 想定外の courseId がある（${[...new Set(unexpected)].join(', ')}）`,
+  );
+  check(
+    JSON.stringify([...ids].sort()) === JSON.stringify([...EXPECTED_COURSE_IDS].sort()),
+    `${label}: courseId の集合が期待の24件と一致しない`,
+  );
+
+  // セット別の件数。割り当てが偏っていないか。
+  for (const [setId, want] of Object.entries(EXPECTED_SET_COUNTS)) {
+    const got = COURSES.filter((c) => c.setId === setId).length;
+    check(got === want, `${label}: ${setId} のコース数が ${want} でない（${got}）`);
+  }
+  const total = Object.values(EXPECTED_SET_COUNTS).reduce((a, b) => a + b, 0);
+  check(total === 24, `${label}: セット別件数の合計が24でない（${total}）`);
+
+  // 1件ずつ、期待値がそろっているか。
+  for (const target of COURSES) {
+    const name = `${label} ${target.courseId}`;
+    check(
+      target.course === EXPECTED_COURSE_LABELS[target.courseId],
+      `${name}: 表示名が期待と違う（期待: ${EXPECTED_COURSE_LABELS[target.courseId]} / 実際: ${target.course}）`,
+    );
+    check(
+      Object.keys(EXPECTED_SET_COUNTS).includes(target.setId),
+      `${name}: 期待セットIDが不正（${target.setId}）`,
+    );
+    check(typeof target.size === 'number', `${name}: 期待語数が無い`);
+    check(Array.isArray(target.board) && target.board.length === 3, `${name}: 期待pairIdが無い`);
+    check(typeof target.historyLabel === 'string', `${name}: パスポートの期待表示名が無い`);
+    // 履歴は、見出しのあるコースだけ「見出し・表示名」の形で並ぶ。
+    // 「ステップ1」が2つあっても、履歴で取り違えないようにするため。
+    const wantHistory =
+      target.group === undefined ? target.course : `${target.group}・${target.course}`;
+    check(
+      target.historyLabel === wantHistory,
+      `${name}: 履歴の期待表示名が「${wantHistory}」でない（${target.historyLabel}）`,
+    );
+    // 同じ表示名が複数ある「ステップN」は、見出し（group）で選び分ける。
+    const shares = COURSES.filter((c) => c.course === target.course);
+    check(
+      shares.length === 1 || typeof target.group === 'string',
+      `${name}: 表示名「${target.course}」が重なっているのに group が無い`,
+    );
+  }
+}
 
 const PREPARING = '各ステップのことばは準備中です。現在は共通の練習用ことばで遊べます。';
 
@@ -224,8 +576,12 @@ function serveDist() {
 
 const { check, runCase, finish } = createSuite('コース別語彙セットテスト');
 
+// ブラウザを起動する前に、ケース表そのものを確かめる。
+// 24コースのうち1つでも表から抜けていたら、実機で遊べても不合格にする。
+checkCaseList();
+
 /** 指定したコースでカルタ盤面まで進める。案内文の有無もそのとき見る。 */
-async function reachBoard(page, baseUrl, { category, course, notice }, label) {
+async function reachBoard(page, baseUrl, { category, course, notice, group }, label) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: '旅をはじめる' }).click();
   await page.waitForSelector('.screen--avatar-select');
@@ -247,7 +603,26 @@ async function reachBoard(page, baseUrl, { category, course, notice }, label) {
       : `${label}: この分類に出してはいけない準備中の案内が出ている`,
   );
 
-  await page.getByRole('button', { name: course, exact: true }).first().click();
+  // 「ステップ1」などの表示名は、ことばチャレンジ と しごとチャレンジ に1つずつある。
+  // 表示名だけで押すと、どちらが押されたか分からない。
+  // group があるコースは、その見出しを持つ .course-group の中だけを探す。
+  let scope = page;
+  if (group !== undefined) {
+    scope = page.locator('.course-group').filter({
+      has: page.locator('h2.course-group__title', { hasText: group }),
+    });
+    const groupCount = await scope.count();
+    check(
+      groupCount === 1,
+      `${label}: 見出し「${group}」の並びが1つに定まらない（${groupCount}個）`,
+    );
+  }
+  const buttonCount = await scope.getByRole('button', { name: course, exact: true }).count();
+  check(
+    buttonCount === 1,
+    `${label}: 「${course}」のボタンが1つに定まらない（${buttonCount}個）`,
+  );
+  await scope.getByRole('button', { name: course, exact: true }).first().click();
   await page.getByRole('button', { name: /^6枚/ }).click();
   await page.getByRole('button', { name: '出発する' }).click();
   await page.waitForSelector('.screen--travel');
@@ -318,7 +693,8 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 
 try {
   for (const target of COURSES) {
-    const label = `${target.course}`;
+    // 表示名だけだと「ステップ1」が2つあって見分けられない。courseId も必ず出す。
+    const label = `${target.course} [${target.courseId}]`;
     await runCase(label, async () => {
       const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
       await context.addInitScript((now) => {
@@ -346,7 +722,22 @@ try {
         // --- 出題は、そのコースへ割り当てたセットの中に収まっている ---
         const allowed = target.expected ?? [...COMMON.keys()];
         const ids = await boardPairIds(page);
+        check(
+          allowed.length === target.size,
+          `${label}: ${target.setLabel}セットが${target.size}語でない（${allowed.length}語）`,
+        );
         check(ids.length === 3, `${label}: 6枚の盤面が3語になっていない（${ids.join(',')}）`);
+        // boardPairIds は重複を落とすので、6枚が3語ぶんでなければここで減る。
+        const rawIds = await page.$$eval('.card', (nodes) =>
+          nodes.map((n) => n.getAttribute('data-card-id')),
+        );
+        check(
+          rawIds.length === 6 && new Set(rawIds).size === 6,
+          `${label}: 6枚の札が重複なく6枚でない（${rawIds.join(',')}）`,
+        );
+        for (const id of ids) {
+          check(COMMON.has(id), `${label}: pairId ${id} が語彙データに無い`);
+        }
         for (const id of ids) {
           check(
             allowed.includes(id),
