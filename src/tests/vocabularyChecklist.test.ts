@@ -457,7 +457,7 @@ describe('確認の進みかた', () => {
     }
   });
 
-  it('動詞3語は条件3に「動詞の原形」を書く', () => {
+  it(`動詞${VERB_IDS.length}語は条件3に「動詞の原形」を書く`, () => {
     for (const pairId of VERB_IDS) {
       expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('動詞の原形');
     }
