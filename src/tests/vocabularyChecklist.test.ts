@@ -34,6 +34,10 @@ interface ChecklistEntry {
   直接確認: string;
   /** 誰が本文を開いたか。資料確認の語だけが持つ。 */
   確認経路: string;
+  /** あとから語義を追加で確かめたときの記録。持たない語は空。 */
+  追加確認日: string;
+  追加確認経路: string;
+  追加確認内容: string;
   確認した内容: string;
   確認日: string;
   注意点: string;
@@ -104,6 +108,9 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
       URL: fields.get('URL') ?? '',
       直接確認: fields.get('正本URLを直接開いた') ?? '',
       確認経路: fields.get('本文確認の経路') ?? '',
+      追加確認日: fields.get('追加確認日') ?? '',
+      追加確認経路: fields.get('追加確認の経路') ?? '',
+      追加確認内容: fields.get('追加確認の内容') ?? '',
       確認した内容: fields.get('確認した内容') ?? '',
       確認日: fields.get('確認日') ?? '',
       注意点: fields.get('注意点') ?? '',
@@ -1551,21 +1558,101 @@ describe('工程V-2G-2で資料確認した 8 つき / 10 くるま', () => {
       .toContain('car が指すのは乗用自動車だけだとは判断していない');
   });
 
-  it('10 は車輪そのものを札の範囲から外し、その判断の根拠を偽っていない', () => {
-    // 「くるま」は自動車と車輪を取り違えやすい。どちらを指す札かを言い切っておく。
+  it('台帳に未確認の論点は1件も残っていない', () => {
+    // 工程V-2K-1で、10「くるま」の車輪の論点が解消した。
+    // 「いまも1件残っている」と読める書き方が戻っていないことを見る。
+    const section = checklist.slice(
+      checklist.indexOf('### 3-1-1.'),
+      checklist.indexOf('### 3-2.'),
+    );
+    expect(section, '未確認の論点が0件だと書かれていない')
+      .toContain('**いま、台帳に未確認の論点は0件です。**');
+    expect(section, '10 の論点が解消したと書かれていない').toContain('この論点は解消しています');
+    // 解消したのに、現在も残っていると読める書き方をしていないこと。
+    for (const phrase of [
+      '未確認の論点として\n注意点に残っています',
+      '未確認の論点が1件残っています',
+      'いまも未確認の論点が残って',
+    ]) {
+      expect(checklist, `台帳に「${phrase}」が残っている`).not.toContain(phrase);
+    }
+    // 語ごとの注意点にも、未解消の調べ残しは無い。
+    for (const entry of ENTRIES) {
+      expect(entry.注意点, `${entry.pairId} の注意点に未解消の調べ残しがある`)
+        .not.toContain('資料の本文で確認できていない');
+    }
+    // 集計は変わっていない。90語すべてが確認済み。
+    expect(ENTRIES.filter((e) => e.状態 === '確認済み')).toHaveLength(90);
+    expect(ENTRIES.filter((e) => e.状態 !== '確認済み')).toHaveLength(0);
+  });
+
+  it('10 は車輪の語義を本文で確かめた記録を持っている', () => {
+    const car = byId.get(10)!;
+    // 追加確認の資料。掲載サイトと発行元を取り違えない。
+    expect(car.追加確認内容, '10 の追加確認に辞書名が無い').toContain('小学館『デジタル大辞泉』');
+    expect(car.追加確認内容, '10 の追加確認で掲載サイトと発行元を書き分けていない')
+      .toContain('掲載サイトはコトバンクで、辞書の発行元は小学館');
+    expect(car.URL, '10 の正本URL').toBe('https://kotobank.jp/word/%E8%BB%8A-57345');
+    expect(car.追加確認日, '10 の追加確認日').toBe('2026-09-23');
+    // 本文で分かれていた2つの語義。どちらも記録してある。
+    expect(car.追加確認内容, '10 に車輪の語義が無い').toContain('軸を中心に回転する輪、すなわち車輪');
+    expect(car.追加確認内容, '10 に自動車の語義が無い').toContain('現代では特に自動車');
+    // 論点が解消したことも書いてある。
+    expect(car.追加確認内容, '10 の追加確認に論点解消の記録が無い').toContain('未確認の論点は解消した');
+    expect(car.注意点, '10 の注意点に車輪の語義が無い').toContain('車輪そのものも指す');
+    expect(car.注意点, '10 の注意点に確認日が無い').toContain('2026-09-23');
+  });
+
+  it('10 の採用範囲は広がっておらず、車輪と乗用自動車を混ぜていない', () => {
     const car = byId.get(10)!;
     const range = (car.資料条件.get(2) ?? '').split('\t')[1] ?? '';
-    expect(range, '10 の条件2に車輪を扱わないと書かれていない').toContain('車輪そのもの');
-    expect(car.注意点, '10 の注意点に車輪の論点が無い').toContain('車輪そのもの');
-    // 調べ残しは「未確認の論点」と書く。状態欄の `要確認` とは別のもの。
-    expect(car.注意点, '10 の車輪の話が未確認の論点だと分からない').toContain('未確認の論点');
-    expect(car.注意点, '10 の注意点に、確認できていないという事実が無い')
-      .toContain('資料の本文で確認できていない');
-    // 未確認の論点があっても、札の状態は動かさない。
-    expect(car.状態, '10 の状態が確認済みでない').toBe('確認済み');
-    // 札の範囲を狭めるのはこちらの判断。資料がそう書いていたとは記録しない。
-    expect(car.確認した内容, '10 の確認内容に、資料が言っていない車輪の語義を足している')
-      .not.toContain('車輪そのもの');
+    // この札で採るのは道路を走る乗用自動車だけ。
+    expect(range, '10 の条件2に乗用自動車への限定が無い').toContain('乗用自動車に意味を限定');
+    for (const excluded of ['車輪そのもの', '乗り物全般', '荷車', '鉄道車両']) {
+      expect(range, `10 の条件2に「${excluded}」を扱わないと書かれていない`).toContain(excluded);
+    }
+    expect(range, '10 の条件2が「扱わない」と書いていない').toContain('扱わない');
+    expect(car.注意点, '10 の注意点で車輪を扱わないと書かれていない').toContain('この札では扱わない');
+    expect(car.注意点, '10 の注意点で車輪と自動車を混ぜないと書かれていない')
+      .toContain('車輪と乗用自動車を同じ札の意味として混ぜることはしない');
+    // 車輪の語義が無い、とは断定していない。
+    expect(car.注意点, '10 が車輪の語義を否定している')
+      .toContain('車輪の語義が存在しないとは判断していない');
+    for (const phrase of ['くるまに車輪の意味はない', '車輪の意味は無い', '車輪を指す用法はない']) {
+      expect(checklist, `台帳に「${phrase}」という断定がある`).not.toContain(phrase);
+    }
+    // 札の中身は動かしていない。
+    expect(car.ja).toBe('くるま');
+    expect(car.en).toBe('car');
+    expect(car.状態).toBe('確認済み');
+    expect(car.使用状況).toBe('使用中');
+    expect(car.判定).toBe('採用');
+    expect(car.確認日, '10 の確認日は採用した日のまま').toBe('2026-09-22');
+  });
+
+  it('10 の追加確認も、開いたのは依頼者側だと書いてある', () => {
+    const car = byId.get(10)!;
+    expect(car.追加確認経路, '10 の追加確認に依頼者側提供の記録が無い')
+      .toContain('依頼者側から提供された追加の本文確認記録');
+    expect(car.追加確認経路, '10 の追加確認に確認した環境が書かれていない')
+      .toContain('別のChatGPT Web取得環境で直接確認');
+    expect(car.追加確認経路, '10 の追加確認に開発環境から見ていないことが書かれていない')
+      .toContain('Claude Codeの実行環境から閲覧したものではない');
+    // 2026-09-22 の最初の確認記録も残っている。
+    expect(car.確認経路, '10 の最初の確認記録が消えている')
+      .toContain('本文は2026-09-22に別のWeb取得環境で直接確認された');
+    expect(car.確認した内容, '10 の最初の確認内容が消えている')
+      .toContain('「車」の読みが「クルマ」と示されていること');
+    // 開発環境が開けたことにしていない。
+    for (const phrase of [
+      'Claude Code が本文を直接確認',
+      'Claude Codeが本文を直接確認',
+      'Claude Code が直接確認',
+      'Claude Codeが直接確認',
+      'Claude Codeの実行環境から本文を確認',
+    ]) {
+      expect(checklist, `台帳に「${phrase}」という偽りがある`).not.toContain(phrase);
+    }
   });
 
   it('8・10 を旅行・学校・接客観光のセットへ入れていない', () => {
