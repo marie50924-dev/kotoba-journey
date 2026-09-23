@@ -779,3 +779,97 @@ describe('この工程で変えていないこと', () => {
     expect(showsDetails(japan)).toBe(false);
   });
 });
+
+/**
+ * 場面別3セットの重なり。
+ *
+ * 3セットは30語ずつだが、合わせても90語にはならない。重なる語があるからで、
+ * その重なりは「旅と接客・観光の15語」だけではない。学校とも重なっているし、
+ * 3セットすべてに入る語もある。
+ *
+ * 台帳の説明が一度この理由を取り違えていた（15語だけ引いて70語としていた）。
+ * 数字を手で書き直しても気づけないよう、本番のセット定義から計算して固定する。
+ */
+describe('場面別3セットの重なり', () => {
+  const T = [...findVocabularySet('travel-practice')!.pairIds];
+  const S = [...findVocabularySet('school-practice')!.pairIds];
+  const H = [...findVocabularySet('hospitality-practice')!.pairIds];
+
+  /** 昇順に並べ直して集合として比べる。セット定義の並び順には依存させない。 */
+  const asc = (ids: number[]) => [...ids].sort((a, b) => a - b);
+  const inter = (a: number[], b: number[]) => asc(a.filter((x) => b.includes(x)));
+  /** a にあり、b にも c にも無い語。 */
+  const only = (a: number[], b: number[], c: number[]) =>
+    asc(a.filter((x) => !b.includes(x) && !c.includes(x)));
+  /** a と b の両方にあり、c には無い語。 */
+  const pairOnly = (a: number[], b: number[], c: number[]) =>
+    asc(a.filter((x) => b.includes(x) && !c.includes(x)));
+
+  const ALL_THREE = inter(inter(T, S), H);
+  const UNION = asc([...new Set([...T, ...S, ...H])]);
+
+  it('ペアごとの共通部分が、指定の集合と完全に一致する', () => {
+    expect(inter(T, H), '旅 ∩ 接客・観光').toEqual(
+      [7, 28, 29, 30, 38, 40, 46, 47, 49, 50, 51, 52, 53, 57, 60],
+    );
+    expect(inter(T, S), '旅 ∩ 学校').toEqual([28, 38, 39, 40, 43]);
+    expect(inter(S, H), '学校 ∩ 接客・観光').toEqual([28, 38, 40]);
+    expect(ALL_THREE, '3セットすべて').toEqual([28, 38, 40]);
+    // 向きを変えても同じ集合になる（積集合の対称性）。
+    expect(inter(H, T)).toEqual(inter(T, H));
+    expect(inter(S, T)).toEqual(inter(T, S));
+    expect(inter(H, S)).toEqual(inter(S, H));
+  });
+
+  it('ベン図の7区画が、指定の語数どおりに分かれる', () => {
+    const regions: [string, number[], number][] = [
+      ['旅だけ', only(T, S, H), 13],
+      ['学校だけ', only(S, T, H), 25],
+      ['接客・観光だけ', only(H, T, S), 15],
+      ['旅と接客・観光だけ', pairOnly(T, H, S), 12],
+      ['旅と学校だけ', pairOnly(T, S, H), 2],
+      ['学校と接客・観光だけ', pairOnly(S, H, T), 0],
+      ['3セットすべて', ALL_THREE, 3],
+    ];
+    for (const [name, ids, size] of regions) {
+      expect(ids, `${name} の語数`).toHaveLength(size);
+    }
+
+    // 7区画は重なり合わない。1つの語が2つの区画に現れてはいけない。
+    const flat = regions.flatMap(([, ids]) => ids);
+    expect(new Set(flat).size, '7区画に重複がある').toBe(flat.length);
+    // 7区画を合わせると、ちょうど和集合になる。
+    expect(asc(flat), '7区画の合計が和集合と違う').toEqual(UNION);
+    expect(UNION, '3セットの和集合').toHaveLength(70);
+  });
+
+  it('和集合70語と未所属20語で、ゲーム内90語になる', () => {
+    const game = SAMPLE_PAIRS.map((p) => p.pairId);
+    const notInTheme = game.filter((id) => !UNION.includes(id));
+    expect(game).toHaveLength(90);
+    expect(notInTheme, '3セット未所属の語数').toHaveLength(20);
+    expect(UNION.length + notInTheme.length, '和集合 + 未所属').toBe(game.length);
+
+    // 意図して外している7件は、すべて未所属の側にいる。
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
+      expect(notInTheme, `${pairId} が未所属に入っていない`).toContain(pairId);
+    }
+    // 指定7件を除いた未所属語は13件。
+    const rest = notInTheme.filter((id) => !PAIR_IDS_NOT_IN_THEME_SET.includes(id));
+    expect(rest, '指定7件を除いた未所属語').toHaveLength(13);
+    expect(PAIR_IDS_NOT_IN_THEME_SET.length + rest.length).toBe(notInTheme.length);
+  });
+
+  it('包除原理の計算が、実データの和集合と合う', () => {
+    // 30 + 30 + 30 − 15 − 5 − 3 + 3 = 70
+    // 3セットすべてに入る語は、ペアの重なりを引く段階で3回引いてしまうので戻す。
+    const byInclusionExclusion =
+      T.length + S.length + H.length
+      - inter(T, H).length - inter(T, S).length - inter(S, H).length
+      + ALL_THREE.length;
+    expect(byInclusionExclusion, '包除原理の計算が和集合と合わない').toBe(UNION.length);
+    expect(byInclusionExclusion).toBe(70);
+    // 「15語だけ引く」では70にならない。取り違えていた計算が復活しないよう固定する。
+    expect(T.length + S.length + H.length - inter(T, H).length).toBe(75);
+  });
+});
