@@ -16,22 +16,26 @@ import type { CardCount } from '../domain/types';
 
 const COUNTS: CardCount[] = [6, 12, 20];
 
-/** ゲームに入っている85語。12・20・22・25・27 は資料確認待ちの欠番。 */
+/** ゲームに入っている90語。工程V-2I-2で欠番が埋まり、1〜90がそろった。 */
 const GAME_PAIR_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-  11, 13, 14, 15, 16, 17, 18, 19,
-  21, 23, 24, 26, 28, 29, 30,
-  31, 32, 33, 34, 35, 36, 37, 38,
-  39, 40, 41, 42, 43, 44, 45,
-  46, 47, 48, 49, 50, 51, 52, 53,
-  54, 55, 56, 57, 58, 59, 60,
-  61, 62, 63, 64, 65, 66, 67, 68,
-  69, 70, 71, 72, 73, 74, 75,
-  76, 77, 78, 79, 80, 81, 82, 83,
-  84, 85, 86, 87, 88, 89, 90,
+  11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+  31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+  41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+  51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+  61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+  71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
+  81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
 ];
-/** 台帳にはあるが、まだゲームへ入れていない語。番号は予約したまま。 */
-const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
+/** 工程V-2I-2でゲームへ入れた5語。それまでは欠番だった。 */
+const ADDED_IN_V2I2: [number, string, string][] = [
+  [12, 'さかな', 'fish'],
+  [20, 'パン', 'bread'],
+  [22, 'ぎゅうにゅう', 'milk'],
+  [25, 'うみ', 'sea'],
+  [27, 'いえ', 'house'],
+];
 /** 工程V-2C-4以降に足した75語。 */
 const ADDED_PAIRS: [number, string, string][] = [
   [11, 'うさぎ', 'rabbit'],
@@ -128,9 +132,9 @@ describe('デッキ生成', () => {
     expect(ids.size).toBe(pairCountFor(count));
   });
 
-  it('20枚は、85語のプールから10語を選ぶ', () => {
+  it('20枚は、90語のプールから10語を選ぶ', () => {
     // 語彙が10語だった頃は、20枚を出すと必ず全語が並んでいた。
-    // いまは85語から選ぶので、出る10語は seed で変わる。
+    // いまは90語から選ぶので、出る10語は seed で変わる。
     const pool = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     for (const seed of [1, 777, 20260921]) {
       const ids = [...new Set(buildDeck(SAMPLE_PAIRS, 20, seed).map((c) => c.pairId))];
@@ -216,7 +220,7 @@ describe('語彙の選出', () => {
     expect(new Set(sets).size).toBeGreaterThan(1);
   });
 
-  it('85語すべてが、seed しだいで選ばれうる', () => {
+  it('90語すべてが、seed しだいで選ばれうる', () => {
     // 少数のseedで全語が出ると決め打ちせず、十分な数のseedを走査して、
     // 70のどの pairId も少なくとも1回は選ばれることを見る。
     const TRIALS = 500;
@@ -316,6 +320,7 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
       [9, 'とり', 'bird'],
       [10, 'くるま', 'car'],
       [11, 'うさぎ', 'rabbit'],
+      [12, 'さかな', 'fish'],
       [13, 'ぞう', 'elephant'],
       [14, 'うま', 'horse'],
       [15, 'あか', 'red'],
@@ -323,10 +328,14 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
       [17, 'みどり', 'green'],
       [18, 'しろ', 'white'],
       [19, 'くろ', 'black'],
+      [20, 'パン', 'bread'],
       [21, 'たまご', 'egg'],
+      [22, 'ぎゅうにゅう', 'milk'],
       [23, 'いちご', 'strawberry'],
       [24, 'やま', 'mountain'],
+      [25, 'うみ', 'sea'],
       [26, 'そら', 'sky'],
+      [27, 'いえ', 'house'],
       [28, 'たべる', 'eat'],
       [29, 'のむ', 'drink'],
       [30, 'ねる', 'sleep'],
@@ -393,23 +402,30 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
     ]);
   });
 
-  it('ゲームの語は85語で、欠番を詰めていない', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(85);
+  it('ゲームの語は90語で、pairId 1〜90 が欠番なくそろっている', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(90);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(GAME_PAIR_IDS);
-    // 資料確認が終わっていない5語は、まだゲームへ入れない。
-    for (const reserved of RESERVED_PAIR_IDS) {
-      expect(
-        SAMPLE_PAIRS.some((p) => p.pairId === reserved),
-        `欠番 ${reserved} がゲームに入っている`,
-      ).toBe(false);
-      expect(findPair(reserved), `findPair(${reserved})`).toBeUndefined();
+    expect(GAME_PAIR_IDS).toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
+  });
+
+  it('配列は pairId の昇順。並びを変えると同じ seed でも盤面が変わる', () => {
+    const ids = SAMPLE_PAIRS.map((p) => p.pairId);
+    expect(ids).toEqual([...ids].sort((a, b) => a - b));
+  });
+
+  it('工程V-2I-2で足した5語が、指定の表記どおり入っている', () => {
+    for (const [pairId, ja, en] of ADDED_IN_V2I2) {
+      const pair = findPair(pairId);
+      expect(pair, `findPair(${pairId})`).toBeDefined();
+      expect(pair!.ja, `${pairId} の日本語`).toBe(ja);
+      expect(pair!.en, `${pairId} の英語`).toBe(en);
     }
   });
 
   it('pairId・日本語・英語に重複がない', () => {
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(85);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(85);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(85);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(90);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(90);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(90);
     for (const pair of SAMPLE_PAIRS) {
       expect(Number.isInteger(pair.pairId) && pair.pairId > 0, `${pair.pairId}`).toBe(true);
     }
@@ -449,7 +465,7 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
     const deck = buildDeck(SAMPLE_PAIRS, 6, 4242);
     const onBoard = new Set(deck.map((c) => c.pairId));
     const offBoard = SAMPLE_PAIRS.filter((p) => !onBoard.has(p.pairId)).map((p) => p.pairId);
-    expect(offBoard).toHaveLength(82);
+    expect(offBoard).toHaveLength(87);
     const questions = buildWaveQuiz({
       wavePairIds: [...onBoard],
       cardCount: 6,
@@ -507,8 +523,7 @@ describe('seed付きシャッフル', () => {
 describe('旅のことば30語のプール', () => {
   const TRAVEL = pairsInSet('travel-practice');
   const TRAVEL_IDS = TRAVEL.map((p) => p.pairId);
-  const RESERVED = [12, 20, 22, 25, 27];
-  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10];
+  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10, 12, 20, 22, 25, 27];
 
   it('30語ある', () => {
     expect(TRAVEL).toHaveLength(30);
@@ -549,13 +564,14 @@ describe('旅のことば30語のプール', () => {
     expect(TRAVEL.map((p) => p.pairId)).toEqual(before);
   });
 
-  it('盤面に出るのは旅の30語だけで、欠番と場面別セットに含めていない 8・10 は出ない', () => {
+  it('盤面に出るのは旅の30語だけで、場面別セットに含めていない7件は出ない', () => {
+    // 除外表は7件から減らさない。1件でも抜けると、その pairId の混入に気づけない。
+    expect(PAIR_IDS_NOT_IN_THEME_SET).toEqual([8, 10, 12, 20, 22, 25, 27]);
     for (const count of COUNTS) {
       for (let seed = 1; seed <= 200; seed += 1) {
         for (const card of buildDeck(TRAVEL, count, seed)) {
           expect(TRAVEL_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
             .toContain(card.pairId);
-          expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
           expect(PAIR_IDS_NOT_IN_THEME_SET, `${card.pairId} はこの場面別セットに含めていない`).not.toContain(card.pairId);
         }
       }
@@ -587,8 +603,7 @@ describe('旅のことば30語のプール', () => {
 describe('学校のことば30語のプール', () => {
   const SCHOOL = pairsInSet('school-practice');
   const SCHOOL_IDS = SCHOOL.map((p) => p.pairId);
-  const RESERVED = [12, 20, 22, 25, 27];
-  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10];
+  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10, 12, 20, 22, 25, 27];
 
   it('30語ある', () => {
     expect(SCHOOL).toHaveLength(30);
@@ -628,13 +643,14 @@ describe('学校のことば30語のプール', () => {
     expect(SCHOOL.map((p) => p.pairId)).toEqual(before);
   });
 
-  it('盤面に出るのは学校の30語だけで、欠番と場面別セットに含めていない 8・10 は出ない', () => {
+  it('盤面に出るのは学校の30語だけで、場面別セットに含めていない7件は出ない', () => {
+    // 除外表は7件から減らさない。1件でも抜けると、その pairId の混入に気づけない。
+    expect(PAIR_IDS_NOT_IN_THEME_SET).toEqual([8, 10, 12, 20, 22, 25, 27]);
     for (const count of COUNTS) {
       for (let seed = 1; seed <= 200; seed += 1) {
         for (const card of buildDeck(SCHOOL, count, seed)) {
           expect(SCHOOL_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
             .toContain(card.pairId);
-          expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
           expect(PAIR_IDS_NOT_IN_THEME_SET, `${card.pairId} はこの場面別セットに含めていない`).not.toContain(card.pairId);
         }
       }
@@ -665,8 +681,7 @@ describe('学校のことば30語のプール', () => {
 describe('接客・観光のことば30語のプール', () => {
   const HOSPITALITY = pairsInSet('hospitality-practice');
   const HOSPITALITY_IDS = HOSPITALITY.map((p) => p.pairId);
-  const RESERVED = [12, 20, 22, 25, 27];
-  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10];
+  const PAIR_IDS_NOT_IN_THEME_SET = [8, 10, 12, 20, 22, 25, 27];
 
   it('30語ある', () => {
     expect(HOSPITALITY).toHaveLength(30);
@@ -706,13 +721,14 @@ describe('接客・観光のことば30語のプール', () => {
     expect(HOSPITALITY.map((p) => p.pairId)).toEqual(before);
   });
 
-  it('盤面に出るのは接客・観光の30語だけで、欠番と場面別セットに含めていない 8・10 は出ない', () => {
+  it('盤面に出るのは接客・観光の30語だけで、場面別セットに含めていない7件は出ない', () => {
+    // 除外表は7件から減らさない。1件でも抜けると、その pairId の混入に気づけない。
+    expect(PAIR_IDS_NOT_IN_THEME_SET).toEqual([8, 10, 12, 20, 22, 25, 27]);
     for (const count of COUNTS) {
       for (let seed = 1; seed <= 200; seed += 1) {
         for (const card of buildDeck(HOSPITALITY, count, seed)) {
           expect(HOSPITALITY_IDS, `count=${count} seed=${seed} の ${card.pairId}`)
             .toContain(card.pairId);
-          expect(RESERVED, `欠番 ${card.pairId} が出た`).not.toContain(card.pairId);
           expect(PAIR_IDS_NOT_IN_THEME_SET, `${card.pairId} はこの場面別セットに含めていない`).not.toContain(card.pairId);
         }
       }

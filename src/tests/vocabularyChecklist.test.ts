@@ -118,11 +118,11 @@ const ENTRIES = parseChecklist(checklist);
 const byId = new Map(ENTRIES.map((e) => [e.pairId, e]));
 
 describe('語彙確認チェックリストの形', () => {
-  it('90語あり、使用中85語・候補5語に分かれる', () => {
+  it('90語あり、90語とも使用中（台帳だけの語は無い）', () => {
     expect(ENTRIES).toHaveLength(90);
-    expect(inGame(ENTRIES)).toHaveLength(85);
-    expect(notInGame(ENTRIES)).toHaveLength(5);
-    expect(notInGame(ENTRIES).map((e) => e.pairId)).toEqual(CANDIDATE_IDS);
+    expect(inGame(ENTRIES)).toHaveLength(90);
+    expect(notInGame(ENTRIES)).toHaveLength(0);
+    expect(notInGame(ENTRIES).map((e) => e.pairId)).toEqual([]);
   });
 
   it('日本語・英語に重複がない', () => {
@@ -130,16 +130,16 @@ describe('語彙確認チェックリストの形', () => {
     expect(new Set(ENTRIES.map((e) => e.en)).size).toBe(90);
   });
 
-  it('2軸の内訳が 85・5・0・0 になる', () => {
+  it('2軸の内訳が 90・0・0・0 になる', () => {
     const verifiedInGame = inGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const verifiedOnly = notInGame(ENTRIES).filter((e) => e.状態 === '確認済み');
     const pendingInGame = inGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
     const pendingOnly = notInGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
-    expect(verifiedInGame).toHaveLength(85);
-    // 工程V-2I-1で候補5語の資料確認が済んだ。確認済みでもゲームへは入れていない。
-    // この欄が0でなくなったことが、「確認済み」と「使用中」が別の軸である証拠。
-    expect(verifiedOnly).toHaveLength(5);
-    expect(verifiedOnly.map((e) => e.pairId)).toEqual(CANDIDATE_IDS);
+    expect(verifiedInGame).toHaveLength(90);
+    // 工程V-2I-2で候補5語をゲームへ入れたので、台帳だけの語は無くなった。
+    // 2つが別の軸であることは変わらない。いまはたまたま重なっているだけ。
+    expect(verifiedOnly).toHaveLength(0);
+    expect(verifiedOnly.map((e) => e.pairId)).toEqual([]);
     // 未確認の語は、使用中にも候補にも残っていない。
     expect(pendingInGame).toHaveLength(0);
     expect(pendingOnly).toHaveLength(0);
@@ -189,8 +189,20 @@ const VERIFIED_IDS = [
  * ほかの83語は `基本語判断` なので、5条件の書き方も検査のしかたも別。
  */
 const SOURCE_CHECKED_IDS = [8, 10, 12, 20, 22, 25, 27];
-/** まだゲームへ入れていない候補5語。確認は済んでいるが、札は増やしていない。 */
-const CANDIDATE_IDS = [12, 20, 22, 25, 27];
+/**
+ * 工程V-2I-1で確認し、工程V-2I-2でゲームへ入れた5語。
+ * 確認が済んだ時点では `候補` のままで、ゲームへ入れたのは別の判断。
+ */
+const ADDED_IN_V2I2: [number, string, string][] = [
+  [12, 'さかな', 'fish'],
+  [20, 'パン', 'bread'],
+  [22, 'ぎゅうにゅう', 'milk'],
+  [25, 'うみ', 'sea'],
+  [27, 'いえ', 'house'],
+];
+const ADDED_IN_V2I2_IDS = ADDED_IN_V2I2.map(([id]) => id);
+/** 場面別の3セットへ入れていない7件。確認済みで、共通セットでは使用中。 */
+const PAIR_IDS_NOT_IN_THEME_SET = [8, 10, 12, 20, 22, 25, 27];
 /** 未確認のまま残っている語。工程V-2I-1で0件になった。 */
 const PENDING_IDS: number[] = [];
 /** 工程V-2F-1で台帳へ足した接客・飲食・宿泊の15語。まだゲームには入れていない。 */
@@ -730,11 +742,12 @@ describe('工程V-2D-4で足した旅行語彙15語', () => {
         `${pairId} が common-practice に無い`,
       ).toBe(true);
     }
-    // 資料確認待ちの5語だけが、いまも台帳の外にいる。
-    for (const pairId of [12, 20, 22, 25, 27]) {
-      expect(SAMPLE_PAIRS.some((p) => p.pairId === pairId)).toBe(false);
-      expect(COMMON_SET_PAIR_IDS.includes(pairId)).toBe(false);
+    // 工程V-2I-2で5語が入り、共通セットは90語になった。
+    for (const pairId of ADDED_IN_V2I2_IDS) {
+      expect(SAMPLE_PAIRS.some((p) => p.pairId === pairId)).toBe(true);
+      expect(COMMON_SET_PAIR_IDS.includes(pairId)).toBe(true);
     }
+    expect(COMMON_SET_PAIR_IDS).toHaveLength(90);
   });
 });
 
@@ -830,11 +843,12 @@ describe('工程V-2D-6で足した学校語彙15語', () => {
         `${pairId} が common-practice に無い`,
       ).toBe(true);
     }
-    // 資料確認待ちの5語だけが、いまもゲームの外にいる。
-    for (const pairId of [12, 20, 22, 25, 27]) {
-      expect(SAMPLE_PAIRS.some((p) => p.pairId === pairId)).toBe(false);
-      expect(COMMON_SET_PAIR_IDS.includes(pairId)).toBe(false);
+    // 工程V-2I-2で5語が入り、共通セットは90語になった。
+    for (const pairId of ADDED_IN_V2I2_IDS) {
+      expect(SAMPLE_PAIRS.some((p) => p.pairId === pairId)).toBe(true);
+      expect(COMMON_SET_PAIR_IDS.includes(pairId)).toBe(true);
     }
+    expect(COMMON_SET_PAIR_IDS).toHaveLength(90);
   });
 });
 
@@ -868,7 +882,7 @@ describe('コードの実データとの照合', () => {
       expect(entry.使用状況 === '使用中', `${entry.pairId} の区分がゲームデータと違う`)
         .toBe(isInGame);
     }
-    expect(SAMPLE_PAIRS).toHaveLength(85);
+    expect(SAMPLE_PAIRS).toHaveLength(90);
   });
 
   it('ゲームへ入れた語は、いま全部が台帳で確認済み', () => {
@@ -883,18 +897,21 @@ describe('コードの実データとの照合', () => {
     }
   });
 
-  it('確認済みになった候補5語も、まだゲームへ入れていない', () => {
-    // 工程V-2I-1で5語とも確認済みになった。それでも札は増やしていない。
-    // 「確認できたから入れる」ではなく、入れるかどうかは別の工程で決める。
-    for (const pairId of CANDIDATE_IDS) {
-      expect(byId.get(pairId)!.状態, `${pairId} の状態`).toBe('確認済み');
-      expect(byId.get(pairId)!.使用状況, `${pairId} の使用状況`).toBe('候補');
-      expect(
-        SAMPLE_PAIRS.some((p) => p.pairId === pairId),
-        `候補の ${pairId} がゲームに入っている`,
-      ).toBe(false);
+  it('工程V-2I-2で足した5語が、台帳でもゲームでも使用中になっている', () => {
+    // 確認済みになったのは工程V-2I-1、ゲームへ入れたのは工程V-2I-2。
+    // 台帳の「使用状況」と実データが食い違っていないことを見る。
+    for (const [pairId, ja, en] of ADDED_IN_V2I2) {
+      const entry = byId.get(pairId)!;
+      expect(entry.状態, `${pairId} の状態`).toBe('確認済み');
+      expect(entry.使用状況, `${pairId} の使用状況`).toBe('使用中');
+      const pair = SAMPLE_PAIRS.find((p) => p.pairId === pairId);
+      expect(pair, `${pairId} がゲームデータに無い`).toBeDefined();
+      expect(pair!.ja, `${pairId} の日本語`).toBe(ja);
+      expect(pair!.en, `${pairId} の英語`).toBe(en);
+      expect(entry.ja, `${pairId} の台帳の日本語`).toBe(ja);
+      expect(entry.en, `${pairId} の台帳の英語`).toBe(en);
     }
-    expect(SAMPLE_PAIRS).toHaveLength(85);
+    expect(SAMPLE_PAIRS).toHaveLength(90);
   });
 
   it('見送りにした語は、ゲームデータへ入れない', () => {
@@ -907,10 +924,10 @@ describe('コードの実データとの照合', () => {
     }
   });
 
-  it('ゲームの85語は、台帳の同じ番号の語と完全一致する（採用でも表記は変わらない）', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(85);
-    // 台帳は90語。資料確認待ちの5語だけがゲームの外にいる。
-    expect(SAMPLE_PAIRS.map((p) => p.pairId)).not.toContain(12);
+  it('ゲームの90語は、台帳の同じ番号の語と完全一致する（採用でも表記は変わらない）', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(90);
+    // 台帳も90語。いまは台帳の全語がゲームに入っている。
+    expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(ENTRIES.map((e) => e.pairId));
     for (const pair of SAMPLE_PAIRS) {
       const entry = byId.get(pair.pairId);
       expect(entry, `pairId ${pair.pairId} が台帳に無い`).toBeDefined();
@@ -919,17 +936,22 @@ describe('コードの実データとの照合', () => {
     }
   });
 
-  it('「候補」のままの語は、まだ SAMPLE_PAIRS に入っていない', () => {
+  it('「候補」のままの語はもう無く、台帳の全語がゲームに入っている', () => {
+    // この検査は「候補の語がうっかりゲームへ混ざる」ことを見張っていた。
+    // いま候補は0件なので、台帳とゲームが1対1であることを見る形にする。
+    // これから候補の語を足したときは、また下のループが効く。
+    const stillCandidates = notInGame(ENTRIES);
+    expect(stillCandidates.map((e) => e.pairId)).toEqual([]);
     const usedJa = new Set(SAMPLE_PAIRS.map((p) => p.ja));
     const usedEn = new Set(SAMPLE_PAIRS.map((p) => p.en));
     const usedIds = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
-    const stillCandidates = notInGame(ENTRIES);
-    expect(stillCandidates.map((e) => e.pairId)).toEqual([12, 20, 22, 25, 27]);
     for (const entry of stillCandidates) {
       expect(usedIds.has(entry.pairId), `仮ID ${entry.pairId} が実データにある`).toBe(false);
       expect(usedJa.has(entry.ja), `候補「${entry.ja}」が実データにある`).toBe(false);
       expect(usedEn.has(entry.en), `候補「${entry.en}」が実データにある`).toBe(false);
     }
+    expect(usedIds.size).toBe(90);
+    expect(ENTRIES.every((e) => usedIds.has(e.pairId))).toBe(true);
   });
 
   it('もとからの10語は変わっていない', () => {
@@ -1007,13 +1029,14 @@ describe('工程V-2F-1で確認し、工程V-2F-2でゲームへ入れた接客�
     for (const pairId of HOSPITALITY_IDS) {
       expect(byId.get(pairId), `pairId ${pairId} が台帳に無い`).toBeDefined();
     }
-    // 予約欠番は埋めない。工程V-2I-1で確認済みになっても、候補のまま。
-    for (const pairId of CANDIDATE_IDS) {
-      expect(byId.get(pairId)!.使用状況, `${pairId} が使用中になっている`).toBe('候補');
+    // かつての欠番5語は、工程V-2I-2で台帳と同じ番号のままゲームへ入った。
+    // 番号を詰め直していないので、76〜90 の位置は動いていない。
+    for (const pairId of ADDED_IN_V2I2_IDS) {
+      expect(byId.get(pairId)!.使用状況, `${pairId} が使用中でない`).toBe('使用中');
       expect(
         SAMPLE_PAIRS.some((p) => p.pairId === pairId),
-        `欠番の ${pairId} がゲームに入っている`,
-      ).toBe(false);
+        `${pairId} がゲームに入っていない`,
+      ).toBe(true);
     }
   });
 
@@ -1187,7 +1210,7 @@ describe('工程V-2F-1で確認し、工程V-2F-2でゲームへ入れた接客�
       expect(pair!.en, `${pairId} の英語`).toBe(en);
       expect(common.pairIds, `${pairId} が共通セットに無い`).toContain(pairId);
     }
-    expect(SAMPLE_PAIRS).toHaveLength(85);
+    expect(SAMPLE_PAIRS).toHaveLength(90);
     // 共通セットの末尾15件が、昇順で 76〜90 になっている。
     expect([...common.pairIds].slice(-15)).toEqual(HOSPITALITY_IDS);
   });
@@ -1215,13 +1238,13 @@ describe('語彙セットと台帳の説明が食い違っていないこと', (
   const coursesUsing = (id: string) =>
     COURSES.filter((c) => c.vocabularySetId === id).map((c) => c.id);
 
-  it('セットは4件で、共通85語・旅30語・学校30語・接客30語', () => {
+  it('セットは4件で、共通90語・旅30語・学校30語・接客30語', () => {
     expect(VOCABULARY_SETS).toHaveLength(4);
-    expect(common.pairIds).toHaveLength(85);
+    expect(common.pairIds).toHaveLength(90);
     expect(travel.pairIds).toHaveLength(30);
     expect(school.pairIds).toHaveLength(30);
     expect(hospitality.pairIds).toHaveLength(30);
-    expect(SAMPLE_PAIRS).toHaveLength(85);
+    expect(SAMPLE_PAIRS).toHaveLength(90);
   });
 
   it('旅・学校・接客のセットの語は、すべて台帳で確認済み', () => {
@@ -1236,10 +1259,12 @@ describe('語彙セットと台帳の説明が食い違っていないこと', (
     }
   });
 
-  it('旅・学校・接客のセットに、8・10 と予約欠番5件が入っていない', () => {
+  it('旅・学校・接客のセットに、場面別へ入れていない7件が入っていない', () => {
+    // 除外表は7件から減らさない。1件でも抜けると、その pairId の混入に気づけない。
+    expect(PAIR_IDS_NOT_IN_THEME_SET).toEqual([8, 10, 12, 20, 22, 25, 27]);
     for (const [name, set] of
       [['旅', travel], ['学校', school], ['接客', hospitality]] as const) {
-      for (const pairId of [8, 10, 12, 20, 22, 25, 27]) {
+      for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
         expect(set.pairIds, `${pairId} が${name}のセットに入っている`).not.toContain(pairId);
       }
     }
@@ -1540,23 +1565,17 @@ describe('工程V-2G-2で資料確認した 8 つき / 10 くるま', () => {
     for (const [pairId] of SOURCE_WORDS) {
       expect(COMMON_SET_PAIR_IDS, `common-practice から ${pairId} が消えている`).toContain(pairId);
     }
-    expect(COMMON_SET_PAIR_IDS).toHaveLength(85);
+    expect(COMMON_SET_PAIR_IDS).toHaveLength(90);
     expect(VOCABULARY_SETS).toHaveLength(4);
   });
 
-  it('予約欠番の5語は要確認のまま、ゲームへ入れていない', () => {
-    for (const pairId of PENDING_IDS) {
-      expect(byId.get(pairId)!.状態, `${pairId} の状態`).toBe('要確認（候補）');
-      expect(
-        SAMPLE_PAIRS.some((p) => p.pairId === pairId),
-        `欠番の ${pairId} がゲームに入っている`,
-      ).toBe(false);
-      for (const set of VOCABULARY_SETS) {
-        expect(set.pairIds, `${set.id} に欠番の ${pairId} が入っている`).not.toContain(pairId);
-      }
+  it('未確認の語は1件も残っていない', () => {
+    expect(PENDING_IDS).toEqual([]);
+    for (const entry of ENTRIES) {
+      expect(entry.状態, `${entry.pairId} の状態`).toBe('確認済み');
     }
-    expect(SAMPLE_PAIRS).toHaveLength(85);
-    // コースの割り当ても、この工程では動かしていない。
+    expect(SAMPLE_PAIRS).toHaveLength(90);
+    // コースの割り当ては、この工程でも動かしていない。
     expect(COURSES).toHaveLength(24);
   });
 });
@@ -1595,7 +1614,7 @@ describe('工程V-2I-1で資料確認した候補5語', () => {
   ];
 
   it('pairId・日本語・英語が、指定の表と完全に一致する', () => {
-    expect(CANDIDATE_WORDS.map(([id]) => id)).toEqual(CANDIDATE_IDS);
+    expect(CANDIDATE_WORDS.map(([id]) => id)).toEqual(ADDED_IN_V2I2_IDS);
     for (const [pairId, ja, en] of CANDIDATE_WORDS) {
       const entry = byId.get(pairId);
       expect(entry, `pairId ${pairId} が台帳に無い`).toBeDefined();
@@ -1604,10 +1623,12 @@ describe('工程V-2I-1で資料確認した候補5語', () => {
     }
   });
 
-  it('5語とも 候補・確認済み・資料確認・採用 になっている', () => {
+  it('5語とも 確認済み・資料確認・採用 で、いまは使用中', () => {
+    // 工程V-2I-1では `候補` だった。工程V-2I-2でゲームへ入れて `使用中` になった。
+    // 資料確認の記録（方法・判定・確認日・資料・経路・条件・内容）はそのまま。
     for (const [pairId] of CANDIDATE_WORDS) {
       const entry = byId.get(pairId)!;
-      expect(entry.使用状況, `${pairId} の使用状況`).toBe('候補');
+      expect(entry.使用状況, `${pairId} の使用状況`).toBe('使用中');
       expect(entry.状態, `${pairId} の状態`).toBe('確認済み');
       expect(entry.確認の方法, `${pairId} の確認の方法`).toBe('資料確認');
       expect(entry.判定, `${pairId} の判定`).toBe('採用');
@@ -1751,33 +1772,39 @@ describe('工程V-2I-1で資料確認した候補5語', () => {
     }
   });
 
-  it('5語はゲームデータにも4つの語彙セットにも入っていない', () => {
-    // 台帳で確認済みになっても、ゲームの札は1枚も増えない。
+  it('5語は共通セットにだけ入り、場面別の3セットには入っていない', () => {
+    // 工程V-2I-2でゲームと共通セットへ入れた。場面別の3セットへは広げていない。
     const gameIds = SAMPLE_PAIRS.map((p) => p.pairId);
     const gameJa = new Set(SAMPLE_PAIRS.map((p) => p.ja));
     const gameEn = new Set(SAMPLE_PAIRS.map((p) => p.en));
     for (const [pairId, ja, en] of CANDIDATE_WORDS) {
-      expect(gameIds, `${pairId} がゲームデータに入っている`).not.toContain(pairId);
-      expect(gameJa.has(ja), `候補「${ja}」がゲームデータにある`).toBe(false);
-      expect(gameEn.has(en), `候補「${en}」がゲームデータにある`).toBe(false);
+      expect(gameIds, `${pairId} がゲームデータに無い`).toContain(pairId);
+      expect(gameJa.has(ja), `「${ja}」がゲームデータに無い`).toBe(true);
+      expect(gameEn.has(en), `「${en}」がゲームデータに無い`).toBe(true);
+      expect(COMMON_SET_PAIR_IDS, `common-practice に ${pairId} が無い`).toContain(pairId);
       for (const set of VOCABULARY_SETS) {
-        expect(set.pairIds, `${set.id} に候補の ${pairId} が入っている`).not.toContain(pairId);
+        if (set.id === 'common-practice') continue;
+        expect(set.pairIds, `${set.id} に ${pairId} が入っている`).not.toContain(pairId);
+        expect(set.pairIds, `${set.id} の語数`).toHaveLength(30);
       }
     }
-    // ゲーム内85語・4セット・24コースは、この工程で動かしていない。
-    expect(SAMPLE_PAIRS).toHaveLength(85);
+    // ゲーム内90語・4セット・24コース。コース割り当ては動かしていない。
+    expect(SAMPLE_PAIRS).toHaveLength(90);
     expect(VOCABULARY_SETS).toHaveLength(4);
-    expect(COMMON_SET_PAIR_IDS).toHaveLength(85);
+    expect(COMMON_SET_PAIR_IDS).toHaveLength(90);
     expect(COURSES).toHaveLength(24);
   });
 
   it('「確認済み」と「ゲームで使用中」が別の軸だと、台帳に書いてある', () => {
     expect(checklist, '2つが別の軸だという説明が消えている')
       .toContain('**この2つが別の軸であることは、これからも変わりません。**');
-    expect(checklist, '確認済みでもゲームへ入れていないという説明が無い')
+    expect(checklist, '確認とゲーム追加が別だという説明が無い')
       .toContain('**確認が終わったことと、ゲームに入れることは、別のことです。**');
-    // 確認が札を増やす理由にはならない、と明記してある。
+    // いまは90語すべてが確認済みかつ使用中だが、それは「たまたま重なっている」だけ。
+    // 確認が済んだだけで語が自動的に入るわけではない、と明記してある。
     expect(checklist, '確認が札を増やす理由ではないと書かれていない')
-      .toContain('確認が済んだからといって、自動的に札が増えることはありません。');
+      .toContain('確認が済んだからといって、語が自動的にゲームへ入ることはありません。');
+    expect(checklist, 'ゲームへ入れたのが別の判断だったと書かれていない')
+      .toContain('ゲームへ入れたのは、工程 V-2I-2 で**明示的にそう決めたから**です。');
   });
 });

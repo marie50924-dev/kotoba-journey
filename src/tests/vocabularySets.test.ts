@@ -26,25 +26,23 @@ import type { CardCount } from '../domain/types';
  *
  * いまセットは4つある。小学生・中学生が学校のことば30語、
  * 海外旅行が旅のことば30語、接客・観光が接客・観光のことば30語、
- * 残り20コースが共通の85語を使う。
+ * 残り20コースが共通の90語を使う。
  * セットは場面で分けたもので、学年別の難易度でも仕事で必要な力でもない。
  * ここで固定したいのは、経路が通っていること、どのコースがどのセットを使うか、
  * そして共通セットで遊ぶコースの出題が以前と変わっていないこと。
  */
 
-/** 共通セットが持つ85語。src/data/wordPairs.ts と同じ並び。 */
+/** 共通セットが持つ90語。src/data/wordPairs.ts と同じ並び。 */
 const COMMON_PAIR_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-  11, 13, 14, 15, 16, 17, 18, 19,
-  21, 23, 24, 26, 28, 29, 30,
-  31, 32, 33, 34, 35, 36, 37, 38,
-  39, 40, 41, 42, 43, 44, 45,
-  46, 47, 48, 49, 50, 51, 52, 53,
-  54, 55, 56, 57, 58, 59, 60,
-  61, 62, 63, 64, 65, 66, 67, 68,
-  69, 70, 71, 72, 73, 74, 75,
-  76, 77, 78, 79, 80, 81, 82, 83,
-  84, 85, 86, 87, 88, 89, 90,
+  11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+  31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+  41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+  51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+  61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+  71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
+  81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
 ];
 /** 工程V-2F-2で共通セットへ足した接客・飲食・宿泊の15語。 */
 const HOSPITALITY_PAIR_IDS = [76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90];
@@ -76,8 +74,8 @@ const HOSPITALITY_SET_PAIR_IDS = [
 const HOSPITALITY_CORE_IDS = [76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90];
 /** 旅のセットと共有する15語。 */
 const HOSPITALITY_SHARED_IDS = [7, 28, 29, 30, 38, 40, 46, 47, 49, 50, 51, 52, 53, 57, 60];
-/** 資料確認待ちで、まだどのセットにも入れていない語。 */
-const RESERVED_PAIR_IDS = [12, 20, 22, 25, 27];
+/** 工程V-2I-2でゲームと共通セットへ入れた5語。場面別の3セットへは入れていない。 */
+const ADDED_IN_V2I2 = [12, 20, 22, 25, 27];
 /** 旅のことば30語。並びも定義どおりに固定する。 */
 const TRAVEL_PAIR_IDS = [
   1, 7, 21, 23, 24, 26, 28, 29, 30,
@@ -89,8 +87,15 @@ const TRAVEL_PAIR_IDS = [
 const TRAVEL_CORE_IDS = [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
 /** 共通セットと共有する基礎15語。 */
 const TRAVEL_SHARED_IDS = [1, 7, 21, 23, 24, 26, 28, 29, 30, 36, 38, 39, 40, 42, 43];
-/** 台帳でまだ資料確認が終わっていない、使用中の2語。旅のセットへは入れない。 */
-const UNVERIFIED_IN_USE = [8, 10];
+/**
+ * 場面別の3セット（旅・学校・接客観光）へ、意図して入れていない7件。
+ * どれも確認済みで、共通セットでは使用中。
+ * 「未確認」「不正」「永久除外」ではなく、いまこの3セットに含めていないという
+ * 所属上の事実だけを表す。テーマ別セットへの採否は別の工程で決める。
+ */
+const PAIR_IDS_NOT_IN_THEME_SET = [8, 10, 12, 20, 22, 25, 27];
+/** 場面別の3セット。共通セットとは扱いが違う。 */
+const THEME_SET_IDS = ['travel-practice', 'school-practice', 'hospitality-practice'] as const;
 /** 共通セットを使うコース。小学生・中学生・海外旅行だけが別。 */
 const COMMON_COURSE_IDS = COURSES.map((c) => c.id).filter(
   (id) => id !== 'biz-travel' && id !== 'biz-hospitality' && !SCHOOL_COURSE_IDS.includes(id),
@@ -122,17 +127,17 @@ describe('語彙セットの定義', () => {
   it('既定セットは common-practice のまま', () => {
     // 未選択・未知のコースはここへ落ちる。語がいちばん多いセットにしておく。
     expect(DEFAULT_VOCABULARY_SET_ID).toBe('common-practice');
-    expect(findVocabularySet(DEFAULT_VOCABULARY_SET_ID)!.pairIds).toHaveLength(85);
+    expect(findVocabularySet(DEFAULT_VOCABULARY_SET_ID)!.pairIds).toHaveLength(90);
   });
 
-  it('共通セットの pairIds は、1〜90から予約欠番5件を除いた85件と一致する', () => {
+  it('共通セットの pairIds は、1〜90の昇順と完全に一致する', () => {
     const set = findVocabularySet('common-practice')!;
     expect(set.pairIds).toEqual(COMMON_PAIR_IDS);
-    expect(set.pairIds).toHaveLength(85);
-    // 1〜90 から予約欠番を除いた集合と一致する。
-    const expected = Array.from({ length: 90 }, (_, i) => i + 1)
-      .filter((id) => !RESERVED_PAIR_IDS.includes(id));
-    expect([...set.pairIds]).toEqual(expected);
+    expect(set.pairIds).toHaveLength(90);
+    // 欠番なく 1〜90 がそろっている。
+    expect([...set.pairIds]).toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
+    // 昇順であること。並びが変わると、同じ seed でも盤面が変わる。
+    expect([...set.pairIds]).toEqual([...set.pairIds].sort((a, b) => a - b));
     // 工程V-2F-2で足した15語は末尾に、昇順で入っている。
     expect(set.pairIds.slice(-15)).toEqual(HOSPITALITY_PAIR_IDS);
     // 学校の核15語の位置も変わっていない。
@@ -154,11 +159,37 @@ describe('語彙セットの定義', () => {
     }
   });
 
-  it('資料確認待ちの欠番を、どのセットも含まない', () => {
-    for (const set of VOCABULARY_SETS) {
-      for (const pairId of RESERVED_PAIR_IDS) {
-        expect(set.pairIds, `${set.id} が欠番 ${pairId} を含んでいる`).not.toContain(pairId);
+  it('工程V-2I-2で足した5語は、共通セットにだけ入っている', () => {
+    for (const pairId of ADDED_IN_V2I2) {
+      expect(
+        findVocabularySet('common-practice')!.pairIds,
+        `common-practice に ${pairId} が無い`,
+      ).toContain(pairId);
+      for (const setId of THEME_SET_IDS) {
+        expect(
+          findVocabularySet(setId)!.pairIds,
+          `${setId} に ${pairId} が入っている`,
+        ).not.toContain(pairId);
       }
+    }
+  });
+
+  it('場面別セットへ入れていない7件が、3セットのどれにも入っていない', () => {
+    // 除外表は7件から減らさない。1件でも抜けると、その pairId の混入に気づけない。
+    expect(PAIR_IDS_NOT_IN_THEME_SET).toEqual([8, 10, 12, 20, 22, 25, 27]);
+    for (const setId of THEME_SET_IDS) {
+      const set = findVocabularySet(setId)!;
+      expect(set.pairIds, `${setId} の語数`).toHaveLength(30);
+      for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
+        expect(set.pairIds, `${setId} に ${pairId} が入っている`).not.toContain(pairId);
+      }
+    }
+    // 7件とも共通セットでは使用中。ゲームから外したわけではない。
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
+      expect(
+        findVocabularySet('common-practice')!.pairIds,
+        `common-practice から ${pairId} が消えている`,
+      ).toContain(pairId);
     }
   });
 
@@ -201,32 +232,32 @@ describe('語彙セットの定義', () => {
     }
   });
 
-  it('旅のセットには、資料確認が終わっていない 8・10 を入れない', () => {
-    // 10「くるま / car」は乗り物だが、意味の範囲の確認が終わっていない。
-    // 確認前に専用セットへ広げると、確認結果しだいで2か所を直すことになる。
+  it('旅のセットには、場面別へ入れていない7件を入れない', () => {
+    // 10「くるま / car」は乗り物だが、この札で採る意味は乗用自動車に限っている。
+    // 場面別セットへ広げるかどうかは、確認とは別に決める。
     const ids = new Set(findVocabularySet('travel-practice')!.pairIds);
-    for (const pairId of UNVERIFIED_IN_USE) {
-      expect(ids.has(pairId), `未確認の ${pairId} が旅のセットに入っている`).toBe(false);
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
+      expect(ids.has(pairId), `${pairId} が旅のセットに入っている`).toBe(false);
     }
-    // 共通セットでは引き続き使用中。ゲームから消えたわけではない。
+    // 7件とも共通セットでは使用中。ゲームから消えたわけではない。
     const common = new Set(findVocabularySet('common-practice')!.pairIds);
-    for (const pairId of UNVERIFIED_IN_USE) {
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
       expect(common.has(pairId), `${pairId} が共通セットから消えている`).toBe(true);
     }
   });
 
-  it('共通セットは 8・10 を含み、85語になった', () => {
+  it('共通セットは 8・10 を含み、90語になった', () => {
     const set = findVocabularySet('common-practice')!;
-    expect(set.pairIds).toHaveLength(85);
+    expect(set.pairIds).toHaveLength(90);
     expect(set.pairIds).toContain(8);
     expect(set.pairIds).toContain(10);
   });
 
-  it('旅のセットの30語は、台帳で確認済みの語だけ', () => {
+  it('旅のセットの30語に、場面別へ入れていない語が紛れていない', () => {
     // 台帳の確認記録そのものは vocabularyChecklist.test.ts が見る。
-    // ここでは「未確認のまま使っている2語が入っていない」ことだけを固定する。
+    // ここでは「外している7件が入っていない」ことだけを固定する。
     for (const pairId of findVocabularySet('travel-practice')!.pairIds) {
-      expect(UNVERIFIED_IN_USE, `${pairId} は未確認のまま旅のセットに入っている`)
+      expect(PAIR_IDS_NOT_IN_THEME_SET, `${pairId} が旅のセットに入っている`)
         .not.toContain(pairId);
     }
   });
@@ -254,16 +285,16 @@ describe('語彙セットの定義', () => {
     }
   });
 
-  it('学校のセットには、資料確認が終わっていない 8・10 を入れない', () => {
+  it('学校のセットには、場面別へ入れていない7件を入れない', () => {
     const ids = new Set(findVocabularySet('school-practice')!.pairIds);
-    for (const pairId of UNVERIFIED_IN_USE) {
-      expect(ids.has(pairId), `未確認の ${pairId} が学校のセットに入っている`).toBe(false);
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
+      expect(ids.has(pairId), `${pairId} が学校のセットに入っている`).toBe(false);
     }
   });
 
-  it('学校のセットの30語は、台帳で確認済みの語だけ', () => {
+  it('学校のセットの30語に、場面別へ入れていない語が紛れていない', () => {
     for (const pairId of findVocabularySet('school-practice')!.pairIds) {
-      expect(UNVERIFIED_IN_USE, `${pairId} は未確認のまま学校のセットに入っている`)
+      expect(PAIR_IDS_NOT_IN_THEME_SET, `${pairId} が学校のセットに入っている`)
         .not.toContain(pairId);
     }
   });
@@ -288,9 +319,9 @@ describe('語彙セットの定義', () => {
     }
   });
 
-  it('接客・観光のセットには、8・10 と予約欠番を入れない', () => {
+  it('接客・観光のセットには、場面別へ入れていない7件を入れない', () => {
     const ids = new Set(findVocabularySet('hospitality-practice')!.pairIds);
-    for (const pairId of [...UNVERIFIED_IN_USE, ...RESERVED_PAIR_IDS]) {
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
       expect(ids.has(pairId), `${pairId} が接客のセットに入っている`).toBe(false);
     }
   });
@@ -299,7 +330,7 @@ describe('語彙セットの定義', () => {
     const known = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
     for (const pairId of HOSPITALITY_SET_PAIR_IDS) {
       expect(known.has(pairId), `${pairId} がゲームデータに無い`).toBe(true);
-      expect(UNVERIFIED_IN_USE, `${pairId} は未確認のまま入っている`).not.toContain(pairId);
+      expect(PAIR_IDS_NOT_IN_THEME_SET, `${pairId} は場面別へ入れていない語`).not.toContain(pairId);
     }
   });
 
@@ -324,9 +355,9 @@ describe('語彙セットの定義', () => {
 });
 
 describe('セットから語を解決する', () => {
-  it('pairsInSet は共通セットの85語を、セットの並びのまま返す', () => {
+  it('pairsInSet は共通セットの90語を、セットの並びのまま返す', () => {
     const pairs = pairsInSet('common-practice');
-    expect(pairs).toHaveLength(85);
+    expect(pairs).toHaveLength(90);
     expect(pairs.map((p) => p.pairId)).toEqual(COMMON_PAIR_IDS);
     // 語彙データの並びとも一致する（盤面の再現性のため）。
     expect(pairs.map((p) => p.pairId)).toEqual(SAMPLE_PAIRS.map((p) => p.pairId));
@@ -391,9 +422,9 @@ describe('セットから語を解決する', () => {
     expect(() => resolveSetPairs(broken)).toThrow(/999/);
     expect(() => resolveSetPairs(broken)).toThrow(/語彙データに無い/);
 
-    // 欠番を指した場合も同じ。
-    const reserved = { id: 'common-practice' as const, pairIds: [1, 12] };
-    expect(() => resolveSetPairs(reserved)).toThrow(/12/);
+    // いまは 1〜90 に欠番が無いので、範囲の外を指した場合で同じことを確かめる。
+    const outOfRange = { id: 'common-practice' as const, pairIds: [1, 91] };
+    expect(() => resolveSetPairs(outOfRange)).toThrow(/91/);
   });
 });
 
@@ -468,7 +499,7 @@ describe('コースと語彙セットの結びつき', () => {
   });
 
   it('日常英会話は、今回も共通セットのまま', () => {
-    // 追加語の回帰テストが使うので、共通85語のまま動かさない。
+    // 追加語の回帰テストが使うので、共通90語のまま動かさない。
     expect(findCourse('biz-daily')!.vocabularySetId).toBe('common-practice');
   });
 
@@ -490,19 +521,23 @@ describe('コースと語彙セットの結びつき', () => {
 });
 
 describe('選択中のコースから語を引く', () => {
-  it('共通セットのコースを指定すると、85語になる', () => {
+  it('共通セットのコースを指定すると、90語になる', () => {
     for (const courseId of COMMON_COURSE_IDS) {
       const pairs = pairsForCourse(courseId);
       expect(pairs.map((p) => p.pairId), courseId).toEqual(COMMON_PAIR_IDS);
+      // 共通セットのコースでは、足した5語も候補に入る。
+      for (const pairId of ADDED_IN_V2I2) {
+        expect(pairs.map((p) => p.pairId), `${courseId} に ${pairId} が無い`).toContain(pairId);
+      }
     }
-    expect(pairsForCourse('biz-daily')).toHaveLength(85);
+    expect(pairsForCourse('biz-daily')).toHaveLength(90);
   });
 
   it('海外旅行を指定すると、旅の30語になる', () => {
     const pairs = pairsForCourse('biz-travel');
     expect(pairs.map((p) => p.pairId)).toEqual(TRAVEL_PAIR_IDS);
     expect(pairs).toHaveLength(30);
-    for (const pairId of [...UNVERIFIED_IN_USE, ...RESERVED_PAIR_IDS]) {
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
       expect(pairs.map((p) => p.pairId), `${pairId} が海外旅行の語に入っている`)
         .not.toContain(pairId);
     }
@@ -512,7 +547,7 @@ describe('選択中のコースから語を引く', () => {
     const pairs = pairsForCourse('biz-hospitality');
     expect(pairs.map((p) => p.pairId)).toEqual(HOSPITALITY_SET_PAIR_IDS);
     expect(pairs).toHaveLength(30);
-    for (const pairId of [...UNVERIFIED_IN_USE, ...RESERVED_PAIR_IDS]) {
+    for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
       expect(pairs.map((p) => p.pairId), `${pairId} が接客・観光の語に入っている`)
         .not.toContain(pairId);
     }
@@ -523,7 +558,7 @@ describe('選択中のコースから語を引く', () => {
       const pairs = pairsForCourse(courseId);
       expect(pairs.map((p) => p.pairId), courseId).toEqual(SCHOOL_SET_PAIR_IDS);
       expect(pairs, courseId).toHaveLength(30);
-      for (const pairId of [...UNVERIFIED_IN_USE, ...RESERVED_PAIR_IDS]) {
+      for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
         expect(pairs.map((p) => p.pairId), `${courseId} に ${pairId} が入っている`)
           .not.toContain(pairId);
       }
@@ -677,8 +712,8 @@ describe('カルタ画面が、語彙プールを直接使っていないこと'
 });
 
 describe('この工程で変えていないこと', () => {
-  it('ゲームの語は85語で、共通セットと同じ並び', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(85);
+  it('ゲームの語は90語で、共通セットと同じ並び', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(90);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(COMMON_PAIR_IDS);
     // ゲームデータとセットは、順番まで一致していなければならない。
     // ずれると、同じ seed で盤面が変わってしまう。
@@ -686,13 +721,19 @@ describe('この工程で変えていないこと', () => {
       .toEqual([...findVocabularySet('common-practice')!.pairIds]);
   });
 
-  it('足した15語を findPair で引け、欠番は引けない', () => {
+  it('足した15語も、工程V-2I-2で足した5語も findPair で引ける', () => {
     for (const pairId of SCHOOL_PAIR_IDS) {
       expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
     }
-    for (const reserved of RESERVED_PAIR_IDS) {
-      expect(findPair(reserved), `findPair(${reserved})`).toBeUndefined();
+    // 欠番だった5語は、工程V-2I-2でゲームへ入ったので引けるようになった。
+    for (const pairId of ADDED_IN_V2I2) {
+      expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
     }
+    // 1〜90 のどの番号も引ける。
+    for (let pairId = 1; pairId <= 90; pairId += 1) {
+      expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
+    }
+    expect(findPair(91), 'findPair(91)').toBeUndefined();
   });
 
   it('保存形式は version 3 のまま', () => {
@@ -717,7 +758,7 @@ describe('この工程で変えていないこと', () => {
     expect(record.selectedCourseId).toBe('eiken-3');
     expect(record.history[0].courseLabel).toBe('3級');
     // 保存済みのコースIDから、いまの語彙セットを引ける。
-    expect(pairsForCourse(record.selectedCourseId)).toHaveLength(85);
+    expect(pairsForCourse(record.selectedCourseId)).toHaveLength(90);
 
     const storage = createMemoryStore({ [STORAGE_KEY]: JSON.stringify(legacy) });
     expect(() => new LearningRecordStore(storage)).not.toThrow();

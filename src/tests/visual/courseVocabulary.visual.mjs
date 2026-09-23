@@ -3,11 +3,11 @@
  *
  * カルタ画面は、選んだコースの語彙セットから語を引く。
  * セットは4つある。小学生・中学生が学校のことば30語、海外旅行が旅のことば30語、
- * 接客・観光が接客・観光のことば30語、残り20コースは共通の85語。
+ * 接客・観光が接客・観光のことば30語、残り20コースは共通の90語。
  *
  * 確かめるのは、3分類のどのコースからでも最後まで遊べることと、
  * **そのコースへ割り当てたセットの中に出題が収まっていること**。
- * 「ゲーム内85語に含まれる」だけでは、旅の30語は85語の一部なので、
+ * 「ゲーム内90語に含まれる」だけでは、旅の30語は90語の一部なので、
  * 割り当てが壊れても気づけない。コースごとに期待する集合を持たせる。
  *
  * 盤面の語は seed で決まる。偶然に頼らないよう、ページを開く前に
@@ -30,7 +30,7 @@ const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
 const FIXED_NOW = 1700000000001;
 
 /**
- * ゲームの85語。src/data/wordPairs.ts から読むので、語を足しても直す必要がない。
+ * ゲームの90語。src/data/wordPairs.ts から読むので、語を足しても直す必要がない。
  * 共通セットを使うコースは、この中から出題される。
  */
 const COMMON = WORD_PAIRS;
@@ -86,22 +86,32 @@ const HOSPITALITY_CORE_IDS = HOSPITALITY_PAIR_IDS.filter((id) => id >= 76);
 /** 旅のセットと共有する15語。 */
 const HOSPITALITY_SHARED_IDS = HOSPITALITY_PAIR_IDS.filter((id) => id < 76);
 
-/** 台帳でまだ資料確認が終わっていない、使用中の2語。テーマ別セットには入れない。 */
-const UNVERIFIED_IN_USE = [8, 10];
-/** まだどのセットにも入れていない語。盤面へ出てはいけない。 */
-const RESERVED = [
+/**
+ * 場面別の3セット（旅・学校・接客観光）へ入れていない語のうち、
+ * 意図して外している7件。確認は済んでいて、共通セットでは使用中。
+ * 「未確認」「不正」「永久除外」という意味ではなく、
+ * いまこの3セットに含めていないという所属上の事実だけを表す。
+ *
+ * 場面別セットの盤面にこの7件が出たら、セット定義が壊れている。
+ * 共通セットの盤面には出てよい。
+ */
+const PAIR_IDS_NOT_IN_THEME_SET = [
+  [8, 'つき', 'moon'],
+  [10, 'くるま', 'car'],
   [12, 'さかな', 'fish'],
   [20, 'パン', 'bread'],
   [22, 'ぎゅうにゅう', 'milk'],
   [25, 'うみ', 'sea'],
   [27, 'いえ', 'house'],
 ];
+/** 工程V-2I-2でゲームへ入れた5語。共通セットの盤面には出てよい。 */
+const ADDED_IN_V2I2 = [12, 20, 22, 25, 27];
 
 /**
  * 検査するコース。カテゴリ名・コース名・案内の有無・期待する語彙セット。
  *
  * `expected` は、そのコースの盤面に出てよい pairId の集合。
- * 共通セットのコースは `null`（=ゲームの85語ぜんぶ）。
+ * 共通セットのコースは `null`（=ゲームの90語ぜんぶ）。
  * `board` を持つコースは、固定seedで必ずその盤面になる（実測して固定した値）。
  * `core` / `shared` は、そのセットの専用語と共有基礎語。両方が盤面に出ることを見る。
  * `historyLabel` を持つコースは、パスポートの履歴表示名も確かめる。
@@ -126,8 +136,8 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     expected: null,
-    // 85語になって盤面が変わったので、実測して取り直した値。
-    board: [24, 32, 73],
+    // 90語になって盤面が変わったので、実測して取り直した値。
+    board: [30, 31, 43],
   },
   {
     category: /社会人/,
@@ -136,7 +146,8 @@ const COURSES = [
     notice: false,
     setLabel: '共通',
     expected: null,
-    board: [24, 32, 73],
+    // ステップ1と同じ共通セット・同じ並びなので、同じ固定seedなら盤面も同じ。
+    board: [30, 31, 43],
   },
   {
     category: /社会人/,
@@ -359,11 +370,11 @@ try {
               ids.some((id) => target.shared.includes(id)),
               `${label}: 共有する基礎語が盤面に無い（${ids.join(',')}）`,
             );
-            // 資料確認が終わっていない 8・10 は、テーマ別のセットに入れていない。
-            for (const pairId of UNVERIFIED_IN_USE) {
+            // 場面別セットへ入れていない7件は、どれもこの盤面に出ない。
+            for (const [pairId] of PAIR_IDS_NOT_IN_THEME_SET) {
               check(
-                !ids.includes(pairId),
-                `${label}: 未確認の ${pairId} が${target.setLabel}の盤面に出ている`,
+                !allowed.includes(pairId),
+                `${label}: ${target.setLabel}セットに、入れていない ${pairId} が含まれている`,
               );
             }
             // 76〜90 は、接客・観光のセットの核。旅・学校のセットへは広げていない。
@@ -381,6 +392,14 @@ try {
                 `${label}: 共通セットに ${pairId} が無い`,
               );
             }
+            // 工程V-2I-2で足した5語も、共通セットでは出題されうる。
+            for (const pairId of ADDED_IN_V2I2) {
+              check(
+                allowed.includes(pairId),
+                `${label}: 共通セットに、工程V-2I-2で足した ${pairId} が無い`,
+              );
+            }
+            check(allowed.length === 90, `${label}: 共通セットが90語でない（${allowed.length}語）`);
           }
         }
 
@@ -393,12 +412,23 @@ try {
           check(enText === en, `${label}: ${id} の英語札が違う（${enText}）`);
         }
 
-        // --- 資料確認待ちの語は出ない ---
-        const boardText = await page.evaluate(() => document.body.innerText);
-        for (const [id, ja, en] of RESERVED) {
-          check(!ids.includes(id), `${label}: 未確認の pairId ${id} が盤面に出ている`);
-          check(!boardText.includes(ja), `${label}: 未確認の語「${ja}」が出ている`);
-          check(!boardText.includes(en), `${label}: 未確認の語「${en}」が出ている`);
+        // --- 場面別セットには、外している7件が混ざらない ---
+        // 共通セットのコースでは7件とも出てよいので、そちらでは見ない。
+        if (target.expected !== null) {
+          const boardText = await page.evaluate(() => document.body.innerText);
+          for (const [id, ja, en] of PAIR_IDS_NOT_IN_THEME_SET) {
+            check(
+              !ids.includes(id),
+              `${label}: ${target.setLabel}セットに入れていない pairId ${id} が盤面に出ている`,
+            );
+            check(!boardText.includes(ja), `${label}: 入れていない語「${ja}」が出ている`);
+            check(!boardText.includes(en), `${label}: 入れていない語「${en}」が出ている`);
+          }
+          // 除外表は7件から減らさない。1件でも抜けると、そのpairIdの混入に気づけなくなる。
+          check(
+            PAIR_IDS_NOT_IN_THEME_SET.length === 7,
+            `${label}: 場面別セットの除外表が7件でない（${PAIR_IDS_NOT_IN_THEME_SET.length}件）`,
+          );
         }
 
         const scrollX = await page.evaluate(

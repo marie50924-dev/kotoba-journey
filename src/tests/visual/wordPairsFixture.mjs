@@ -20,7 +20,7 @@ const SOURCE = fileURLToPath(new URL('../../data/wordPairs.ts', import.meta.url)
  * 語が増えたらこの数も上げる。語数そのものの一致は単体テストが見るので、
  * ここは「読み落としに気づける下限」でよい。
  */
-const MINIMUM_PAIRS = 85;
+const MINIMUM_PAIRS = 90;
 
 const text = await readFile(SOURCE, 'utf8');
 const entries = [...text.matchAll(/\{\s*pairId:\s*(\d+),\s*ja:\s*'([^']+)',\s*en:\s*'([^']+)'\s*\}/g)]
@@ -29,6 +29,20 @@ const entries = [...text.matchAll(/\{\s*pairId:\s*(\d+),\s*ja:\s*'([^']+)',\s*en
 if (entries.length < MINIMUM_PAIRS) {
   throw new Error(
     `語彙データを読み取れていません（${entries.length}語）。` +
+      `src/data/wordPairs.ts の書き方が変わっていないか確かめてください。`,
+  );
+}
+
+// 件数だけでは、途中の番号を読み落としていても気づけない。
+// いまは pairId 1〜MINIMUM_PAIRS が欠番なくそろっているので、そこまで見る。
+const readIds = new Set(entries.map(([id]) => id));
+const missing = [];
+for (let id = 1; id <= MINIMUM_PAIRS; id += 1) {
+  if (!readIds.has(id)) missing.push(id);
+}
+if (missing.length > 0) {
+  throw new Error(
+    `語彙データの pairId ${missing.join(', ')} を読み取れていません。` +
       `src/data/wordPairs.ts の書き方が変わっていないか確かめてください。`,
   );
 }
@@ -42,11 +56,27 @@ export const GAME_PAIR_IDS = entries.map(([id]) => id);
 /**
  * 出題文から正答を引く。
  * 日本語で出たら英語、英語で出たら日本語を返す。
+ *
+ * 語が増えると、ある語が別の語を丸ごと含むようになる。
+ * 「blackboard」は「black」を、「しめる」は「め」を含む。
+ * 先に見つかった方を返すと、pairId の小さい語に引きずられて
+ * 65 こくばん の正答が「くろ」になってしまう。
+ *
+ * そこで、まず出題文そのものと一致する語を探す。
+ * 一致が無いときだけ、含まれる語のうち**いちばん長いもの**を採る。
+ * 短い語が長い語を追い越さないので、語が増えても取り違えない。
  */
 export function answerFor(prompt, lang) {
   const text = prompt.trim();
   for (const [ja, en] of WORD_PAIRS.values()) {
-    if (text.includes(ja) || text.includes(en)) return lang === 'en' ? en : ja;
+    if (text === ja || text === en) return lang === 'en' ? en : ja;
   }
-  return '';
+  let best = null;
+  for (const [ja, en] of WORD_PAIRS.values()) {
+    for (const word of [ja, en]) {
+      if (!text.includes(word)) continue;
+      if (best === null || word.length > best.length) best = { length: word.length, ja, en };
+    }
+  }
+  return best === null ? '' : lang === 'en' ? best.en : best.ja;
 }

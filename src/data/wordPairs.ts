@@ -1,10 +1,10 @@
 import type { WordPair } from '../domain/types';
 
 /**
- * いまのカルタが使う語彙（85語）。
+ * いまのカルタが使う語彙（90語）。
  *
- * 語彙セットは、この85語の中から「どの語を使うか」を選ぶ入れ物で、
- * src/data/vocabularySets.ts にある。いまは共通セットが85語ぜんぶを、
+ * 語彙セットは、この90語の中から「どの語を使うか」を選ぶ入れ物で、
+ * src/data/vocabularySets.ts にある。いまは共通セットが90語ぜんぶを、
  * 旅・学校・接客観光のセットがそれぞれ30語を指していて、コースがどれかを参照する。
  * 同じ語が複数のセットへ入ることもある。
  * どのセットに入っているかは、語の確認状態とも学年の難易度とも別の軸。
@@ -12,12 +12,12 @@ import type { WordPair } from '../domain/types';
  * pairId は台帳（docs/reports/VOCABULARY_CHECKLIST.md）と保存データを
  * 結ぶ固定の識別子で、詰め直さない。
  * 台帳で確認済みになった語を、台帳と同じ番号のまま足していく。
- * 12・20・22・25・27 が欠けているのは、その番号の語がまだ資料確認待ちだから。
+ * 工程V-2I-2で 12・20・22・25・27 を足したので、いまは pairId 1〜90 が
+ * 欠番なくそろっている。
  * 空いた番号へ別の語を入れると、その番号で保存された過去の学習記録が
- * 別の語を指してしまうので、欠番は欠番のまま残す。
+ * 別の語を指してしまうので、これから欠番が出ても詰め直さない。
  *
- * 8 つき / moon と 10 くるま / car は、Phase 0 から使い続けている語だが
- * 台帳ではまだ資料確認が終わっていない。確認の結果しだいで表記が変わりうる。
+ * 配列は pairId の昇順。並びを変えると、同じ seed でも盤面が変わる。
  */
 export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 1, ja: 'りんご', en: 'apple' },
@@ -32,8 +32,9 @@ export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 10, ja: 'くるま', en: 'car' },
 
   // ここから下は、台帳で確認済みになってから足した語。
-  // 12（さかな）は資料確認待ちのため欠番。
+  // 12（さかな）は工程V-2I-1で確認し、工程V-2I-2でここへ入れた。
   { pairId: 11, ja: 'うさぎ', en: 'rabbit' },
+  { pairId: 12, ja: 'さかな', en: 'fish' },
   { pairId: 13, ja: 'ぞう', en: 'elephant' },
   { pairId: 14, ja: 'うま', en: 'horse' },
   { pairId: 15, ja: 'あか', en: 'red' },
@@ -41,14 +42,15 @@ export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 17, ja: 'みどり', en: 'green' },
   { pairId: 18, ja: 'しろ', en: 'white' },
   { pairId: 19, ja: 'くろ', en: 'black' },
-  // 20（パン）は資料確認待ちのため欠番。
+  // 20・22・25・27 も、工程V-2I-1で確認して工程V-2I-2でここへ入れた。
+  { pairId: 20, ja: 'パン', en: 'bread' },
   { pairId: 21, ja: 'たまご', en: 'egg' },
-  // 22（ぎゅうにゅう）は資料確認待ちのため欠番。
+  { pairId: 22, ja: 'ぎゅうにゅう', en: 'milk' },
   { pairId: 23, ja: 'いちご', en: 'strawberry' },
   { pairId: 24, ja: 'やま', en: 'mountain' },
-  // 25（うみ）は資料確認待ちのため欠番。
+  { pairId: 25, ja: 'うみ', en: 'sea' },
   { pairId: 26, ja: 'そら', en: 'sky' },
-  // 27（いえ）は資料確認待ちのため欠番。
+  { pairId: 27, ja: 'いえ', en: 'house' },
   { pairId: 28, ja: 'たべる', en: 'eat' },
   { pairId: 29, ja: 'のむ', en: 'drink' },
   { pairId: 30, ja: 'ねる', en: 'sleep' },
