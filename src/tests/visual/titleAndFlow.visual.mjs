@@ -403,9 +403,11 @@ try {
   // seed を固定して、74・3・28・89 が必ず同じ盤面に出るようにしている。
   {
     // Date.now と Math.random を固定すると createSeed() が決まる。
-    // この now では 20枚（10語）の盤面が 3,17,19,28,34,43,58,74,84,89 になる。
-    const FIXED_NOW = 1700000002854;
-    const BOARD_PAIR_IDS = [3, 17, 19, 28, 34, 43, 58, 74, 84, 89];
+    // 工程V-2O-1で共通セットが105語になり盤面が変わったので、
+    // 本番の selectPairs() で予測して取り直した値。
+    // この now では 20枚（10語）の盤面が 3,11,28,51,53,54,74,89,94,95 になる。
+    const FIXED_NOW = 1700000000781;
+    const BOARD_PAIR_IDS = [3, 11, 28, 51, 53, 54, 74, 89, 94, 95];
     /** 文字を小さくしてはいけない短い語。基準の大きさのままであること。 */
     const SHORT_WORDS = [
       [3, 'あお', 'blue'],
@@ -437,7 +439,7 @@ try {
           await page.waitForSelector('.screen--avatar-confirm');
           await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
           await page.waitForSelector('.option-card--category');
-          // 日常英会話は共通の90語を使うので、74 を盤面へ出せる。
+          // 日常英会話は共通の105語を使うので、74 を盤面へ出せる。
           await page.getByRole('button', { name: /社会人/ }).click();
           await page.waitForSelector('.course-group');
           await page.getByRole('button', { name: '日常英会話', exact: true }).click();

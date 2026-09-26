@@ -94,18 +94,26 @@ describe('コース定義', () => {
 });
 
 describe('コースと語彙セットの割り当て', () => {
-  it('共通20・旅行1・学校2・接客1に分かれる', () => {
+  it('共通19・旅行1・学校2・接客1・医療介護1に分かれる', () => {
     expect(COURSES).toHaveLength(24);
     const bySet = (id: string) =>
       COURSES.filter((c) => c.vocabularySetId === id).map((c) => c.id);
     expect(bySet('school-practice')).toEqual(['grade-elementary', 'grade-junior']);
     expect(bySet('travel-practice')).toEqual(['biz-travel']);
     expect(bySet('hospitality-practice')).toEqual(['biz-hospitality']);
-    expect(bySet('common-practice')).toHaveLength(20);
+    // 工程V-2O-1で、医療・介護だけが共通セットから専用セットへ移った。
+    expect(bySet('care-practice')).toEqual(['biz-care']);
+    expect(bySet('common-practice')).toHaveLength(19);
   });
 
-  it('4つの集合を合わせて24コースになり、重なりがない', () => {
-    const sets = ['common-practice', 'travel-practice', 'school-practice', 'hospitality-practice'];
+  it('5つの集合を合わせて24コースになり、重なりがない', () => {
+    const sets = [
+      'common-practice',
+      'travel-practice',
+      'school-practice',
+      'hospitality-practice',
+      'care-practice',
+    ];
     const ids = sets.flatMap((id) =>
       COURSES.filter((c) => c.vocabularySetId === id).map((c) => c.id),
     );
@@ -144,14 +152,14 @@ describe('コースと語彙セットの割り当て', () => {
     ]);
   });
 
-  it('社会人6コースのうち、海外旅行と接客・観光だけがテーマ別セット', () => {
+  it('社会人6コースのうち、海外旅行・接客観光・医療介護が場面別セット', () => {
     const business = coursesInCategory('business');
     expect(business.map((c) => c.vocabularySetId)).toEqual([
       'common-practice',        // 日常英会話
       'travel-practice',        // 海外旅行
       'common-practice',        // ビジネス
       'hospitality-practice',   // 接客・観光
-      'common-practice',        // 医療・介護
+      'care-practice',          // 医療・介護（工程V-2O-1で専用セットへ）
       'common-practice',        // IT・仕事
     ]);
   });

@@ -75,7 +75,7 @@ export const COURSES: readonly Course[] = [
   // 接客・観光は、接客・飲食・宿泊・観光の場面のことばを使う。
   // 場面で分けたセットで、接客の技能や職業の基準を確かめたものではない。
   { id: 'biz-hospitality', label: '接客・観光', categoryId: 'business', vocabularySetId: 'hospitality-practice' },
-  { id: 'biz-care', label: '医療・介護', categoryId: 'business', vocabularySetId: 'common-practice' },
+  { id: 'biz-care', label: '医療・介護', categoryId: 'business', vocabularySetId: 'care-practice' },
   { id: 'biz-it', label: 'IT・仕事', categoryId: 'business', vocabularySetId: 'common-practice' },
 ];
 

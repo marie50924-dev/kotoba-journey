@@ -20,7 +20,14 @@ const SOURCE = fileURLToPath(new URL('../../data/wordPairs.ts', import.meta.url)
  * 語が増えたらこの数も上げる。語数そのものの一致は単体テストが見るので、
  * ここは「読み落としに気づける下限」でよい。
  */
-const MINIMUM_PAIRS = 90;
+const MINIMUM_PAIRS = 105;
+/**
+ * 欠番の pairId。台帳で見送りにした候補の番号で、ゲームには入らない。
+ * **語数105と最大 pairId 106 は別の数**なので、番号の連続で語数を数えない。
+ */
+const MISSING_BY_DESIGN = [99];
+/** 番号の上限。欠番を含むので、語数（MINIMUM_PAIRS）とは別の数。 */
+const MAX_PAIR_ID = 106;
 
 const text = await readFile(SOURCE, 'utf8');
 const entries = [...text.matchAll(/\{\s*pairId:\s*(\d+),\s*ja:\s*'([^']+)',\s*en:\s*'([^']+)'\s*\}/g)]
@@ -34,11 +41,19 @@ if (entries.length < MINIMUM_PAIRS) {
 }
 
 // 件数だけでは、途中の番号を読み落としていても気づけない。
-// いまは pairId 1〜MINIMUM_PAIRS が欠番なくそろっているので、そこまで見る。
+// pairId 1〜MAX_PAIR_ID のうち、意図した欠番を除いた番号がそろっているかを見る。
 const readIds = new Set(entries.map(([id]) => id));
 const missing = [];
-for (let id = 1; id <= MINIMUM_PAIRS; id += 1) {
+for (let id = 1; id <= MAX_PAIR_ID; id += 1) {
+  if (MISSING_BY_DESIGN.includes(id)) continue;
   if (!readIds.has(id)) missing.push(id);
+}
+// 見送りにした番号が、うっかりゲームへ入っていないことも見る。
+const revived = MISSING_BY_DESIGN.filter((id) => readIds.has(id));
+if (revived.length > 0) {
+  throw new Error(
+    `見送りにした pairId ${revived.join(', ')} がゲームデータに入っています。`,
+  );
 }
 if (missing.length > 0) {
   throw new Error(

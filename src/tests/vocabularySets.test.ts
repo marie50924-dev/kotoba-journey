@@ -24,15 +24,18 @@ import type { CardCount } from '../domain/types';
 /**
  * 「コース → 語彙セット → 語」の経路の検査。
  *
- * いまセットは4つある。小学生・中学生が学校のことば30語、
+ * いまセットは5つある。小学生・中学生が学校のことば30語、
  * 海外旅行が旅のことば30語、接客・観光が接客・観光のことば30語、
- * 残り20コースが共通の90語を使う。
+ * 医療・介護が医療・介護のことば30語、残り19コースが共通の105語を使う。
  * セットは場面で分けたもので、学年別の難易度でも仕事で必要な力でもない。
  * ここで固定したいのは、経路が通っていること、どのコースがどのセットを使うか、
  * そして共通セットで遊ぶコースの出題が以前と変わっていないこと。
  */
 
-/** 共通セットが持つ90語。src/data/wordPairs.ts と同じ並び。 */
+/**
+ * 共通セットが持つ105語。src/data/wordPairs.ts と同じ並び。
+ * **pairId 99 は欠番**なので、語数105と最大pairId 106は別の数。
+ */
 const COMMON_PAIR_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
   11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
@@ -43,6 +46,17 @@ const COMMON_PAIR_IDS = [
   61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
   71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
   81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
+  91, 92, 93, 94, 95, 96, 97, 98, 100,
+  101, 102, 103, 104, 105, 106,
+];
+/** 工程V-2O-1でゲームへ入れた医療・介護の15語。pairId 99 は含まない。 */
+const CARE_CORE_PAIR_IDS = [91, 92, 93, 94, 95, 96, 97, 98, 100, 101, 102, 103, 104, 105, 106];
+/** 医療・介護のことば30語。並びも定義どおりに固定する（専用15語が先、共有基礎15語が後）。 */
+const CARE_SET_PAIR_IDS = [
+  91, 92, 93, 94, 95, 96, 97, 98, 100,
+  101, 102, 103, 104, 105, 106,
+  7, 28, 29, 30, 31, 32, 33, 34, 35,
+  38, 42, 78, 82, 83, 85,
 ];
 /** 工程V-2F-2で共通セットへ足した接客・飲食・宿泊の15語。 */
 const HOSPITALITY_PAIR_IDS = [76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90];
@@ -94,11 +108,17 @@ const TRAVEL_SHARED_IDS = [1, 7, 21, 23, 24, 26, 28, 29, 30, 36, 38, 39, 40, 42,
  * 所属上の事実だけを表す。テーマ別セットへの採否は別の工程で決める。
  */
 const PAIR_IDS_NOT_IN_THEME_SET = [8, 10, 12, 20, 22, 25, 27];
-/** 場面別の3セット。共通セットとは扱いが違う。 */
-const THEME_SET_IDS = ['travel-practice', 'school-practice', 'hospitality-practice'] as const;
-/** 共通セットを使うコース。小学生・中学生・海外旅行だけが別。 */
+/** 場面別の4セット。共通セットとは扱いが違う。 */
+const THEME_SET_IDS = [
+  'travel-practice', 'school-practice', 'hospitality-practice', 'care-practice',
+] as const;
+/** 共通セットを使うコース。小学生・中学生・海外旅行・接客観光・医療介護だけが別。 */
 const COMMON_COURSE_IDS = COURSES.map((c) => c.id).filter(
-  (id) => id !== 'biz-travel' && id !== 'biz-hospitality' && !SCHOOL_COURSE_IDS.includes(id),
+  (id) =>
+    id !== 'biz-travel' &&
+    id !== 'biz-hospitality' &&
+    id !== 'biz-care' &&
+    !SCHOOL_COURSE_IDS.includes(id),
 );
 const COUNTS: CardCount[] = [6, 12, 20];
 /**
@@ -113,35 +133,58 @@ describe('語彙セットの定義', () => {
     expect(new Set(VOCABULARY_SETS.map((s) => s.id)).size).toBe(VOCABULARY_SETS.length);
   });
 
-  it('いまは common・travel・school・hospitality の4件がある', () => {
-    expect(VOCABULARY_SETS).toHaveLength(4);
+  it('いまは common・travel・school・hospitality・care の5件がある', () => {
+    expect(VOCABULARY_SETS).toHaveLength(5);
     expect(VOCABULARY_SETS.map((s) => s.id)).toEqual([
       'common-practice', 'travel-practice', 'school-practice', 'hospitality-practice',
+      'care-practice',
     ]);
     expect(findVocabularySet('common-practice')!.label).toBe('共通の練習用ことば');
     expect(findVocabularySet('travel-practice')!.label).toBe('旅のことば');
     expect(findVocabularySet('school-practice')!.label).toBe('学校のことば');
     expect(findVocabularySet('hospitality-practice')!.label).toBe('接客・観光のことば');
+    expect(findVocabularySet('care-practice')!.label).toBe('医療・介護のことば');
+  });
+
+  it('医療・介護のセットは、指定の30件と並びまで一致する', () => {
+    const set = findVocabularySet('care-practice')!;
+    expect([...set.pairIds]).toEqual(CARE_SET_PAIR_IDS);
+    expect(set.pairIds).toHaveLength(30);
+    // 専用15語が先、共有基礎15語が後。
+    expect(set.pairIds.slice(0, 15)).toEqual(CARE_CORE_PAIR_IDS);
+    expect(set.pairIds.slice(15)).toEqual([7, 28, 29, 30, 31, 32, 33, 34, 35, 38, 42, 78, 82, 83, 85]);
+    // 重複なし。見送りの 99 は入らない。
+    expect(new Set(set.pairIds).size).toBe(30);
+    expect(set.pairIds, '見送りの99が入っている').not.toContain(99);
+    // どの語も語彙データにある。
+    for (const pairId of set.pairIds) {
+      expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
+    }
   });
 
   it('既定セットは common-practice のまま', () => {
     // 未選択・未知のコースはここへ落ちる。語がいちばん多いセットにしておく。
     expect(DEFAULT_VOCABULARY_SET_ID).toBe('common-practice');
-    expect(findVocabularySet(DEFAULT_VOCABULARY_SET_ID)!.pairIds).toHaveLength(90);
+    expect(findVocabularySet(DEFAULT_VOCABULARY_SET_ID)!.pairIds).toHaveLength(105);
   });
 
-  it('共通セットの pairIds は、1〜90の昇順と完全に一致する', () => {
+  it('共通セットの pairIds は、1〜98・100〜106の昇順と完全に一致する', () => {
     const set = findVocabularySet('common-practice')!;
     expect(set.pairIds).toEqual(COMMON_PAIR_IDS);
-    expect(set.pairIds).toHaveLength(90);
-    // 欠番なく 1〜90 がそろっている。
-    expect([...set.pairIds]).toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
+    expect(set.pairIds).toHaveLength(105);
+    // 1〜106 から 99 を抜いた並び。語数と最大pairIdを同一視しない。
+    expect([...set.pairIds]).toEqual(
+      Array.from({ length: 106 }, (_, i) => i + 1).filter((id) => id !== 99),
+    );
+    expect(set.pairIds, '見送りの99が入っている').not.toContain(99);
     // 昇順であること。並びが変わると、同じ seed でも盤面が変わる。
     expect([...set.pairIds]).toEqual([...set.pairIds].sort((a, b) => a - b));
-    // 工程V-2F-2で足した15語は末尾に、昇順で入っている。
-    expect(set.pairIds.slice(-15)).toEqual(HOSPITALITY_PAIR_IDS);
+    // 工程V-2O-1で足した15語は末尾に、昇順で入っている。
+    expect(set.pairIds.slice(-15)).toEqual(CARE_CORE_PAIR_IDS);
+    // 接客・観光の核15語の位置も変わっていない。
+    expect(set.pairIds.slice(-30, -15)).toEqual(HOSPITALITY_PAIR_IDS);
     // 学校の核15語の位置も変わっていない。
-    expect(set.pairIds.slice(-30, -15)).toEqual(SCHOOL_PAIR_IDS);
+    expect(set.pairIds.slice(-45, -30)).toEqual(SCHOOL_PAIR_IDS);
   });
 
   it('セット内の pairId に重複がない', () => {
@@ -246,9 +289,9 @@ describe('語彙セットの定義', () => {
     }
   });
 
-  it('共通セットは 8・10 を含み、90語になった', () => {
+  it('共通セットは 8・10 を含み、105語になった', () => {
     const set = findVocabularySet('common-practice')!;
-    expect(set.pairIds).toHaveLength(90);
+    expect(set.pairIds).toHaveLength(105);
     expect(set.pairIds).toContain(8);
     expect(set.pairIds).toContain(10);
   });
@@ -355,9 +398,9 @@ describe('語彙セットの定義', () => {
 });
 
 describe('セットから語を解決する', () => {
-  it('pairsInSet は共通セットの90語を、セットの並びのまま返す', () => {
+  it('pairsInSet は共通セットの105語を、セットの並びのまま返す', () => {
     const pairs = pairsInSet('common-practice');
-    expect(pairs).toHaveLength(90);
+    expect(pairs).toHaveLength(105);
     expect(pairs.map((p) => p.pairId)).toEqual(COMMON_PAIR_IDS);
     // 語彙データの並びとも一致する（盤面の再現性のため）。
     expect(pairs.map((p) => p.pairId)).toEqual(SAMPLE_PAIRS.map((p) => p.pairId));
@@ -368,6 +411,15 @@ describe('セットから語を解決する', () => {
     expect(pairs).toHaveLength(30);
     expect(pairs.map((p) => p.pairId)).toEqual(TRAVEL_PAIR_IDS);
     // 語そのものは語彙データと同じ。セットは並べ替えも書き換えもしない。
+    for (const pair of pairs) {
+      expect(pair).toEqual(findPair(pair.pairId));
+    }
+  });
+
+  it('pairsInSet は医療・介護のセットの30語を、セットの並びのまま返す', () => {
+    const pairs = pairsInSet('care-practice');
+    expect(pairs).toHaveLength(30);
+    expect(pairs.map((p) => p.pairId)).toEqual(CARE_SET_PAIR_IDS);
     for (const pair of pairs) {
       expect(pair).toEqual(findPair(pair.pairId));
     }
@@ -422,9 +474,12 @@ describe('セットから語を解決する', () => {
     expect(() => resolveSetPairs(broken)).toThrow(/999/);
     expect(() => resolveSetPairs(broken)).toThrow(/語彙データに無い/);
 
-    // いまは 1〜90 に欠番が無いので、範囲の外を指した場合で同じことを確かめる。
-    const outOfRange = { id: 'common-practice' as const, pairIds: [1, 91] };
-    expect(() => resolveSetPairs(outOfRange)).toThrow(/91/);
+    // 欠番の 99 を指した場合も、黙って捨てずに止まる。
+    const dropped = { id: 'common-practice' as const, pairIds: [1, 99] };
+    expect(() => resolveSetPairs(dropped)).toThrow(/99/);
+    // 範囲の外を指した場合も同じ。
+    const outOfRange = { id: 'common-practice' as const, pairIds: [1, 107] };
+    expect(() => resolveSetPairs(outOfRange)).toThrow(/107/);
   });
 });
 
@@ -476,9 +531,9 @@ describe('コースと語彙セットの結びつき', () => {
     expect(findCourse('grade-university')!.vocabularySetId).toBe('common-practice');
   });
 
-  it('テーマ別セット以外の20コースは common-practice のまま', () => {
+  it('場面別セット以外の19コースは common-practice のまま', () => {
     const commonCourses = COURSES.filter((c) => c.vocabularySetId === 'common-practice');
-    expect(commonCourses).toHaveLength(20);
+    expect(commonCourses).toHaveLength(19);
     expect(commonCourses.map((c) => c.id)).toEqual(COMMON_COURSE_IDS);
     // 分類ごとにも確かめる。名前だけを理由にセットを変えていないこと。
     const grade = COURSES.filter((c) => c.categoryId === 'grade');
@@ -495,7 +550,9 @@ describe('コースと語彙セットの結びつき', () => {
       .toEqual(['biz-travel']);
     expect(business.filter((c) => c.vocabularySetId === 'hospitality-practice').map((c) => c.id))
       .toEqual(['biz-hospitality']);
-    expect(business.filter((c) => c.vocabularySetId === 'common-practice')).toHaveLength(4);
+    expect(business.filter((c) => c.vocabularySetId === 'care-practice').map((c) => c.id))
+      .toEqual(['biz-care']);
+    expect(business.filter((c) => c.vocabularySetId === 'common-practice')).toHaveLength(3);
   });
 
   it('日常英会話は、今回も共通セットのまま', () => {
@@ -521,7 +578,14 @@ describe('コースと語彙セットの結びつき', () => {
 });
 
 describe('選択中のコースから語を引く', () => {
-  it('共通セットのコースを指定すると、90語になる', () => {
+  it('医療・介護を指定すると、医療・介護の30語になる', () => {
+    const pairs = pairsForCourse('biz-care');
+    expect(pairs.map((p) => p.pairId)).toEqual(CARE_SET_PAIR_IDS);
+    expect(pairs).toHaveLength(30);
+    expect(pairs.map((p) => p.pairId), '見送りの99が入っている').not.toContain(99);
+  });
+
+  it('共通セットのコースを指定すると、105語になる', () => {
     for (const courseId of COMMON_COURSE_IDS) {
       const pairs = pairsForCourse(courseId);
       expect(pairs.map((p) => p.pairId), courseId).toEqual(COMMON_PAIR_IDS);
@@ -530,7 +594,7 @@ describe('選択中のコースから語を引く', () => {
         expect(pairs.map((p) => p.pairId), `${courseId} に ${pairId} が無い`).toContain(pairId);
       }
     }
-    expect(pairsForCourse('biz-daily')).toHaveLength(90);
+    expect(pairsForCourse('biz-daily')).toHaveLength(105);
   });
 
   it('海外旅行を指定すると、旅の30語になる', () => {
@@ -656,6 +720,7 @@ describe('経路を入れても、出題は変わっていないこと', () => {
       ['grade-elementary', SCHOOL_SET_PAIR_IDS],
       ['grade-junior', SCHOOL_SET_PAIR_IDS],
       ['biz-hospitality', HOSPITALITY_SET_PAIR_IDS],
+      ['biz-care', CARE_SET_PAIR_IDS],
       ['biz-it', COMMON_PAIR_IDS],
     ];
     for (const [courseId, allowed] of cases) {
@@ -712,8 +777,8 @@ describe('カルタ画面が、語彙プールを直接使っていないこと'
 });
 
 describe('この工程で変えていないこと', () => {
-  it('ゲームの語は90語で、共通セットと同じ並び', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(90);
+  it('ゲームの語は105語で、共通セットと同じ並び', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(105);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(COMMON_PAIR_IDS);
     // ゲームデータとセットは、順番まで一致していなければならない。
     // ずれると、同じ seed で盤面が変わってしまう。
@@ -729,11 +794,18 @@ describe('この工程で変えていないこと', () => {
     for (const pairId of ADDED_IN_V2I2) {
       expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
     }
-    // 1〜90 のどの番号も引ける。
-    for (let pairId = 1; pairId <= 90; pairId += 1) {
+    // 工程V-2O-1で足した15語も引ける。
+    for (const pairId of CARE_CORE_PAIR_IDS) {
       expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
     }
-    expect(findPair(91), 'findPair(91)').toBeUndefined();
+    // 1〜106 のうち、99 以外はどの番号も引ける。
+    for (let pairId = 1; pairId <= 106; pairId += 1) {
+      if (pairId === 99) continue;
+      expect(findPair(pairId), `findPair(${pairId})`).toBeDefined();
+    }
+    // 見送りの 99 と、範囲の外は引けない。
+    expect(findPair(99), 'findPair(99)').toBeUndefined();
+    expect(findPair(107), 'findPair(107)').toBeUndefined();
   });
 
   it('保存形式は version 3 のまま', () => {
@@ -758,7 +830,7 @@ describe('この工程で変えていないこと', () => {
     expect(record.selectedCourseId).toBe('eiken-3');
     expect(record.history[0].courseLabel).toBe('3級');
     // 保存済みのコースIDから、いまの語彙セットを引ける。
-    expect(pairsForCourse(record.selectedCourseId)).toHaveLength(90);
+    expect(pairsForCourse(record.selectedCourseId)).toHaveLength(105);
 
     const storage = createMemoryStore({ [STORAGE_KEY]: JSON.stringify(legacy) });
     expect(() => new LearningRecordStore(storage)).not.toThrow();
@@ -843,21 +915,50 @@ describe('場面別3セットの重なり', () => {
     expect(UNION, '3セットの和集合').toHaveLength(70);
   });
 
-  it('和集合70語と未所属20語で、ゲーム内90語になる', () => {
+  it('旅・学校・接客観光の3セットだけで見ると、和集合は70語のまま', () => {
+    // この3セットの中身は工程V-2O-1でも変えていないので、和集合70語は動かない。
+    // ゲーム内語彙は105語になったので、「90 − 70」という数え方はもうしない。
+    expect(UNION, '3セットの和集合').toHaveLength(70);
     const game = SAMPLE_PAIRS.map((p) => p.pairId);
-    const notInTheme = game.filter((id) => !UNION.includes(id));
-    expect(game).toHaveLength(90);
-    expect(notInTheme, '3セット未所属の語数').toHaveLength(20);
-    expect(UNION.length + notInTheme.length, '和集合 + 未所属').toBe(game.length);
+    expect(game).toHaveLength(105);
+    const notInTheme3 = game.filter((id) => !UNION.includes(id));
+    expect(notInTheme3, '3セット未所属の語数').toHaveLength(35);
+    expect(UNION.length + notInTheme3.length, '和集合 + 未所属').toBe(game.length);
 
     // 意図して外している7件は、すべて未所属の側にいる。
     for (const pairId of PAIR_IDS_NOT_IN_THEME_SET) {
-      expect(notInTheme, `${pairId} が未所属に入っていない`).toContain(pairId);
+      expect(notInTheme3, `${pairId} が未所属に入っていない`).toContain(pairId);
     }
-    // 指定7件を除いた未所属語は13件。
-    const rest = notInTheme.filter((id) => !PAIR_IDS_NOT_IN_THEME_SET.includes(id));
-    expect(rest, '指定7件を除いた未所属語').toHaveLength(13);
-    expect(PAIR_IDS_NOT_IN_THEME_SET.length + rest.length).toBe(notInTheme.length);
+  });
+
+  it('医療・介護を入れた4セットでは、和集合90語・未所属15語になる', () => {
+    const C = [...findVocabularySet('care-practice')!.pairIds];
+    const union4 = asc([...new Set([...T, ...S, ...H, ...C])]);
+    const game = SAMPLE_PAIRS.map((p) => p.pairId);
+    expect(union4, '4セットの和集合').toHaveLength(90);
+    const notInTheme4 = game.filter((id) => !union4.includes(id));
+    expect(notInTheme4, '4セット未所属の語数').toHaveLength(15);
+    expect(notInTheme4, '4セット未所属の集合').toEqual(
+      [2, 4, 5, 8, 9, 10, 11, 12, 13, 14, 20, 22, 25, 27, 45],
+    );
+    expect(union4.length + notInTheme4.length).toBe(game.length);
+
+    // care-practice と既存3セットの重なり。
+    expect(inter(T, C), '旅 ∩ 医療・介護').toEqual([7, 28, 29, 30, 38, 42]);
+    expect(inter(S, C), '学校 ∩ 医療・介護').toEqual([28, 38]);
+    expect(inter(H, C), '接客・観光 ∩ 医療・介護').toEqual([7, 28, 29, 30, 38, 78, 82, 83, 85]);
+
+    // 医療・介護だけに入る語は20語。
+    const onlyCare = asc(C.filter((id) => !T.includes(id) && !S.includes(id) && !H.includes(id)));
+    expect(onlyCare, '医療・介護だけの語').toEqual([
+      31, 32, 33, 34, 35,
+      91, 92, 93, 94, 95, 96, 97, 98, 100, 101, 102, 103, 104, 105, 106,
+    ]);
+    // 体の部分5語は、以前はどのセットにも入っていなかった。
+    for (const pairId of [31, 32, 33, 34, 35]) {
+      expect(UNION, `${pairId} が3セットの和集合に入っている`).not.toContain(pairId);
+      expect(union4, `${pairId} が4セットの和集合に入っていない`).toContain(pairId);
+    }
   });
 
   it('包除原理の計算が、実データの和集合と合う', () => {

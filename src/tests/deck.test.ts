@@ -16,7 +16,12 @@ import type { CardCount } from '../domain/types';
 
 const COUNTS: CardCount[] = [6, 12, 20];
 
-/** ゲームに入っている90語。工程V-2I-2で欠番が埋まり、1〜90がそろった。 */
+/**
+ * ゲームに入っている105語。
+ * 工程V-2O-1で医療・介護の15語（91〜98・100〜106）が加わった。
+ * **pairId 99 は欠番**（台帳で見送りにした「あし / foot」の番号）。
+ * したがって語数105と最大pairId 106は別の数で、同一視しない。
+ */
 const GAME_PAIR_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
   11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
@@ -27,6 +32,26 @@ const GAME_PAIR_IDS = [
   61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
   71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
   81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
+  91, 92, 93, 94, 95, 96, 97, 98, 100,
+  101, 102, 103, 104, 105, 106,
+];
+/** 工程V-2O-1でゲームへ入れた医療・介護の15語。pairId 99 は含まない。 */
+const ADDED_IN_V2O1: [number, string, string][] = [
+  [91, 'びょういん', 'hospital'],
+  [92, 'いしゃ', 'doctor'],
+  [93, 'かんごし', 'nurse'],
+  [94, 'くすり', 'medicine'],
+  [95, 'くるまいす', 'wheelchair'],
+  [96, 'つえ', 'cane'],
+  [97, 'マスク', 'mask'],
+  [98, 'あたま', 'head'],
+  [100, 'おなか', 'stomach'],
+  [101, 'ゆび', 'finger'],
+  [102, 'たすける', 'help'],
+  [103, 'すわる', 'sit'],
+  [104, 'たつ', 'stand'],
+  [105, 'あらう', 'wash'],
+  [106, 'ひざ', 'knee'],
 ];
 /** 工程V-2I-2でゲームへ入れた5語。それまでは欠番だった。 */
 const ADDED_IN_V2I2: [number, string, string][] = [
@@ -220,7 +245,7 @@ describe('語彙の選出', () => {
     expect(new Set(sets).size).toBeGreaterThan(1);
   });
 
-  it('90語すべてが、seed しだいで選ばれうる', () => {
+  it('105語すべてが、seed しだいで選ばれうる', () => {
     // 少数のseedで全語が出ると決め打ちせず、十分な数のseedを走査して、
     // 70のどの pairId も少なくとも1回は選ばれることを見る。
     const TRIALS = 500;
@@ -399,13 +424,34 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
       [88, 'はこぶ', 'carry'],
       [89, 'あける', 'open'],
       [90, 'しめる', 'close'],
+      ...ADDED_IN_V2O1,
     ]);
   });
 
-  it('ゲームの語は90語で、pairId 1〜90 が欠番なくそろっている', () => {
-    expect(SAMPLE_PAIRS).toHaveLength(90);
+  it('ゲームの語は105語で、pairId 99 だけが欠番', () => {
+    expect(SAMPLE_PAIRS).toHaveLength(105);
     expect(SAMPLE_PAIRS.map((p) => p.pairId)).toEqual(GAME_PAIR_IDS);
-    expect(GAME_PAIR_IDS).toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
+    // 1〜106 から 99 を抜いた並び。語数と最大pairIdを同一視しない。
+    expect(GAME_PAIR_IDS).toEqual(
+      Array.from({ length: 106 }, (_, i) => i + 1).filter((id) => id !== 99),
+    );
+    expect(GAME_PAIR_IDS).not.toContain(99);
+    expect(Math.max(...GAME_PAIR_IDS)).toBe(106);
+    expect(SAMPLE_PAIRS.some((p) => p.pairId === 99), 'pairId 99 がゲームにある').toBe(false);
+  });
+
+  it('工程V-2O-1で足した15語が、指定の表記どおり入っている', () => {
+    for (const [pairId, ja, en] of ADDED_IN_V2O1) {
+      const pair = findPair(pairId);
+      expect(pair, `findPair(${pairId})`).toBeDefined();
+      expect(pair!.ja, `${pairId} の日本語`).toBe(ja);
+      expect(pair!.en, `${pairId} の英語`).toBe(en);
+    }
+    // 90語の後ろへ、この順番で足してある。
+    expect(SAMPLE_PAIRS.slice(90).map((p) => [p.pairId, p.ja, p.en])).toEqual(ADDED_IN_V2O1);
+    // 既存90語は動いていない。
+    expect(SAMPLE_PAIRS.slice(0, 90).map((p) => p.pairId))
+      .toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
   });
 
   it('配列は pairId の昇順。並びを変えると同じ seed でも盤面が変わる', () => {
@@ -423,9 +469,9 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
   });
 
   it('pairId・日本語・英語に重複がない', () => {
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(90);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(90);
-    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(90);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.pairId)).size).toBe(105);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.ja)).size).toBe(105);
+    expect(new Set(SAMPLE_PAIRS.map((p) => p.en)).size).toBe(105);
     for (const pair of SAMPLE_PAIRS) {
       expect(Number.isInteger(pair.pairId) && pair.pairId > 0, `${pair.pairId}`).toBe(true);
     }
@@ -465,7 +511,7 @@ describe('語彙選出が他の仕組みを壊していないこと', () => {
     const deck = buildDeck(SAMPLE_PAIRS, 6, 4242);
     const onBoard = new Set(deck.map((c) => c.pairId));
     const offBoard = SAMPLE_PAIRS.filter((p) => !onBoard.has(p.pairId)).map((p) => p.pairId);
-    expect(offBoard).toHaveLength(87);
+    expect(offBoard).toHaveLength(SAMPLE_PAIRS.length - 3);
     const questions = buildWaveQuiz({
       wavePairIds: [...onBoard],
       cardCount: 6,

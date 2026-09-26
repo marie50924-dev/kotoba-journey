@@ -2,12 +2,13 @@
  * 表示・操作回帰テスト（コース → 語彙セット → 盤面）。
  *
  * カルタ画面は、選んだコースの語彙セットから語を引く。
- * セットは4つある。小学生・中学生が学校のことば30語、海外旅行が旅のことば30語、
- * 接客・観光が接客・観光のことば30語、残り20コースは共通の90語。
+ * セットは5つある。小学生・中学生が学校のことば30語、海外旅行が旅のことば30語、
+ * 接客・観光が接客・観光のことば30語、医療・介護が医療・介護のことば30語、
+ * 残り19コースは共通の105語。
  *
  * 確かめるのは、3分類のどのコースからでも最後まで遊べることと、
  * **そのコースへ割り当てたセットの中に出題が収まっていること**。
- * 「ゲーム内90語に含まれる」だけでは、旅の30語は90語の一部なので、
+ * 「ゲーム内105語に含まれる」だけでは、旅の30語は105語の一部なので、
  * 割り当てが壊れても気づけない。コースごとに期待する集合を持たせる。
  *
  * 盤面の語は seed で決まる。偶然に頼らないよう、ページを開く前に
@@ -30,7 +31,7 @@ const STORAGE_KEY = 'kotoba-journey/learning-record/v1';
 const FIXED_NOW = 1700000000001;
 
 /**
- * ゲームの90語。src/data/wordPairs.ts から読むので、語を足しても直す必要がない。
+ * ゲームの105語。src/data/wordPairs.ts から読むので、語を足しても直す必要がない。
  * 共通セットを使うコースは、この中から出題される。
  */
 const COMMON = WORD_PAIRS;
@@ -106,12 +107,30 @@ const PAIR_IDS_NOT_IN_THEME_SET = [
 ];
 /** 工程V-2I-2でゲームへ入れた5語。共通セットの盤面には出てよい。 */
 const ADDED_IN_V2I2 = [12, 20, 22, 25, 27];
+/**
+ * 医療・介護のことば30語（src/data/vocabularySets.ts の care-practice と同じ）。
+ * 旅・学校・接客観光のセットと同じ理由で、ここも手書きにする。
+ * 専用15語（91〜98・100〜106）が先、共有基礎15語が後。
+ * **pairId 99 は入らない**（台帳で見送りにした「あし / foot」の番号）。
+ */
+const CARE_PAIR_IDS = [
+  91, 92, 93, 94, 95, 96, 97, 98, 100,
+  101, 102, 103, 104, 105, 106,
+  7, 28, 29, 30, 31, 32, 33, 34, 35,
+  38, 42, 78, 82, 83, 85,
+];
+/** 医療・介護だけの核15語。工程V-2O-1でゲームへ入れた語。 */
+const CARE_CORE_IDS = CARE_PAIR_IDS.filter((id) => id >= 91);
+/** 共通セットと共有する基礎15語。 */
+const CARE_SHARED_IDS = CARE_PAIR_IDS.filter((id) => id < 91);
+/** 工程V-2O-1でゲームへ入れた15語。共通セットの盤面にも出てよい。 */
+const ADDED_IN_V2O1 = [...CARE_CORE_IDS];
 
 /**
  * 検査するコース。カテゴリ名・コース名・案内の有無・期待する語彙セット。
  *
  * `expected` は、そのコースの盤面に出てよい pairId の集合。
- * 共通セットのコースは `null`（=ゲームの90語ぜんぶ）。
+ * 共通セットのコースは `null`（=ゲームの105語ぜんぶ）。
  * `board` を持つコースは、固定seedで必ずその盤面になる（実測して固定した値）。
  * `core` / `shared` は、そのセットの専用語と共有基礎語。両方が盤面に出ることを見る。
  * `historyLabel` を持つコースは、パスポートの履歴表示名も確かめる。
@@ -140,10 +159,10 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    // 90語になって盤面が変わったので、実測して取り直した値。
-    board: [30, 31, 43],
+    // 工程V-2O-1で共通セットが105語になり盤面が変わったので、予測して取り直した値。
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ1',
   },
   {
@@ -153,10 +172,10 @@ const COURSES = [
     notice: false,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
     // ステップ1と同じ共通セット・同じ並びなので、同じ固定seedなら盤面も同じ。
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'IT・仕事',
   },
   {
@@ -216,9 +235,9 @@ const COURSES = [
     notice: false,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: '高校生',
   },
   {
@@ -228,9 +247,9 @@ const COURSES = [
     notice: false,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: '大学生',
   },
   {
@@ -241,9 +260,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ2',
   },
   {
@@ -254,9 +273,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ3',
   },
   {
@@ -267,9 +286,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ4',
   },
   {
@@ -280,9 +299,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ5',
   },
   {
@@ -293,9 +312,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ6',
   },
   {
@@ -306,9 +325,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ7',
   },
   {
@@ -319,9 +338,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ことばチャレンジ・ステップ8',
   },
   {
@@ -332,9 +351,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'しごとチャレンジ・ステップ1',
   },
   {
@@ -345,9 +364,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'しごとチャレンジ・ステップ2',
   },
   {
@@ -358,9 +377,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'しごとチャレンジ・ステップ3',
   },
   {
@@ -371,9 +390,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'しごとチャレンジ・ステップ4',
   },
   {
@@ -384,9 +403,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'しごとチャレンジ・ステップ5',
   },
   {
@@ -397,9 +416,9 @@ const COURSES = [
     notice: true,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'しごとチャレンジ・ステップ6',
   },
   {
@@ -409,9 +428,9 @@ const COURSES = [
     notice: false,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: '日常英会話',
   },
   {
@@ -421,21 +440,25 @@ const COURSES = [
     notice: false,
     setLabel: '共通',
     setId: 'common-practice',
-    size: 90,
+    size: 105,
     expected: null,
-    board: [30, 31, 43],
+    board: [24, 33, 101],
     historyLabel: 'ビジネス',
   },
   {
+    // 工程V-2O-1で、医療・介護だけが共通セットから専用セットへ移った。
     category: /社会人/,
     course: '医療・介護',
     courseId: 'biz-care',
     notice: false,
-    setLabel: '共通',
-    setId: 'common-practice',
-    size: 90,
-    expected: null,
-    board: [30, 31, 43],
+    setLabel: '医療・介護',
+    setId: 'care-practice',
+    size: 30,
+    expected: CARE_PAIR_IDS,
+    // 本番の selectPairs() で予測し、実ブラウザの盤面と一致させた値。
+    board: [42, 83, 94],
+    core: CARE_CORE_IDS,
+    shared: CARE_SHARED_IDS,
     historyLabel: '医療・介護',
   },
 ];
@@ -470,10 +493,11 @@ const EXPECTED_COURSE_LABELS = {
 };
 /** セットごとのコース件数。共通20・旅1・学校2・接客1で合計24。 */
 const EXPECTED_SET_COUNTS = {
-  'common-practice': 20,
+  'common-practice': 19,
   'travel-practice': 1,
   'school-practice': 2,
   'hospitality-practice': 1,
+  'care-practice': 1,
 };
 
 function checkCaseList() {
@@ -769,9 +793,14 @@ try {
               );
             }
             // 76〜90 は、接客・観光のセットの核。旅・学校のセットへは広げていない。
+            // 医療・介護のセットは、そのうち 78・82・83・85 を共有基礎として使う。
+            const CARE_SHARES_FROM_HOSPITALITY = [78, 82, 83, 85];
             for (const pairId of HOSPITALITY_CORE_IDS) {
+              const shouldHave =
+                target.courseId === 'biz-hospitality'
+                || (target.courseId === 'biz-care' && CARE_SHARES_FROM_HOSPITALITY.includes(pairId));
               check(
-                allowed.includes(pairId) === (target.courseId === 'biz-hospitality'),
+                allowed.includes(pairId) === shouldHave,
                 `${label}: ${target.setLabel}セットの ${pairId} の扱いが違う`,
               );
             }
@@ -790,7 +819,16 @@ try {
                 `${label}: 共通セットに、工程V-2I-2で足した ${pairId} が無い`,
               );
             }
-            check(allowed.length === 90, `${label}: 共通セットが90語でない（${allowed.length}語）`);
+            // 工程V-2O-1で足した15語も、共通セットでは出題されうる。
+            for (const pairId of ADDED_IN_V2O1) {
+              check(
+                allowed.includes(pairId),
+                `${label}: 共通セットに、工程V-2O-1で足した ${pairId} が無い`,
+              );
+            }
+            // 見送りにした 99 は、どのセットにも入らない。
+            check(!allowed.includes(99), `${label}: 共通セットに、見送りの 99 が入っている`);
+            check(allowed.length === 105, `${label}: 共通セットが105語でない（${allowed.length}語）`);
           }
         }
 

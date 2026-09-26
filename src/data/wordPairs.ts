@@ -1,21 +1,22 @@
 import type { WordPair } from '../domain/types';
 
 /**
- * いまのカルタが使う語彙（90語）。
+ * いまのカルタが使う語彙（105語）。
  *
- * 語彙セットは、この90語の中から「どの語を使うか」を選ぶ入れ物で、
- * src/data/vocabularySets.ts にある。いまは共通セットが90語ぜんぶを、
- * 旅・学校・接客観光のセットがそれぞれ30語を指していて、コースがどれかを参照する。
+ * 語彙セットは、この105語の中から「どの語を使うか」を選ぶ入れ物で、
+ * src/data/vocabularySets.ts にある。いまは共通セットが105語ぜんぶを、
+ * 旅・学校・接客観光・医療介護のセットがそれぞれ30語を指していて、コースがどれかを参照する。
  * 同じ語が複数のセットへ入ることもある。
  * どのセットに入っているかは、語の確認状態とも学年の難易度とも別の軸。
  *
  * pairId は台帳（docs/reports/VOCABULARY_CHECKLIST.md）と保存データを
  * 結ぶ固定の識別子で、詰め直さない。
  * 台帳で確認済みになった語を、台帳と同じ番号のまま足していく。
- * 工程V-2I-2で 12・20・22・25・27 を足したので、いまは pairId 1〜90 が
- * 欠番なくそろっている。
+ * 工程V-2O-1で 91〜98・100〜106 を足したので、いまは105語。
+ * **pairId 99 は欠番**（台帳で見送りにした「あし / foot」の番号）。
+ * したがって **語数105と最大 pairId 106 は別の数**で、同一視してはいけない。
  * 空いた番号へ別の語を入れると、その番号で保存された過去の学習記録が
- * 別の語を指してしまうので、これから欠番が出ても詰め直さない。
+ * 別の語を指してしまうので、欠番は詰め直さない。
  *
  * 配列は pairId の昇順。並びを変えると、同じ seed でも盤面が変わる。
  */
@@ -126,6 +127,29 @@ export const SAMPLE_PAIRS: readonly WordPair[] = [
   { pairId: 88, ja: 'はこぶ', en: 'carry' },
   { pairId: 89, ja: 'あける', en: 'open' },
   { pairId: 90, ja: 'しめる', en: 'close' },
+
+  // 工程V-2N-1・V-2N-2で台帳の確認を終え、工程V-2O-1で足した医療・介護の語。
+  // 場所・人・物・体の部分・動作を、台帳と同じ番号のまま入れている。
+  //
+  // pairId 99 は欠番。台帳で「あし / foot」の候補として使ったが、
+  // 日本語の「あし」が足先と脚全体の両方を指し、英語が foot と leg に分かれるため
+  // 工程V-2N-1で見送った。番号は見送りの履歴として空けたままにし、
+  // 別の語へ割り当て直さない（台帳 第5-1節）。代わりの札は 106「ひざ / knee」。
+  { pairId: 91, ja: 'びょういん', en: 'hospital' },
+  { pairId: 92, ja: 'いしゃ', en: 'doctor' },
+  { pairId: 93, ja: 'かんごし', en: 'nurse' },
+  { pairId: 94, ja: 'くすり', en: 'medicine' },
+  { pairId: 95, ja: 'くるまいす', en: 'wheelchair' },
+  { pairId: 96, ja: 'つえ', en: 'cane' },
+  { pairId: 97, ja: 'マスク', en: 'mask' },
+  { pairId: 98, ja: 'あたま', en: 'head' },
+  { pairId: 100, ja: 'おなか', en: 'stomach' },
+  { pairId: 101, ja: 'ゆび', en: 'finger' },
+  { pairId: 102, ja: 'たすける', en: 'help' },
+  { pairId: 103, ja: 'すわる', en: 'sit' },
+  { pairId: 104, ja: 'たつ', en: 'stand' },
+  { pairId: 105, ja: 'あらう', en: 'wash' },
+  { pairId: 106, ja: 'ひざ', en: 'knee' },
 ];
 
 export function findPair(pairId: number): WordPair | undefined {

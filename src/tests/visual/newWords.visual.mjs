@@ -1,7 +1,8 @@
 /**
  * 足した語が実際に遊べることを確かめる回帰テスト。
  *
- * 語彙は 10語 → 25語 → 40語 → 55語 → 70語 → 85語 → 90語（工程V-2I-2）と増えてきた。
+ * 語彙は 10語 → 25語 → 40語 → 55語 → 70語 → 85語 → 90語（工程V-2I-2）
+ * → 105語（工程V-2O-1）と増えてきた。
  * カードを作る処理や確認テストは pairId しか見ないので、
  * 単体テストでは「新しい語だから壊れる」ことはまず起きない。
  * それでも確かめたいのは、足した語が本当に盤面へ出て、札として取れて、
@@ -10,8 +11,11 @@
  * 足したまとまりごとに盤面を1つずつ作る。古いまとまりの確認は消さない。
  *
  * このテストは「日常英会話」コースで遊ぶ。特定のコースを確かめたいのではなく、
- * **足した90語ぜんぶを盤面へ出せるコースが要る**ため。
- * 日常英会話は common-practice（90語）を使うので、どのまとまりの語も出せる。
+ * **足した語を盤面へ出せるコースが要る**ため。
+ * 日常英会話は common-practice（105語）を使うので、どのまとまりの語も出せる。
+ * 工程V-2O-1で足した15語は医療・介護の専用セットにも入るので、
+ * そのまとまりだけは医療・介護コース（care-practice 30語）で確かめる。
+ * 30語のプールなら、15語だけの盤面を固定seedで作れる。
  * コースごとの語彙セットの割り当ては courseVocabulary.visual.mjs が見る。
  * 役割分担を混ぜないよう、ここではコースが変わっていないことだけ確かめる。
  *
@@ -45,22 +49,46 @@ const VIEWPORTS = [
  * `now` を Date.now が返すと、その盤面がちょうど `expected` の語になる。
  * 語の中身は src/data/wordPairs.ts から引くので、ここには番号だけ置く。
  */
+/**
+ * 工程V-2O-1で足した15語を確かめるコース。
+ *
+ * 15語は医療・介護の専用セット（care-practice 30語）の核なので、
+ * 30語のプールなら固定seedで「15語だけの盤面」を作れる。
+ * 共通セット（105語）では15語だけの盤面になる seed が現実的に見つからない。
+ */
+const CARE_COURSE = {
+  categoryLabel: /社会人/,
+  label: '医療・介護',
+  courseId: 'biz-care',
+  setId: 'care-practice',
+  poolSize: 105,
+};
+
+/** 語彙データそのものの語数。pairId 99 は欠番なので、最大pairIdとは別の数。 */
+const WORD_DATA_SIZE = 105;
+
+/**
+ * 工程V-2O-1でゲームへ入れた医療・介護の15語（care-practice の核）。
+ * **pairId 99 は入らない**（台帳で見送りにした「あし / foot」の番号）。
+ */
+const CARE_CORE_IDS = [91, 92, 93, 94, 95, 96, 97, 98, 100, 101, 102, 103, 104, 105, 106];
+
 const BATCHES = [
   {
     label: '11〜30',
     stage: '工程V-2C-4',
-    now: 1700000000034,
+    now: 1700000000194,
     cardLabel: /^6枚/,
-    expected: [14, 23, 28],
+    expected: [16, 18, 23],
     from: [11, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 26, 28, 29, 30],
     groups: null,
   },
   {
     label: '31〜45',
     stage: '工程V-2D-3',
-    now: 1700000080009,
+    now: 1700000172957,
     cardLabel: /^12枚/,
-    expected: [31, 36, 38, 39, 40, 45],
+    expected: [33, 36, 38, 40, 41, 43],
     from: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
     // 体の部分・身の回りの物が、どちらも盤面に出ていること。
     groups: {
@@ -71,9 +99,9 @@ const BATCHES = [
   {
     label: '46〜60',
     stage: '工程V-2D-5',
-    now: 1700000045968,
+    now: 1700000484811,
     cardLabel: /^12枚/,
-    expected: [48, 51, 52, 54, 55, 57],
+    expected: [48, 49, 50, 55, 56, 60],
     from: [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60],
     // 乗り物・場所・持ち物が、どれも盤面に出ていること。
     groups: {
@@ -85,9 +113,9 @@ const BATCHES = [
   {
     label: '61〜75',
     stage: '工程V-2D-7',
-    now: 1700001320427,
+    now: 1700003394602,
     cardLabel: /^12枚/,
-    expected: [62, 64, 65, 66, 70, 72],
+    expected: [61, 62, 66, 68, 69, 70],
     from: [61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75],
     // 場所・人・道具・本が、どれも盤面に出ていること。
     groups: {
@@ -102,9 +130,9 @@ const BATCHES = [
   {
     label: '76〜90',
     stage: '工程V-2F-2',
-    now: 1700000028452,
+    now: 1700001494324,
     cardLabel: /^12枚/,
-    expected: [77, 83, 85, 88, 89, 90],
+    expected: [79, 82, 83, 84, 88, 89],
     from: [76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90],
     // 飲食の物・宿泊や建物の物・接客の動作が、どれも盤面に出ていること。
     groups: {
@@ -126,17 +154,63 @@ const BATCHES = [
     // 5語が実際に遊べることを1回で確かめる。
     label: 'V-2I-2の5語',
     stage: '工程V-2I-2',
-    now: 1700000553323,
+    now: 1700000038342,
     cardLabel: /^20枚/,
-    expected: [10, 12, 20, 22, 25, 27, 47, 66, 67, 90],
+    expected: [11, 12, 20, 22, 25, 27, 67, 74, 77, 97],
     // 5語はどれも共通セットの語なので、from は共通セットの全語。
-    from: Array.from({ length: 90 }, (_, i) => i + 1),
+    // pairId 99 は欠番なので、1〜106 から抜く。
+    from: Array.from({ length: 106 }, (_, i) => i + 1).filter((id) => id !== 99),
     groups: null,
     // この盤面に必ず出ていてほしい5語。expected と別に持たせて、
     // expected をうっかり書き換えても5語の検査が残るようにする。
     mustInclude: [12, 20, 22, 25, 27],
   },
+  {
+    // 工程V-2O-1でゲームへ入れた15語の前半。医療・介護コース（30語）で遊ぶ。
+    // 20枚（10語）の盤面が、15語のうち10語だけで埋まる seed を固定してある。
+    // 長い表記（91 びょういん / hospital、94 medicine、95 くるまいす / wheelchair）を
+    // この盤面へ必ず出す。
+    label: 'V-2O-1の15語(1)',
+    stage: '工程V-2O-1',
+    course: CARE_COURSE,
+    now: 1700000095244,
+    cardLabel: /^20枚/,
+    expected: [91, 92, 94, 95, 96, 97, 98, 100, 103, 105],
+    from: CARE_CORE_IDS,
+    groups: {
+      場所と人: [91, 92, 93],
+      物: [94, 95, 96, 97],
+      体の部分: [98, 100, 101, 106],
+      動作: [102, 103, 104, 105],
+    },
+    spellingGroups: {
+      カタカナ: [97],
+      ひらがな: [91, 92, 93, 94, 95, 96, 98, 100, 101, 102, 103, 104, 105, 106],
+    },
+    // 重点確認の長い表記。
+    mustInclude: [91, 94, 95],
+  },
+  {
+    // 工程V-2O-1の15語のうち、(1) の盤面に出なかった 93・101・102・104・106 を出す。
+    // (1) と合わせて15語すべてが、どちらかの盤面で確かめられる。
+    label: 'V-2O-1の15語(2)',
+    stage: '工程V-2O-1',
+    course: CARE_COURSE,
+    now: 1700000005142,
+    cardLabel: /^20枚/,
+    expected: [91, 92, 93, 96, 97, 101, 102, 104, 105, 106],
+    from: CARE_CORE_IDS,
+    groups: {
+      場所と人: [91, 92, 93],
+      体の部分: [98, 100, 101, 106],
+      動作: [102, 103, 104, 105],
+    },
+    mustInclude: [93, 101, 102, 104, 106],
+  },
 ];
+
+/** 工程V-2O-1でゲームへ入れた15語。pairId 99 は含まない。 */
+const ADDED_IN_V2O1 = [91, 92, 93, 94, 95, 96, 97, 98, 100, 101, 102, 103, 104, 105, 106];
 
 /**
  * 工程V-2I-2でゲームへ入れた5語。
@@ -163,7 +237,7 @@ const REGRESSION_COURSE = {
   /** このコースが使うはずの語彙セット。 */
   setId: 'common-practice',
   /** そのセットの語数。 */
-  poolSize: 90,
+  poolSize: 105,
 };
 
 const MIME = {
@@ -209,7 +283,7 @@ async function pinSeed(context, now) {
 }
 
 /** カルタ盤面まで進める。 */
-async function reachBoard(page, baseUrl, cardLabel) {
+async function reachBoard(page, baseUrl, cardLabel, course = REGRESSION_COURSE) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: '旅をはじめる' }).click();
   await page.waitForSelector('.screen--avatar-select');
@@ -219,8 +293,8 @@ async function reachBoard(page, baseUrl, cardLabel) {
   await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
 
   await page.waitForSelector('.option-card--category');
-  await page.getByRole('button', { name: REGRESSION_COURSE.categoryLabel }).click();
-  await page.getByRole('button', { name: REGRESSION_COURSE.label, exact: true }).first().click();
+  await page.getByRole('button', { name: course.categoryLabel }).click();
+  await page.getByRole('button', { name: course.label, exact: true }).first().click();
   await page.getByRole('button', { name: cardLabel }).click();
   await page.getByRole('button', { name: '出発する' }).click();
   await page.waitForSelector('.screen--travel');
@@ -237,21 +311,23 @@ async function reachBoard(page, baseUrl, cardLabel) {
  * それではコース経路が入れ替わったことに気づけないので、保存値で見る。
  * 保存形式は変えず、いま入っている値を読むだけ。
  */
-async function checkCourse(page, label) {
+async function checkCourse(page, label, course = REGRESSION_COURSE) {
   const courseId = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key) ?? '{}').selectedCourseId ?? null,
     STORAGE_KEY,
   );
   check(
-    courseId === REGRESSION_COURSE.courseId,
+    courseId === course.courseId,
     `${label}: 選択中コースが想定と違う` +
-      `（期待: ${REGRESSION_COURSE.courseId} / 実際: ${courseId}）`,
+      `（期待: ${course.courseId} / 実際: ${courseId}）`,
   );
-  // 90語ぜんぶを出せるプールで遊んでいること。
+  // 語彙データが読み落とされていないこと。
   check(
-    WORD_PAIRS.size === REGRESSION_COURSE.poolSize,
-    `${label}: 語彙データが${REGRESSION_COURSE.poolSize}語でない（${WORD_PAIRS.size}語）`,
+    WORD_PAIRS.size === WORD_DATA_SIZE,
+    `${label}: 語彙データが${WORD_DATA_SIZE}語でない（${WORD_PAIRS.size}語）`,
   );
+  // 見送りにした 99 は、ゲームデータに入っていない。
+  check(!WORD_PAIRS.has(99), `${label}: 見送りの pairId 99 が語彙データにある`);
   return courseId;
 }
 
@@ -336,7 +412,7 @@ async function checkBoard(page, batch, label) {
   for (const required of batch.mustInclude ?? []) {
     check(
       ids.includes(required),
-      `${label}: 工程V-2I-2で足した ${required} が盤面に出ていない（${ids.join(',')}）`,
+      `${label}: 足した ${required} が盤面に出ていない（${ids.join(',')}）`,
     );
   }
   // 盤面の語は、すべて実在する語を指していること。
@@ -379,8 +455,79 @@ async function checkBoard(page, batch, label) {
     check(jaText === ja, `${label}: ${id} の日本語札が「${ja}」でない（${jaText}）`);
     check(enText === en, `${label}: ${id} の英語札が「${en}」でない（${enText}）`);
   }
+
+  // 札の見え方。全文が残り、枠からはみ出さず、文字が小さくなりすぎないこと。
+  // 工程V-2M-4で入れた文字調整が効いていることも、ここで見る。
+  const shown = await page.evaluate(() =>
+    [...document.querySelectorAll('.card')].map((card) => {
+      const text = card.querySelector('.card__text');
+      const style = getComputedStyle(card);
+      const inset =
+        (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+      return {
+        id: card.getAttribute('data-card-id'),
+        text: text.textContent,
+        fontSize: parseFloat(style.fontSize),
+        // 札は傾けてあるので getBoundingClientRect は使わない。
+        innerHeight: card.clientHeight - inset,
+        innerWidth: text.clientWidth,
+        textHeight: text.offsetHeight,
+        textWidth: text.scrollWidth,
+      };
+    }));
+  for (const card of shown) {
+    const [pairId, lang] = card.id.split('-');
+    const [ja, en] = WORD_PAIRS.get(Number(pairId)) ?? [];
+    const expectedText = lang === 'ja' ? ja : en;
+    // 省略や欠落がないこと。
+    check(
+      card.text === expectedText,
+      `${label}: ${card.id} の札が全文でない（期待: ${expectedText} / 実際: ${card.text}）`,
+    );
+    check(
+      card.textWidth <= card.innerWidth + 0.5,
+      `${label}: ${card.id}「${card.text}」が横へはみ出している（${card.textWidth} > ${card.innerWidth}）`,
+    );
+    check(
+      card.textHeight <= card.innerHeight + 0.5,
+      `${label}: ${card.id}「${card.text}」が縦に切れている（${card.textHeight} > ${card.innerHeight}）`,
+    );
+    check(
+      card.fontSize >= 11,
+      `${label}: ${card.id}「${card.text}」の文字が 11px 未満（${card.fontSize}）`,
+    );
+  }
   return ids;
 }
+
+/**
+ * 工程V-2O-1で足した15語が、どのまとまりで確かめられるかを先に固定する。
+ * 15語のうち1語でも、どの盤面にも出ないまま通ってしまわないようにする。
+ */
+function checkAddedWordsCovered() {
+  const covered = new Set(
+    BATCHES.filter((b) => b.stage === '工程V-2O-1').flatMap((b) => b.expected),
+  );
+  const missing = ADDED_IN_V2O1.filter((id) => !covered.has(id));
+  check(
+    missing.length === 0,
+    `工程V-2O-1の15語のうち、どの盤面にも出ない語がある（${missing.join(',')}）`,
+  );
+  check(
+    ADDED_IN_V2O1.length === 15,
+    `工程V-2O-1で足した語が15語でない（${ADDED_IN_V2O1.length}語）`,
+  );
+  // 見送りの 99 は、どのまとまりの期待盤面にも入らない。
+  for (const batch of BATCHES) {
+    check(
+      !batch.expected.includes(99),
+      `${batch.label}: 期待盤面に見送りの 99 が入っている`,
+    );
+  }
+}
+
+// ブラウザを起動する前に、まとまりの表そのものを確かめる。
+checkAddedWordsCovered();
 
 const { server, port } = await serveDist();
 const baseUrl = `http://127.0.0.1:${port}${BASE_PATH}`;
@@ -399,8 +546,9 @@ try {
           const jsErrors = [];
           page.on('pageerror', (e) => jsErrors.push(e.message));
 
-          await reachBoard(page, baseUrl, batch.cardLabel);
-          await checkCourse(page, label);
+          const course = batch.course ?? REGRESSION_COURSE;
+          await reachBoard(page, baseUrl, batch.cardLabel, course);
+          await checkCourse(page, label, course);
           const ids = await checkBoard(page, batch, label);
 
           const scrollX = await page.evaluate(
@@ -431,8 +579,9 @@ try {
           const jsErrors = [];
           page.on('pageerror', (e) => jsErrors.push(e.message));
 
-          await reachBoard(page, baseUrl, batch.cardLabel);
-          await checkCourse(page, label);
+          const course = batch.course ?? REGRESSION_COURSE;
+          await reachBoard(page, baseUrl, batch.cardLabel, course);
+          await checkCourse(page, label, course);
           const ids = await boardPairIds(page);
           // 先頭の語を2回まちがえて、復習対象にする。
           await makeMistakes(page, ids);
@@ -521,9 +670,9 @@ try {
           // --- 遊んだ記録も、狙ったコースで残っている ---
           const latest = stored.history[0];
           check(
-            latest !== undefined && latest.courseId === REGRESSION_COURSE.courseId,
+            latest !== undefined && latest.courseId === course.courseId,
             `${label}: 履歴のコースIDが想定と違う` +
-              `（期待: ${REGRESSION_COURSE.courseId} / 実際: ${latest && latest.courseId}）`,
+              `（期待: ${course.courseId} / 実際: ${latest && latest.courseId}）`,
           );
 
           // --- パスポートの復習語で、足した語を解決できる ---
@@ -536,8 +685,8 @@ try {
             nodes.map((n) => n.textContent.trim()),
           );
           check(
-            shownCourses[0] === REGRESSION_COURSE.label,
-            `${label}: 履歴の表示名が「${REGRESSION_COURSE.label}」でない（${shownCourses.join(' / ')}）`,
+            shownCourses[0] === course.label,
+            `${label}: 履歴の表示名が「${course.label}」でない（${shownCourses.join(' / ')}）`,
           );
 
           const reviewIds = stored.reviewPairIds;
