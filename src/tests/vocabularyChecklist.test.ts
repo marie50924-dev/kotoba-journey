@@ -43,6 +43,12 @@ interface ChecklistEntry {
   注意点: string;
   /** 候補の語だけが持つ、札に採るときの日本語表記（ひらがな／カタカナ）。 */
   表記: string;
+  /** 見送りにした候補だけが持つ日付と理由。持たない語は空。 */
+  見送り日: string;
+  見送り理由: string;
+  /** 候補の表記を変えたときの記録。変えていない語は空。 */
+  表記変更日: string;
+  表記変更理由: string;
   /**
    * 候補の語だけが持つ、確認前に分かっている論点。
    * 確認の結果を書く `基本語条件` / `資料確認条件` とは別の行にしている。
@@ -65,9 +71,9 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
   // 台帳の本体だけを見る。説明文の中の表を拾わないようにする。
   // 見出しは行頭から探す。「### 9. とり」のような語の見出しと取り違えないため。
   // 語数は増えるので、見出しの数字ではなく節番号で探す。
-  const bodyStart = markdown.search(/\n## 8\. \d+語の確認台帳/);
+  const bodyStart = markdown.search(/\n## 8\. /);
   const bodyEnd = markdown.indexOf('\n## 9. この台帳を変えるときの決まり');
-  expect(bodyStart, '「◯語の確認台帳」の節が無い').toBeGreaterThan(-1);
+  expect(bodyStart, '語ごとの確認台帳の節が無い').toBeGreaterThan(-1);
   expect(bodyEnd, '台帳の終わりが見つからない').toBeGreaterThan(bodyStart);
   const body = markdown.slice(bodyStart, bodyEnd);
 
@@ -123,6 +129,10 @@ function parseChecklist(markdown: string): ChecklistEntry[] {
       確認日: fields.get('確認日') ?? '',
       注意点: fields.get('注意点') ?? '',
       表記: fields.get('表記') ?? '',
+      見送り日: fields.get('見送り日') ?? '',
+      見送り理由: fields.get('見送りの理由') ?? '',
+      表記変更日: fields.get('候補表記の変更日') ?? '',
+      表記変更理由: fields.get('候補表記を変えた理由') ?? '',
       論点: fields.get('確認する論点') ?? '',
       条件: conditions,
       資料条件: sourceConditions,
@@ -150,79 +160,105 @@ const byId = new Map(ENTRIES.map((e) => [e.pairId, e]));
  */
 const CARE_CANDIDATES: [number, string, string, string, string, string][] = [
   [91, 'びょういん', 'hospital', '場所', '名詞', 'ひらがな'],
-  [92, 'おいしゃさん', 'doctor', '人', '名詞', 'ひらがな'],
+  [92, 'いしゃ', 'doctor', '人', '名詞', 'ひらがな'],
   [93, 'かんごし', 'nurse', '人', '名詞', 'ひらがな'],
   [94, 'くすり', 'medicine', '物', '名詞', 'ひらがな'],
   [95, 'くるまいす', 'wheelchair', '物', '名詞', 'ひらがな'],
   [96, 'つえ', 'cane', '物', '名詞', 'ひらがな'],
   [97, 'マスク', 'mask', '物', '名詞', 'カタカナ'],
   [98, 'あたま', 'head', '体', '名詞', 'ひらがな'],
-  [99, 'あし', 'foot', '体', '名詞', 'ひらがな'],
   [100, 'おなか', 'stomach', '体', '名詞', 'ひらがな'],
   [101, 'ゆび', 'finger', '体', '名詞', 'ひらがな'],
   [102, 'たすける', 'help', '動作', '動詞', 'ひらがな'],
   [103, 'すわる', 'sit', '動作', '動詞', 'ひらがな'],
   [104, 'たつ', 'stand', '動作', '動詞', 'ひらがな'],
   [105, 'あらう', 'wash', '動作', '動詞', 'ひらがな'],
+  [106, 'ひざ', 'knee', '体', '名詞', 'ひらがな'],
 ];
+/** いま管理している有効な候補15語。見送りの 99 は入らない。 */
 const CARE_CANDIDATE_IDS = CARE_CANDIDATES.map(([id]) => id);
-/** 候補15語それぞれに、次工程で確かめる論点として必ず残す語。 */
+/** 工程V-2N-1で `基本語判断` を終えた候補7語。確認済みだが、まだゲームには入れていない。 */
+const CARE_CONFIRMED_IDS = [91, 95, 98, 102, 103, 105, 106];
+/** まだ辞書の本文を確かめていない候補8語。`要確認（候補）` のまま。 */
+const CARE_PENDING_IDS = [92, 93, 94, 96, 97, 100, 101, 104];
+/** 見送りにした候補。履歴として台帳に残すだけで、現在管理する語には数えない。 */
+const DROPPED_IDS = [99];
+/** 台帳の掲載記録。現在管理する105語＋見送り履歴1件。 */
+const LEDGER_RECORD_COUNT = 106;
+/** いま管理している語数（ゲームで使用中90＋有効な候補15）。 */
+const MANAGED_WORD_COUNT = 105;
+/** 要確認のまま残した8語に、次工程で確かめる論点として必ず残す語。 */
 const CARE_CANDIDATE_POINTS: [number, string[]][] = [
-  [91, ['美容院']],
-  [92, ['おいしゃさん', 'いしゃ']],
+  [92, ['博士']],
   [93, ['動詞']],
   [94, ['医学']],
-  [95, ['くるま', 'いす']],
   [96, ['cane', 'walking stick']],
   [97, ['仮面']],
-  [98, ['先頭']],
-  [99, ['foot', 'leg']],
   [100, ['stomach', 'belly', 'tummy', 'abdomen']],
   [101, ['finger', 'toe']],
+  [104, ['立つ', '建つ', '経つ']],
+];
+/** 確認済みにした7語の注意点に、採用範囲として必ず残す語。 */
+const CARE_CONFIRMED_NOTES: [number, string[]][] = [
+  [91, ['びよういん']],
+  [95, ['くるま', 'いす']],
+  [98, ['先頭']],
   [102, ['名詞']],
   [103, ['sit down']],
-  [104, ['立つ', '建つ', '経つ']],
   [105, ['名詞']],
+  [106, ['leg', 'foot']],
 ];
 
 describe('語彙確認チェックリストの形', () => {
-  it('105語あり、使用中90語・台帳だけの候補15語に分かれる', () => {
-    expect(ENTRIES).toHaveLength(105);
-    expect(inGame(ENTRIES)).toHaveLength(90);
-    expect(notInGame(ENTRIES)).toHaveLength(15);
-    expect(notInGame(ENTRIES).map((e) => e.pairId)).toEqual(CARE_CANDIDATE_IDS);
+  it('掲載記録106件・現在管理する105語・見送り1件に分かれる', () => {
+    expect(ENTRIES).toHaveLength(LEDGER_RECORD_COUNT);
+    expect(dropped.map((e) => e.pairId)).toEqual(DROPPED_IDS);
+    expect(managed).toHaveLength(MANAGED_WORD_COUNT);
+    expect(ENTRIES.length - dropped.length).toBe(MANAGED_WORD_COUNT);
+    // 現在管理する105語は、ゲームで使用中90語＋有効な候補15語。
+    expect(inGame(managed)).toHaveLength(90);
+    expect(notInGame(managed)).toHaveLength(15);
+    expect(notInGame(managed).map((e) => e.pairId)).toEqual(CARE_CANDIDATE_IDS);
+    // 見送りの語もゲームには入っていない。
+    expect(inGame(dropped)).toHaveLength(0);
   });
 
-  it('日本語・英語に重複がない', () => {
-    expect(new Set(ENTRIES.map((e) => e.ja)).size).toBe(105);
-    expect(new Set(ENTRIES.map((e) => e.en)).size).toBe(105);
+  it('日本語・英語に重複がない（見送りの履歴も含めて106件）', () => {
+    expect(new Set(ENTRIES.map((e) => e.ja)).size).toBe(LEDGER_RECORD_COUNT);
+    expect(new Set(ENTRIES.map((e) => e.en)).size).toBe(LEDGER_RECORD_COUNT);
   });
 
-  it('2軸の内訳が 90・0・0・15 になる', () => {
-    const verifiedInGame = inGame(ENTRIES).filter((e) => e.状態 === '確認済み');
-    const verifiedOnly = notInGame(ENTRIES).filter((e) => e.状態 === '確認済み');
-    const pendingInGame = inGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
-    const pendingOnly = notInGame(ENTRIES).filter((e) => e.状態 !== '確認済み');
+  it('2軸の内訳が 90・7・0・8 になる（見送り1件は数えない）', () => {
+    // この表は見送りを含めない。現在管理する105語だけを2軸で分ける。
+    const verifiedInGame = inGame(managed).filter((e) => e.状態 === '確認済み');
+    const verifiedOnly = notInGame(managed).filter((e) => e.状態 === '確認済み');
+    const pendingInGame = inGame(managed).filter((e) => e.状態 !== '確認済み');
+    const pendingOnly = notInGame(managed).filter((e) => e.状態 !== '確認済み');
     expect(verifiedInGame).toHaveLength(90);
-    // 確認が済んだのにゲームへ入れていない語は、いまは無い。
-    expect(verifiedOnly).toHaveLength(0);
-    expect(verifiedOnly.map((e) => e.pairId)).toEqual([]);
+    // 工程V-2N-1で確認した7語は、確認済みだがまだゲームに入っていない。
+    expect(verifiedOnly).toHaveLength(7);
+    expect(verifiedOnly.map((e) => e.pairId)).toEqual(CARE_CONFIRMED_IDS);
     // 未確認のままゲームで使っている語は無い。
     expect(pendingInGame).toHaveLength(0);
     expect(pendingInGame.map((e) => e.pairId)).toEqual([]);
-    // 工程V-2M-2で足した候補15語だけが「台帳だけ・要確認」に入る。
-    expect(pendingOnly).toHaveLength(15);
-    expect(pendingOnly.map((e) => e.pairId)).toEqual(CARE_CANDIDATE_IDS);
+    // 残る候補8語だけが「台帳だけ・要確認」に入る。
+    expect(pendingOnly).toHaveLength(8);
+    expect(pendingOnly.map((e) => e.pairId)).toEqual(CARE_PENDING_IDS);
+    // 90 + 7 + 0 + 8 = 105。見送りの1件はこの表に入らない。
+    expect(
+      verifiedInGame.length + verifiedOnly.length + pendingInGame.length + pendingOnly.length,
+    ).toBe(MANAGED_WORD_COUNT);
   });
 
-  it('pairId は 1〜105 で重複しない', () => {
+  it('pairId は 1〜106 が台帳に一度ずつ出てくる', () => {
     const ids = ENTRIES.map((e) => e.pairId);
-    expect(new Set(ids).size).toBe(105);
+    expect(new Set(ids).size).toBe(LEDGER_RECORD_COUNT);
     expect([...ids].sort((a, b) => a - b)).toEqual(
-      Array.from({ length: 105 }, (_, i) => i + 1),
+      Array.from({ length: LEDGER_RECORD_COUNT }, (_, i) => i + 1),
     );
-    // 台帳に出てくる順も 1〜105 の昇順で、欠番が無い。
-    expect(ids).toEqual(Array.from({ length: 105 }, (_, i) => i + 1));
+    // 台帳に出てくる順も 1〜106 の昇順で、欠番が無い。
+    // 見送りの 99 も番号を空けず、履歴としてその位置に残す。
+    expect(ids).toEqual(Array.from({ length: LEDGER_RECORD_COUNT }, (_, i) => i + 1));
   });
 
   it('全語に 種類・品詞・注意点 がある', () => {
@@ -240,11 +276,14 @@ describe('語彙確認チェックリストの形', () => {
   });
 });
 
-const STATES = ['要確認（使用中）', '要確認（候補）', '確認済み'];
+const STATES = ['要確認（使用中）', '要確認（候補）', '確認済み', '見送り（候補）'];
 const METHODS = ['資料確認', '基本語判断'];
 /** 基本語判断の5条件。番号と見出しの対応。 */
 const WORD_FORMS = ['名詞の単数形', '名詞（不可算）', '動詞の原形', '色'];
-/** 確認済みの90語。いまは台帳の全語。台帳に出てくる順（pairId 順）で書く。 */
+/**
+ * 確認済みの97語。ゲームで使っている90語＋工程V-2N-1で確認した候補7語。
+ * 台帳に出てくる順（pairId 順）で書く。
+ */
 const VERIFIED_IDS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
   16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
@@ -252,6 +291,7 @@ const VERIFIED_IDS = [
   46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
   61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75,
   76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
+  91, 95, 98, 102, 103, 105, 106,
 ];
 /**
  * `資料確認` として確認した7語。
@@ -275,12 +315,13 @@ const ADDED_IN_V2I2_IDS = ADDED_IN_V2I2.map(([id]) => id);
 const PAIR_IDS_NOT_IN_THEME_SET = [8, 10, 12, 20, 22, 25, 27];
 /**
  * 台帳で `要確認` のまま残っている語。
- * 工程V-2I-1でいったん0件になり、工程V-2M-2で候補15語を足して15件になった。
+ * 工程V-2I-1でいったん0件になり、工程V-2M-2で候補15語を足して15件、
+ * 工程V-2N-1で7語を確認して8件になった。
  */
-const PENDING_IDS: number[] = [...CARE_CANDIDATE_IDS];
+const PENDING_IDS: number[] = [...CARE_PENDING_IDS];
 /**
  * ゲームで使っているのに未確認、という語。工程V-2G-2で0件になった。
- * 候補15語（91〜105）はゲームに入っていないので、ここには入らない。
+ * 候補（91〜106）はゲームに入っていないので、ここには入らない。
  */
 const PENDING_IN_USE_IDS: number[] = [];
 /**
@@ -394,7 +435,7 @@ const NEGATIONS = [
   '別の意味は無い',
 ];
 const COLOR_IDS = [3, 15, 16, 17, 18, 19];
-const VERB_IDS = [28, 29, 30, 42, 43, 44, 45, 87, 88, 89, 90];
+const VERB_IDS = [28, 29, 30, 42, 43, 44, 45, 87, 88, 89, 90, 102, 103, 105];
 const UNCOUNTABLE_IDS = [7];
 // 資料確認の2語は基本語条件の行を持たないので、この検査の対象から外す。
 const COUNTABLE_NOUN_IDS = VERIFIED_IDS.filter(
@@ -427,16 +468,31 @@ const CONDITION_NAMES: [number, string][] = [
   [5, '表記'],
 ];
 const verified = ENTRIES.filter((e) => e.状態 === '確認済み');
-const pending = ENTRIES.filter((e) => e.状態 !== '確認済み');
+/** 見送りは「未確認」ではない。確認済みでもないので、3つ目の区分として分ける。 */
+const dropped = ENTRIES.filter((e) => e.状態 === '見送り（候補）');
+const pending = ENTRIES.filter((e) => e.状態 !== '確認済み' && e.状態 !== '見送り（候補）');
+/** 見送りを除いた、いま管理している語。 */
+const managed = ENTRIES.filter((e) => e.状態 !== '見送り（候補）');
 
 describe('確認の進みかた', () => {
-  it('状態は3種類しか使わない', () => {
+  it('状態は、決めた4つの値しか使わない', () => {
     for (const entry of ENTRIES) {
       expect(STATES, `${entry.pairId}: ${entry.状態}`).toContain(entry.状態);
     }
+    // 現在管理する105語が使うのは3種類まで。`見送り（候補）` は履歴だけに使う。
+    expect(new Set(managed.map((e) => e.状態))).toEqual(new Set(['確認済み', '要確認（候補）']));
+    expect(new Set(dropped.map((e) => e.状態))).toEqual(new Set(['見送り（候補）']));
+    // 第2節に、見送りをどう扱うかが書いてある。
+    expect(checklist, '第2節の見出しが変わっている')
+      .toContain('## 2. 状態の3種類と、見送りの扱い');
+    expect(checklist, '見送りの状態の説明が無い')
+      .toContain('| `見送り（候補）` | 候補として挙げたが、札にしないと決めた');
+    expect(checklist, '見送りが確認済みでも要確認でもないと書かれていない')
+      .toContain('`見送り（候補）` の語は、**確認済みでも要確認でもありません**。');
   });
 
   it('未確認の語は、まだ何も記入されていない', () => {
+    // 見送りの語は判定に「見送り」が入るので、この検査の対象にしない（別の検査で見る）。
     for (const entry of pending) {
       const expected = entry.使用状況 === '使用中' ? '要確認（使用中）' : '要確認（候補）';
       expect(entry.状態, `${entry.pairId} の状態`).toBe(expected);
@@ -602,12 +658,16 @@ describe('確認の進みかた', () => {
     }
   });
 
-  it('確認済み90語・要確認15語が、指定の集合と完全に一致する', () => {
+  it('確認済み97語・要確認8語・見送り1件が、指定の集合と完全に一致する', () => {
     expect(verified.map((e) => e.pairId)).toEqual(VERIFIED_IDS);
     expect(pending.map((e) => e.pairId)).toEqual(PENDING_IDS);
-    expect(verified).toHaveLength(90);
-    expect(pending).toHaveLength(15);
-    expect(ENTRIES).toHaveLength(105);
+    expect(dropped.map((e) => e.pairId)).toEqual(DROPPED_IDS);
+    expect(verified).toHaveLength(97);
+    expect(pending).toHaveLength(8);
+    expect(dropped).toHaveLength(1);
+    // 97 + 8 = 105（現在管理する語）、+ 見送り1件 = 106（掲載記録）。
+    expect(verified.length + pending.length).toBe(MANAGED_WORD_COUNT);
+    expect(ENTRIES).toHaveLength(LEDGER_RECORD_COUNT);
   });
 
   it('状態別・方法別の件数が合っている', () => {
@@ -615,15 +675,17 @@ describe('確認の進みかた', () => {
     expect(pending.filter((e) => e.状態 === '要確認（使用中）').map((e) => e.pairId))
       .toEqual(PENDING_IN_USE_IDS);
     expect(pending.filter((e) => e.状態 === '要確認（候補）').map((e) => e.pairId))
-      .toEqual(CARE_CANDIDATE_IDS);
-    // 確認方法が決まっていないのは、候補15語だけ。
+      .toEqual(CARE_PENDING_IDS);
+    // 確認方法が決まっていないのは、要確認の候補8語と、見送りの1件だけ。
     expect(ENTRIES.filter((e) => e.確認の方法 === '').map((e) => e.pairId))
-      .toEqual(CARE_CANDIDATE_IDS);
-    expect(verified.filter((e) => e.確認の方法 === '基本語判断')).toHaveLength(83);
+      .toEqual([...CARE_PENDING_IDS, ...DROPPED_IDS].sort((a, b) => a - b));
+    expect(pending.filter((e) => e.確認の方法 === '')).toHaveLength(8);
+    expect(dropped.filter((e) => e.確認の方法 === '')).toHaveLength(1);
+    expect(verified.filter((e) => e.確認の方法 === '基本語判断')).toHaveLength(90);
     expect(verified.filter((e) => e.確認の方法 === '資料確認').map((e) => e.pairId))
       .toEqual(SOURCE_CHECKED_IDS);
-    // 確認済み90語 = 基本語判断83 + 資料確認7。
-    expect(verified).toHaveLength(83 + SOURCE_CHECKED_IDS.length);
+    // 確認済み97語 = 基本語判断90 + 資料確認7。
+    expect(verified).toHaveLength(90 + SOURCE_CHECKED_IDS.length);
   });
 });
 
@@ -643,7 +705,7 @@ describe('確認の方法が2通りあると書いてあること', () => {
       '数えられない名詞を `名詞の単数形` と書いてはいけません。',
       'その語が英語でつねに不可算だと決めつけないでください。',
       '### 5-1. pairId は振り直しません',
-      '- pairId 1〜105 は**振り直しません**',
+      '- pairId 1〜106 は**振り直しません**',
       '欠番として残してかまいません',
       '| 正本URLを直接開いた | はい |',
       '**開発環境が本文を開けたかのように書いてはいけません。**',
@@ -652,7 +714,7 @@ describe('確認の方法が2通りあると書いてあること', () => {
       '**この2つが別の軸であることは、これからも変わりません。**',
       '**「ゲームに入ったから確認済みになる」わけではありません。**',
       '### 7-1. コースとの関係',
-      '## 8. 105語の確認台帳',
+      '## 8. 語ごとの確認台帳（掲載記録106件）',
       '**確認状態は、どのセットに入っているかとは別の軸です。**',
       '**同じ語が複数のセットに入ることがあります。**',
       '**学校のセットは、学年別の難易度を保証するものではありません。**',
@@ -1030,8 +1092,10 @@ describe('コードの実データとの照合', () => {
   it('「候補」の語がゲームデータへ混ざっていない', () => {
     // この検査は「候補の語がうっかりゲームへ混ざる」ことを見張っている。
     // 工程V-2M-2で候補15語が戻ってきたので、下のループがまた効いている。
+    // 見送りの 99 も、有効な候補15語と同じくゲームデータへ混ざってはいけない。
     const stillCandidates = notInGame(ENTRIES);
-    expect(stillCandidates.map((e) => e.pairId)).toEqual(CARE_CANDIDATE_IDS);
+    expect(stillCandidates.map((e) => e.pairId))
+      .toEqual([...CARE_CANDIDATE_IDS, ...DROPPED_IDS].sort((a, b) => a - b));
     const usedJa = new Set(SAMPLE_PAIRS.map((p) => p.ja));
     const usedEn = new Set(SAMPLE_PAIRS.map((p) => p.en));
     const usedIds = new Set(SAMPLE_PAIRS.map((p) => p.pairId));
@@ -1289,8 +1353,8 @@ describe('工程V-2F-1で確認し、工程V-2F-2でゲームへ入れた接客�
       expect(entry.条件.get(4), `${entry.pairId} の条件4が台帳の範囲で書かれていない`)
         .toContain(`この台帳の${LEDGER_SIZE_AT_VERIFICATION}語`);
     }
-    // 台帳は工程V-2M-2で105語になったが、確認したときに見た範囲は90語のまま。
-    expect(ENTRIES).toHaveLength(105);
+    // 台帳の掲載記録は106件まで増えたが、確認したときに見た範囲は90語のまま。
+    expect(ENTRIES).toHaveLength(LEDGER_RECORD_COUNT);
   });
 
   it('ゲームデータと共通セットの、同じ番号の語と一致する', () => {
@@ -1666,14 +1730,13 @@ describe('工程V-2G-2で資料確認した 8 つき / 10 くるま', () => {
       expect(entry.注意点, `${entry.pairId} の注意点に未解消の調べ残しがある`)
         .not.toContain('資料の本文で確認できていない');
     }
-    // 集計は変わっていない。確認済みは90語のまま。
-    expect(ENTRIES.filter((e) => e.状態 === '確認済み')).toHaveLength(90);
-    // 工程V-2M-2で足した候補15語は「確認そのものを受けていない」別の話。
-    // 確認済み90語の注意点に調べ残しがある、という意味ではない。
-    expect(ENTRIES.filter((e) => e.状態 !== '確認済み').map((e) => e.pairId))
-      .toEqual(CARE_CANDIDATE_IDS);
-    expect(section, '「未確認の論点0件」と「要確認15語」の違いが書かれていない')
-      .toContain('### 3-1-2. 「未確認の論点0件」と「要確認（候補）15語」は別の話です');
+    // 集計は動いたが、調べ残しは0件のまま。確認済みは97語。
+    expect(ENTRIES.filter((e) => e.状態 === '確認済み')).toHaveLength(97);
+    // 要確認の候補8語は「確認そのものを受けていない」別の話。
+    // 確認済み97語の注意点に調べ残しがある、という意味ではない。
+    expect(pending.map((e) => e.pairId)).toEqual(CARE_PENDING_IDS);
+    expect(section, '「未確認の論点0件」と「要確認8語」の違いが書かれていない')
+      .toContain('### 3-1-2. 「未確認の論点0件」と「要確認（候補）8語」は別の話です');
     expect(section, '2つが矛盾しないと書かれていない').toContain('**この2つは矛盾しません。**');
   });
 
@@ -1766,7 +1829,7 @@ describe('工程V-2G-2で資料確認した 8 つき / 10 くるま', () => {
 
   it('ゲームで使っている語に、未確認のものは1件も残っていない', () => {
     expect(PENDING_IN_USE_IDS).toEqual([]);
-    for (const entry of inGame(ENTRIES)) {
+    for (const entry of inGame(managed)) {
       expect(entry.状態, `${entry.pairId} の状態`).toBe('確認済み');
     }
     expect(SAMPLE_PAIRS).toHaveLength(90);
@@ -2093,30 +2156,35 @@ describe('台帳の、場面別3セットの重なりの説明', () => {
 });
 
 /**
- * 工程V-2M-2。医療・介護の場面で使う候補15語（pairId 91〜105）を台帳へ足した工程。
+ * 医療・介護の場面の候補（工程V-2M-2で登録、工程V-2M-3でレビュー、工程V-2N-1で整理）。
  *
- * この工程でやったのは「候補として並べたこと」だけ。次はやっていない。
- * - 語の意味や英語との対応を確かめること
- * - ゲームへ入れること
- * - 語彙セットやコースの割り当てを変えること
+ * いまの姿はこう。
+ * - 有効な候補15語（pairId 91〜98・100〜106）。うち7語は `確認済み`、8語は `要確認（候補）`。
+ * - 見送り1件（pairId 99「あし / foot」）。履歴として残すだけで、105語には数えない。
  *
- * ここで一番大事なのは3つ。
- * 1. 15語が `要確認（候補）` のままで、確認済みのふりをしていないこと。
- * 2. 15語がゲームデータ・語彙セット・コースのどこにも混ざっていないこと。
- * 3. 台帳が「医療・介護の技能を確かめた」と読める書き方をしていないこと。
+ * ここで一番大事なのは4つ。
+ * 1. 確認済みの7語が「確認が終わっただけ」で、ゲームへ入っていないこと。
+ * 2. 要確認の8語が、確認済みのふりをしていないこと。
+ * 3. 見送りの99が、確認済みでも採用でもなく、有効な候補にも数えられていないこと。
+ * 4. 台帳が「医療・介護の技能を確かめた」と読める書き方をしていないこと。
  *
  * 外部サイトへはアクセスしない。台帳の記述と、コードの実データを読むだけ。
  */
-describe('工程V-2M-2で台帳へ足した医療・介護の候補15語', () => {
+describe('医療・介護の候補（有効15語・見送り1件）', () => {
   const entries = CARE_CANDIDATE_IDS.map((id) => byId.get(id)!);
 
-  it('pairId 91〜105 が連番でそろっている', () => {
-    expect(CARE_CANDIDATE_IDS).toEqual(
-      Array.from({ length: 15 }, (_, i) => 91 + i),
-    );
+  it('有効な候補15語と見送り1件で、pairId 91〜106 がそろっている', () => {
+    expect(CARE_CANDIDATE_IDS).toEqual([91, 92, 93, 94, 95, 96, 97, 98, 100, 101, 102, 103, 104, 105, 106]);
+    expect([...CARE_CANDIDATE_IDS, ...DROPPED_IDS].sort((a, b) => a - b))
+      .toEqual(Array.from({ length: 16 }, (_, i) => 91 + i));
     for (const entry of entries) {
       expect(entry, '候補の語が台帳に無い').toBeDefined();
     }
+    // 確認済み7語＋要確認8語＝有効な候補15語。重なりも抜けも無い。
+    expect([...CARE_CONFIRMED_IDS, ...CARE_PENDING_IDS].sort((a, b) => a - b))
+      .toEqual([...CARE_CANDIDATE_IDS]);
+    expect(CARE_CONFIRMED_IDS).toHaveLength(7);
+    expect(CARE_PENDING_IDS).toHaveLength(8);
     // 既存の90語の番号は、1つも動かしていない。
     expect(ENTRIES.slice(0, 90).map((e) => e.pairId))
       .toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
@@ -2134,83 +2202,15 @@ describe('工程V-2M-2で台帳へ足した医療・介護の候補15語', () =>
     expect(entries).toHaveLength(15);
   });
 
-  it('15語とも 候補・要確認（候補）になっている', () => {
+  it('15語とも、台帳だけの「候補」', () => {
     for (const entry of entries) {
       expect(entry.使用状況, `${entry.pairId} の使用状況`).toBe('候補');
-      expect(entry.状態, `${entry.pairId} の状態`).toBe('要確認（候補）');
-    }
-  });
-
-  it('15語とも 確認の方法・判定・確認日 が空', () => {
-    for (const entry of entries) {
-      expect(entry.確認の方法, `${entry.pairId} の確認の方法`).toBe('');
-      expect(entry.判定, `${entry.pairId} の判定`).toBe('');
-      expect(entry.確認日, `${entry.pairId} の確認日`).toBe('');
-    }
-  });
-
-  it('15語とも 資料名・発行元・URL・本文確認欄 が空', () => {
-    for (const entry of entries) {
-      expect(entry.確認した資料, `${entry.pairId} の確認した資料`).toBe('');
-      expect(entry.URL, `${entry.pairId} のURL`).toBe('');
-      expect(entry.直接確認, `${entry.pairId} の正本URLを直接開いた`).toBe('');
-      expect(entry.確認経路, `${entry.pairId} の本文確認の経路`).toBe('');
-      expect(entry.確認した内容, `${entry.pairId} の確認した内容`).toBe('');
-      expect(entry.追加確認日, `${entry.pairId} の追加確認日`).toBe('');
-      expect(entry.追加確認経路, `${entry.pairId} の追加確認の経路`).toBe('');
-      expect(entry.追加確認内容, `${entry.pairId} の追加確認の内容`).toBe('');
-    }
-  });
-
-  it('15語とも 発行元の行が空欄で置いてある', () => {
-    // 行ごと無いのではなく、空欄として用意してあること。
-    const body = checklist.slice(checklist.indexOf('### 91. '));
-    expect(body.match(/^\| 発行元 \|\s*\|$/gm) ?? [], '発行元の空欄が15行ない')
-      .toHaveLength(15);
-  });
-
-  it('15語とも 基本語条件も資料確認条件も書いていない', () => {
-    // 確認前の疑問を「適合」として並べてしまわないための検査。
-    for (const entry of entries) {
-      expect(entry.条件.size, `${entry.pairId} に基本語条件がある`).toBe(0);
-      expect(entry.資料条件.size, `${entry.pairId} に資料確認条件がある`).toBe(0);
-    }
-  });
-
-  it('15語それぞれに、個別の確認前メモがある', () => {
-    for (const entry of entries) {
-      expect(entry.論点.length, `${entry.pairId} の「確認する論点」が短すぎる`)
-        .toBeGreaterThan(20);
-      expect(entry.注意点.length, `${entry.pairId} の注意点が短すぎる`).toBeGreaterThan(10);
-    }
-    // 同じ文を15語へ複製していない。
-    expect(new Set(entries.map((e) => e.論点)).size, '確認する論点が使い回されている')
-      .toBe(15);
-    expect(new Set(entries.map((e) => e.注意点)).size, '注意点が使い回されている')
-      .toBe(15);
-  });
-
-  it.each(CARE_CANDIDATE_POINTS)('pairId %i の確認前メモに、決めきれていない点が書いてある', (pairId, words) => {
-    const entry = byId.get(pairId as number)!;
-    // 「確認する論点」の行そのものを見る。注意点へ書いてあるから良し、にはしない。
-    // 次工程で何を確かめるかは、論点の行だけを読んでも分かる必要がある。
-    for (const word of words as string[]) {
-      expect(entry.論点, `pairId ${pairId} の確認する論点に「${word}」が無い`).toContain(word);
-    }
-  });
-
-  it('候補の注意点を「未確認の論点」と書いていない', () => {
-    // 「未確認の論点」は、確認済みの札に残る調べ残しを指す言葉（台帳 第3-1-1節）。
-    // 確認そのものを受けていない候補へ使うと、集計が混ざる。
-    for (const entry of entries) {
-      expect(entry.注意点, `${entry.pairId} の注意点`).not.toContain('未確認の論点');
-      expect(entry.論点, `${entry.pairId} の確認する論点`).not.toContain('未確認の論点');
     }
   });
 
   it('品詞は 名詞11語・動詞4語', () => {
     expect(entries.filter((e) => e.品詞 === '名詞').map((e) => e.pairId))
-      .toEqual([91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101]);
+      .toEqual([91, 92, 93, 94, 95, 96, 97, 98, 100, 101, 106]);
     expect(entries.filter((e) => e.品詞 === '動詞').map((e) => e.pairId))
       .toEqual([102, 103, 104, 105]);
   });
@@ -2220,12 +2220,12 @@ describe('工程V-2M-2で台帳へ足した医療・介護の候補15語', () =>
     expect(entries.filter((e) => e.表記 === 'ひらがな')).toHaveLength(14);
   });
 
-  it('15語の日本語候補・英語候補が、台帳の既存90語と重ならない', () => {
+  it('15語の日本語候補・英語候補が、ゲームの90語と重ならない', () => {
     const existingJa = new Set(inGame(ENTRIES).map((e) => e.ja));
     const existingEn = new Set(inGame(ENTRIES).map((e) => e.en));
     for (const entry of entries) {
-      expect(existingJa.has(entry.ja), `「${entry.ja}」が既存90語と重なる`).toBe(false);
-      expect(existingEn.has(entry.en), `「${entry.en}」が既存90語と重なる`).toBe(false);
+      expect(existingJa.has(entry.ja), `「${entry.ja}」がゲームの90語と重なる`).toBe(false);
+      expect(existingEn.has(entry.en), `「${entry.en}」がゲームの90語と重なる`).toBe(false);
     }
     // 候補どうしでも重ならない。
     expect(new Set(entries.map((e) => e.ja)).size).toBe(15);
@@ -2240,15 +2240,13 @@ describe('工程V-2M-2で台帳へ足した医療・介護の候補15語', () =>
     expect(wheelchair.ja).toContain(byId.get(38)!.ja);
     // 完全一致ではないので、台帳の重複ではない。
     expect(ENTRIES.filter((e) => e.ja === 'くるまいす')).toHaveLength(1);
-    // それでも、見分けの論点としては残してある。
-    expect(`${wheelchair.論点} ${wheelchair.注意点}`, '95 に部分一致の注意が無い')
-      .toContain('くるま');
+    expect(`${wheelchair.注意点}`, '95 に部分一致の注意が無い').toContain('くるま');
     expect(checklist, '部分一致が重複でないという説明が台帳に無い')
       .toContain('**部分一致は重複ではありません。**');
   });
 
-  it('15語は SAMPLE_PAIRS に入っていない', () => {
-    for (const pairId of CARE_CANDIDATE_IDS) {
+  it('91〜106 は SAMPLE_PAIRS に入っていない', () => {
+    for (const pairId of [...CARE_CANDIDATE_IDS, ...DROPPED_IDS]) {
       expect(SAMPLE_PAIRS.some((p) => p.pairId === pairId), `${pairId} がゲームデータにある`)
         .toBe(false);
     }
@@ -2256,13 +2254,16 @@ describe('工程V-2M-2で台帳へ足した医療・介護の候補15語', () =>
       expect(SAMPLE_PAIRS.some((p) => p.ja === ja), `「${ja}」がゲームデータにある`).toBe(false);
       expect(SAMPLE_PAIRS.some((p) => p.en === en), `「${en}」がゲームデータにある`).toBe(false);
     }
+    // 見送りにした 99 の語も入れない。
+    expect(SAMPLE_PAIRS.some((p) => p.ja === 'あし')).toBe(false);
+    expect(SAMPLE_PAIRS.some((p) => p.en === 'foot')).toBe(false);
     expect(SAMPLE_PAIRS).toHaveLength(90);
     expect(Math.max(...SAMPLE_PAIRS.map((p) => p.pairId)), 'ゲームデータの最大pairId').toBe(90);
   });
 
-  it('15語は4つの語彙セットのどれにも入っていない', () => {
+  it('91〜106 は4つの語彙セットのどれにも入っていない', () => {
     for (const set of VOCABULARY_SETS) {
-      for (const pairId of CARE_CANDIDATE_IDS) {
+      for (const pairId of [...CARE_CANDIDATE_IDS, ...DROPPED_IDS]) {
         expect(set.pairIds, `${set.id} に ${pairId} が入っている`).not.toContain(pairId);
       }
     }
@@ -2290,20 +2291,26 @@ describe('工程V-2M-2で台帳へ足した医療・介護の候補15語', () =>
     expect(RECORD_VERSION).toBe(3);
   });
 
-  it('台帳の集計が 105・90・15 で書いてある', () => {
+  it('台帳の集計が 掲載記録106件・現在管理105語・見送り1件で書いてある', () => {
     for (const phrase of [
-      'カルタの札に使うことば **105語** を',
-      '- 進み具合: **確認済み 90語 / 要確認 15語**',
-      '| `要確認（候補）` | 15件 | 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105 |',
-      '| 要確認 | 0語（—） | 15語（91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105） |',
-      '| ゲームで使用中・確認済み | 90語 | 1〜90 |',
-      '| 台帳だけの候補・要確認 | 15語 | 91〜105 |',
+      '**掲載記録は106件**です。',
+      '- 進み具合: **確認済み 97語 / 要確認 8語**',
+      '| `要確認（候補）` | 8件 | 92, 93, 94, 96, 97, 100, 101, 104 |',
+      '| `見送り（候補）` | 1件 | 99 |',
+      '| 確認済み | 90語（1〜90） | 7語（91, 95, 98, 102, 103, 105, 106） |',
+      '| 要確認 | 0語（—） | 8語（92, 93, 94, 96, 97, 100, 101, 104） |',
+      '| 台帳だけの候補・確認済み | 7語 | 91, 95, 98, 102, 103, 105, 106 |',
+      '| 台帳だけの候補・要確認 | 8語 | 92, 93, 94, 96, 97, 100, 101, 104 |',
+      'ゲームで使用中 90 + 有効な候補 15 = 現在管理する 105 語',
+      '確認済み 97 + 要確認 8           = 105 語',
+      '基本語判断 90 + 資料確認 7        = 確認済み 97 語',
+      '現在管理する 105 語 + 見送り履歴 1 件 = 掲載記録 106 件',
     ]) {
       expect(checklist, `「${phrase}」が台帳に書かれていない`).toContain(phrase);
     }
   });
 
-  it('台帳が、候補15語について確認済み・採用済みだと書いていない', () => {
+  it('台帳が、候補について確認済み・採用済みだと言い過ぎていない', () => {
     for (const phrase of [
       '15語は確認済み',
       '15語は採用済み',
@@ -2322,33 +2329,375 @@ describe('工程V-2M-2で台帳へ足した医療・介護の候補15語', () =>
       '15語を覚えれば',
       '日本語と英語の対応は確定',
       '対応は確定済み',
+      // 見送りにした札を、確認済み・採用と読める書き方にしない。
+      '99 あし / foot は確認済み',
+      'あし / foot を採用',
     ]) {
       expect(checklist, `台帳に「${phrase}」と書いてある`).not.toContain(phrase);
     }
   });
 
-  it('台帳が、候補15語の位置づけを打ち消しつきで説明している', () => {
+  it('台帳が、候補の位置づけを打ち消しつきで説明している', () => {
     for (const phrase of [
       '**医療・介護という場面で使う候補として集めたもの**です。',
-      '現時点では語ごとの意味や英語との対応も**未確認**で、**ゲームには入っていません**。',
-      '日本語候補・英語候補は**仮の表記**です。',
-      '**候補を管理するための番号**で、表記と対応範囲の採用を意味しません。',
+      '**確認が終わった7語も、ゲームには入っていません。**',
+      '日本語候補・英語候補は**仮の表記**で、辞書の本文を確かめた結果しだいで変わります。',
+      '**候補を管理するための番号**で、それ自体が表記と対応範囲の採用を意味しません。',
       '**技能、診断、治療、職業訓練、学習の難易度を確認したものではありません**。',
       '医療・介護の場面で必要になることばを、**すべて集めたものでもありません**。',
+      '英語に別の意味が存在しないと言っているのではありません',
     ]) {
       expect(checklist, `「${phrase}」が台帳に書かれていない`).toContain(phrase);
     }
   });
 
-  it('候補15語の書き方の決まりが、第9節に足してある', () => {
+  it('候補の書き方の決まりが、第9節に足してある', () => {
     const rules = checklist.slice(checklist.indexOf('## 9. この台帳を変えるときの決まり'));
     for (const phrase of [
       '`要確認（候補）` の語には、「確認の方法」',
       '`基本語条件1〜5` も `資料確認条件1〜5` も書きません',
       '確認前に分かっている論点を「確認する論点」の行へ書きます',
       'pairId だけは、候補のときから採用後までそのまま使います',
+      '「候補表記の変更日」と「候補表記を変えた理由」の行を残します',
+      '状態を `見送り（候補）`、判定を `見送り` にし、「見送り日」と「見送りの理由」の行を残します',
+      '`見送り（候補）` の語を**現在管理する語に数えません**',
     ]) {
       expect(rules, `「${phrase}」が第9節に無い`).toContain(phrase);
     }
+  });
+});
+
+/**
+ * 工程V-2N-1。要確認のまま残した候補8語。
+ *
+ * この8語は、意味の範囲・数えかた・英語の見出し語の選び方に迷いがあるとして
+ * `基本語判断` を避け、辞書の本文を確かめてから決める。
+ * この工程では外部サイトへアクセスしていないので、資料の欄はすべて空のまま。
+ */
+describe('工程V-2N-1で要確認のまま残した候補8語', () => {
+  const entries = CARE_PENDING_IDS.map((id) => byId.get(id)!);
+
+  it('8語とも 要確認（候補）のまま', () => {
+    expect(entries).toHaveLength(8);
+    for (const entry of entries) {
+      expect(entry.状態, `${entry.pairId} の状態`).toBe('要確認（候補）');
+      expect(entry.使用状況, `${entry.pairId} の使用状況`).toBe('候補');
+    }
+  });
+
+  it('8語とも 確認方法・判定・確認日 が空', () => {
+    for (const entry of entries) {
+      expect(entry.確認の方法, `${entry.pairId} の確認の方法`).toBe('');
+      expect(entry.判定, `${entry.pairId} の判定`).toBe('');
+      expect(entry.確認日, `${entry.pairId} の確認日`).toBe('');
+    }
+  });
+
+  it('8語とも 資料名・発行元・URL・本文確認欄・確認した内容 が空', () => {
+    for (const entry of entries) {
+      expect(entry.確認した資料, `${entry.pairId} の確認した資料`).toBe('');
+      expect(entry.URL, `${entry.pairId} のURL`).toBe('');
+      expect(entry.直接確認, `${entry.pairId} の正本URLを直接開いた`).toBe('');
+      expect(entry.確認経路, `${entry.pairId} の本文確認の経路`).toBe('');
+      expect(entry.確認した内容, `${entry.pairId} の確認した内容`).toBe('');
+      expect(entry.追加確認日, `${entry.pairId} の追加確認日`).toBe('');
+    }
+    // 発行元の行は、消さずに空欄として置いてある。語ごとの節を切り出して見る。
+    for (const pairId of CARE_PENDING_IDS) {
+      const start = checklist.indexOf(`### ${pairId}. `);
+      const block = checklist.slice(start, checklist.indexOf('\n---\n', start));
+      expect(block.match(/^\| 発行元 \|\s*\|$/gm) ?? [], `${pairId} の発行元の空欄の行`)
+        .toHaveLength(1);
+    }
+  });
+
+  it('8語とも 基本語条件も資料確認条件も書いていない', () => {
+    for (const entry of entries) {
+      expect(entry.条件.size, `${entry.pairId} に基本語条件がある`).toBe(0);
+      expect(entry.資料条件.size, `${entry.pairId} に資料確認条件がある`).toBe(0);
+    }
+  });
+
+  it('8語それぞれに、個別の確認前メモがある', () => {
+    for (const entry of entries) {
+      expect(entry.論点.length, `${entry.pairId} の「確認する論点」が短すぎる`).toBeGreaterThan(20);
+      expect(entry.注意点.length, `${entry.pairId} の注意点が短すぎる`).toBeGreaterThan(10);
+    }
+    expect(new Set(entries.map((e) => e.論点)).size, '確認する論点が使い回されている').toBe(8);
+    expect(new Set(entries.map((e) => e.注意点)).size, '注意点が使い回されている').toBe(8);
+  });
+
+  it.each(CARE_CANDIDATE_POINTS)('pairId %i の確認前メモに、決めきれていない点が書いてある', (pairId, words) => {
+    const entry = byId.get(pairId as number)!;
+    for (const word of words as string[]) {
+      expect(entry.論点, `pairId ${pairId} の確認する論点に「${word}」が無い`).toContain(word);
+    }
+  });
+
+  it('候補の注意点を「未確認の論点」と書いていない', () => {
+    // 「未確認の論点」は、確認済みの札に残る調べ残しを指す言葉（台帳 第3-1-1節）。
+    for (const entry of entries) {
+      expect(entry.注意点, `${entry.pairId} の注意点`).not.toContain('未確認の論点');
+      expect(entry.論点, `${entry.pairId} の確認する論点`).not.toContain('未確認の論点');
+    }
+  });
+});
+
+/**
+ * 工程V-2N-1。候補92の表記を「おいしゃさん」から「いしゃ」へ変えた記録。
+ *
+ * 変えたのは候補の表記だけで、資料確認も採用もしていない。
+ * 変えた理由を台帳へ残すことと、古い表記が候補として残っていないことを見る。
+ */
+describe('工程V-2N-1で表記を変えた候補92', () => {
+  const doctor = () => byId.get(92)!;
+
+  it('92 は いしゃ / doctor になっている', () => {
+    expect(doctor().ja, '92 の日本語候補').toBe('いしゃ');
+    expect(doctor().en, '92 の英語候補').toBe('doctor');
+    expect(checklist, '92 の見出しが変わっていない').toContain('### 92. いしゃ / doctor');
+  });
+
+  it('「おいしゃさん」は現在の候補として残っていない', () => {
+    // 台帳のどの語の日本語候補にも「おいしゃさん」は無い。
+    expect(ENTRIES.filter((e) => e.ja === 'おいしゃさん')).toHaveLength(0);
+    expect(checklist, '古い見出しが残っている').not.toContain('### 92. おいしゃさん / doctor');
+    expect(checklist, '日本語候補の行に古い表記が残っている')
+      .not.toContain('| 日本語候補 | おいしゃさん |');
+    // 変更の記録として言及するのはよい。理由の説明には出てくる。
+    expect(doctor().表記変更理由, '変更理由に古い表記が書かれていない').toContain('おいしゃさん');
+  });
+
+  it('92 に候補表記を変えた日と理由がある', () => {
+    expect(doctor().表記変更日, '92 の候補表記の変更日').toBe('2026-09-26');
+    for (const phrase of ['敬称', '完全一致', '子どもから大人まで']) {
+      expect(doctor().表記変更理由, `92 の変更理由に「${phrase}」が無い`).toContain(phrase);
+    }
+    expect(
+      doctor().表記変更理由,
+      '92 の変更理由に、確認も採用もしていないと書かれていない',
+    ).toContain('資料確認も採用も行っていない');
+  });
+
+  it('92 は表記を変えただけで、状態は要確認（候補）のまま', () => {
+    expect(doctor().状態, '92 の状態').toBe('要確認（候補）');
+    expect(doctor().確認の方法, '92 の確認の方法').toBe('');
+    expect(doctor().判定, '92 の判定').toBe('');
+    expect(doctor().確認日, '92 の確認日').toBe('');
+    expect(doctor().確認した資料, '92 の確認した資料').toBe('');
+    expect(doctor().URL, '92 のURL').toBe('');
+    expect(doctor().条件.size, '92 に基本語条件がある').toBe(0);
+    expect(doctor().資料条件.size, '92 に資料確認条件がある').toBe(0);
+  });
+});
+
+/**
+ * 工程V-2N-1。候補99「あし / foot」の見送り。
+ *
+ * 日本語の「あし」は足先と脚全体の両方に使われ、英語は foot と leg に分かれる。
+ * 直接入力テストの正誤判定は文字列の完全一致なので、日本語から英語へ答えるときに
+ * 答えを1つに決められない。資料確認で語義を記録しても、この曖昧さは消えない。
+ *
+ * 見送りは「確認済み」でも「採用」でもなく、「要確認」でもない。
+ * pairId 99 は履歴として残し、別の語へ割り当て直さない。
+ */
+describe('工程V-2N-1で見送りにした候補99', () => {
+  const foot = () => byId.get(99)!;
+
+  it('99 は 見送り（候補）・判定 見送り', () => {
+    expect(foot().状態, '99 の状態').toBe('見送り（候補）');
+    expect(foot().判定, '99 の判定').toBe('見送り');
+    expect(foot().見送り日, '99 の見送り日').toBe('2026-09-26');
+    expect(dropped.map((e) => e.pairId)).toEqual([99]);
+  });
+
+  it('99 の見出しと候補語は履歴としてそのまま残っている', () => {
+    expect(checklist, '99 の見出しが変わっている').toContain('### 99. あし / foot');
+    expect(foot().ja, '99 の日本語候補').toBe('あし');
+    expect(foot().en, '99 の英語候補').toBe('foot');
+    expect(foot().種類, '99 の種類').toBe('体');
+    expect(foot().品詞, '99 の品詞').toBe('名詞');
+  });
+
+  it('99 は確認済みでも採用でもない', () => {
+    expect(foot().状態, '99 が確認済みになっている').not.toBe('確認済み');
+    expect(foot().判定, '99 の判定に採用が入っている').not.toContain('採用');
+    expect(foot().確認の方法, '99 の確認の方法').toBe('');
+    expect(foot().確認日, '99 の確認日').toBe('');
+    expect(foot().確認した資料, '99 の確認した資料').toBe('');
+    expect(foot().URL, '99 のURL').toBe('');
+    expect(foot().直接確認, '99 の正本URLを直接開いた').toBe('');
+    expect(foot().確認経路, '99 の本文確認の経路').toBe('');
+    expect(foot().確認した内容, '99 の確認した内容').toBe('');
+    expect(foot().条件.size, '99 に基本語条件がある').toBe(0);
+    expect(foot().資料条件.size, '99 に資料確認条件がある').toBe(0);
+    expect(verified.map((e) => e.pairId), '99 が確認済みの集合に入っている').not.toContain(99);
+  });
+
+  it('99 は有効な候補15語に数えられていない', () => {
+    expect(CARE_CANDIDATE_IDS, '99 が有効な候補に入っている').not.toContain(99);
+    expect(CARE_CONFIRMED_IDS, '99 が確認済み7語に入っている').not.toContain(99);
+    expect(CARE_PENDING_IDS, '99 が要確認8語に入っている').not.toContain(99);
+    expect(managed.map((e) => e.pairId), '99 が現在管理する105語に入っている').not.toContain(99);
+    expect(managed).toHaveLength(MANAGED_WORD_COUNT);
+  });
+
+  it('99 の見送り理由に、判定の曖昧さが記録されている', () => {
+    for (const phrase of [
+      '足先と脚全体',
+      'foot と leg',
+      '完全一致',
+      '文字だけの直接入力',
+      'leg」へ変えても',
+      '資料確認で語義を記録しても',
+    ]) {
+      expect(foot().見送り理由, `99 の見送り理由に「${phrase}」が無い`).toContain(phrase);
+    }
+    expect(foot().見送り理由.length, '99 の見送り理由が短すぎる').toBeGreaterThan(100);
+  });
+
+  it('pairId 99 を別の語へ再利用していない', () => {
+    // 台帳で 99 を持つ記録は1件だけで、その語は「あし / foot」のまま。
+    expect(ENTRIES.filter((e) => e.pairId === 99)).toHaveLength(1);
+    expect(byId.get(99)!.ja).toBe('あし');
+    // 代わりの札は新しい番号（106）で入れてある。
+    expect(byId.get(106)!.ja).toBe('ひざ');
+    expect(byId.get(106)!.pairId).toBe(106);
+    // ゲームデータにも 99 は無い。
+    expect(SAMPLE_PAIRS.some((p) => p.pairId === 99)).toBe(false);
+    // 欠番を詰め直さない決まりが台帳に書いてある。
+    expect(checklist, '見送りのpairIdを残す決まりが書かれていない')
+      .toContain('見送りになった pairId 99「あし / foot」も、この決まりのとおり**欠番として台帳に残し**');
+  });
+});
+
+/**
+ * 工程V-2N-1。`基本語判断` で確認済みにした候補7語。
+ *
+ * 外部の資料は使っていない。台帳 第3-2節の5条件だけで判断した語。
+ * 確認が終わっただけで、ゲームへは入れていない。
+ */
+describe('工程V-2N-1で基本語判断した候補7語', () => {
+  const entries = CARE_CONFIRMED_IDS.map((id) => byId.get(id)!);
+
+  it('7語とも 候補・確認済み・基本語判断・採用', () => {
+    expect(entries).toHaveLength(7);
+    for (const entry of entries) {
+      expect(entry.使用状況, `${entry.pairId} の使用状況`).toBe('候補');
+      expect(entry.状態, `${entry.pairId} の状態`).toBe('確認済み');
+      expect(entry.確認の方法, `${entry.pairId} の確認の方法`).toBe('基本語判断');
+      expect(entry.判定, `${entry.pairId} の判定`).toBe('採用');
+      expect(entry.確認日, `${entry.pairId} の確認日`).toBe('2026-09-26');
+    }
+  });
+
+  it('7語とも 資料名・発行元・URL・本文確認欄 が空', () => {
+    for (const entry of entries) {
+      expect(entry.確認した資料, `${entry.pairId} の確認した資料`).toBe('');
+      expect(entry.URL, `${entry.pairId} のURL`).toBe('');
+      expect(entry.直接確認, `${entry.pairId} の正本URLを直接開いた`).toBe('');
+      expect(entry.確認経路, `${entry.pairId} の本文確認の経路`).toBe('');
+      expect(entry.追加確認日, `${entry.pairId} の追加確認日`).toBe('');
+      expect(entry.追加確認内容, `${entry.pairId} の追加確認の内容`).toBe('');
+    }
+  });
+
+  it('7語とも 基本語条件1〜5 がそろい、どの行も中身がある', () => {
+    for (const entry of entries) {
+      expect([...entry.条件.keys()].sort((a, b) => a - b), `${entry.pairId} の条件の番号`)
+        .toEqual([1, 2, 3, 4, 5]);
+      expect(entry.資料条件.size, `${entry.pairId} に資料確認条件がある`).toBe(0);
+      for (const [number, name] of CONDITION_NAMES) {
+        const [label, value] = (entry.条件.get(number) ?? '').split('\t');
+        expect(label, `${entry.pairId} の条件${number}の見出し`).toBe(name);
+        expect(value.startsWith('適合：'), `${entry.pairId} の条件${number}の書き出し`).toBe(true);
+        expect(
+          value.replace('適合：', '').trim().length,
+          `${entry.pairId} の条件${number}に理由が書かれていない`,
+        ).toBeGreaterThan(10);
+      }
+    }
+  });
+
+  it('条件4は、いま管理している105語の範囲で書いてある', () => {
+    // 「日本語に同音語が無い」ではなく、台帳の範囲に限って書く。
+    for (const entry of entries) {
+      expect(entry.条件.get(4), `${entry.pairId} の条件4が台帳の範囲で書かれていない`)
+        .toContain(`いま管理している${MANAGED_WORD_COUNT}語`);
+    }
+  });
+
+  it('91・95・98・106は名詞の単数形、102・103・105は動詞の原形', () => {
+    for (const pairId of [91, 95, 98, 106]) {
+      expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('名詞の単数形');
+    }
+    for (const pairId of [102, 103, 105]) {
+      expect(wordForm(byId.get(pairId)!), `${pairId} の語形`).toBe('動詞の原形');
+    }
+  });
+
+  it('7語の条件と確認内容を使い回していない', () => {
+    for (const number of [1, 2, 4, 5]) {
+      const rows = entries.map((e) => e.条件.get(number) ?? '');
+      expect(new Set(rows).size, `条件${number} が使い回されている`).toBe(rows.length);
+    }
+    expect(new Set(entries.map((e) => e.確認した内容)).size).toBe(entries.length);
+    expect(new Set(entries.map((e) => e.注意点)).size).toBe(entries.length);
+  });
+
+  it('条件2は、その語で採る意味を限定し、別の意味を否定していない', () => {
+    for (const entry of entries) {
+      const row = entry.条件.get(2) ?? '';
+      expect(row, `${entry.pairId} の条件2に「この札では扱わない」が無い`)
+        .toContain('この札では扱わない');
+      for (const word of NEGATIONS) {
+        expect(row, `${entry.pairId} の条件2に「${word}」がある`).not.toContain(word);
+      }
+    }
+  });
+
+  it('確認が終わった7語にも「確認する論点」の行を残していない', () => {
+    // 「確認する論点」は、これから確かめることを書く行。
+    // 確認が済んだ語は、採用範囲を 基本語条件 と 注意点 で書く。
+    for (const entry of entries) {
+      expect(entry.論点, `${entry.pairId} に確認する論点が残っている`).toBe('');
+      expect(entry.注意点, `${entry.pairId} の注意点に未確認の論点がある`)
+        .not.toContain('未確認の論点');
+      expect(entry.注意点.length, `${entry.pairId} の注意点が短すぎる`).toBeGreaterThan(20);
+    }
+  });
+
+  it.each(CARE_CONFIRMED_NOTES)('pairId %i の注意点に、扱わない意味が書いてある', (pairId, words) => {
+    const entry = byId.get(pairId as number)!;
+    for (const word of words as string[]) {
+      expect(entry.注意点, `pairId ${pairId} の注意点に「${word}」が無い`).toContain(word);
+    }
+  });
+
+  it('106 は ひざ / knee で、99 の代わりに置いた札だと書いてある', () => {
+    const knee = byId.get(106)!;
+    expect(knee.ja).toBe('ひざ');
+    expect(knee.en).toBe('knee');
+    expect(knee.種類).toBe('体');
+    expect(knee.品詞).toBe('名詞');
+    expect(knee.表記).toBe('ひらがな');
+    expect(knee.注意点, '106 に 99 の代わりだと書かれていない').toContain('pairId 99');
+    // どちらの向きから答えても決まる、という採用理由が書いてある。
+    expect(knee.確認した内容, '106 の確認内容に、両方向で決まると書かれていない')
+      .toContain('どちらの向きから答えても');
+  });
+
+  it('7語は確認済みでも、ゲームには入っていない', () => {
+    for (const pairId of CARE_CONFIRMED_IDS) {
+      expect(SAMPLE_PAIRS.some((p) => p.pairId === pairId), `${pairId} がゲームデータにある`)
+        .toBe(false);
+      for (const set of VOCABULARY_SETS) {
+        expect(set.pairIds, `${set.id} に ${pairId} が入っている`).not.toContain(pairId);
+      }
+    }
+    expect(SAMPLE_PAIRS).toHaveLength(90);
+    // 台帳にも、確認とゲーム追加が別だと書いてある。
+    expect(checklist, '確認が札を増やす理由ではないと書かれていない')
+      .toContain('確認が済んだからといって、語が自動的にゲームへ入ることはありません。');
   });
 });
