@@ -110,11 +110,45 @@ button {
   cursor: default;
 }
 
+/*
+ * キーボードやスイッチ操作でいまどのボタンを選んでいるかを示す枠。
+ * 内側を白・外側を濃い青の二重の輪にしてある。表紙のように背後が写真で
+ * 明るさが読めない場所でも、どちらか一方は必ず地と差がつくため。
+ * 指でタップしたときは出さない（:focus ではなく :focus-visible を使う）。
+ */
+.btn:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 0;
+  box-shadow: 0 0 0 3px var(--c-sky);
+}
+
+/*
+ * 主要ボタン。澄んだ青の半透明＋控えめなすりガラス調。
+ *
+ * 色の濃さは、白文字が背景に埋もれないことを基準に決めた。
+ * 半透明なので背後の色が透ける。画面の背景は表紙以外ほぼ --c-paper（ほぼ白）で、
+ * 明るい背景ほどボタンが薄くなり、白文字とのコントラストが下がる。
+ * 文字は縦中央に来るので、文字の背後＝グラデーションの中央の色で評価する。
+ *
+ *   背後 --c-paper  #fdf8ee : 中央 rgb(53,120,193) 白文字 4.56:1
+ *   背後 --c-paper-2 #ffffff : 中央 rgb(53,121,194) 白文字 4.50:1
+ *   背後 --c-sky    #123a5e : 中央 rgb(30,101,178) 白文字 5.90:1
+ *
+ * いずれも通常文字の目安 4.5:1 を満たす。これより明るい青にすると
+ * 明るい背景で 3:1 を割るため、薄くしてはいけない。
+ *
+ * backdrop-filter は未対応端末では効かないが、その場合も background の
+ * 半透明と文字色は残るため、ぼかしが消えるだけで読めなくはならない。
+ */
 .btn--primary {
-  background: linear-gradient(180deg, var(--c-accent-2), var(--c-accent));
-  border-color: transparent;
+  background: linear-gradient(180deg, rgba(42, 126, 205, 0.88), rgba(20, 86, 170, 0.92));
+  border-color: rgba(255, 255, 255, 0.72);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(226, 112, 58, 0.3);
+  box-shadow:
+    0 8px 22px rgba(18, 78, 145, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
 }
 
 .btn--large {
@@ -123,13 +157,28 @@ button {
   font-size: 17px;
 }
 
+/*
+ * 副ボタン。主要ボタンと同じ青の系統だが、淡い青の半透明＋濃い青文字にして、
+ * 主要ボタンと役割が競合しないようにしている。
+ * 背景色は既存トークン --c-en (#d6e8f5) と同じ青を 0.88 で使う。
+ *
+ * 文字（--c-sky #123a5e）とのコントラストは、背後が明るくても暗くても十分ある。
+ *   背後 #fdf8ee : 9.53:1   背後 #ffffff : 9.61:1
+ *   背後 暗い写真 #2a3f52 : 7.68:1   背後 #0d1b2a : 7.34:1
+ *
+ * 表紙では title.css が文字色を --c-ink へ上書きする。--c-ink はさらに暗いので、
+ * コントラストは上記より高くなる方向にしか動かない。
+ */
 .btn--ghost {
-  background: rgba(255, 255, 255, 0.82);
-  border-color: transparent;
+  background: rgba(214, 232, 245, 0.88);
+  border-color: rgba(255, 255, 255, 0.72);
+  color: var(--c-sky);
   font-weight: 600;
   padding: 8px 12px;
   /* タップ領域は 44x44 CSS px 以上を守る。 */
   min-height: var(--tap-min);
+  backdrop-filter: blur(8px) saturate(118%);
+  -webkit-backdrop-filter: blur(8px) saturate(118%);
 }
 
 .btn--back {
