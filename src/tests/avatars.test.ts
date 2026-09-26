@@ -81,9 +81,13 @@ describe('80人の正式名簿', () => {
     expect(AVATARS.map((a) => a.id)).toEqual(expected);
   });
 
-  it('基準画像のキーが全員に入っている（年代×見た目区分の10種類）', () => {
-    expect(AVATARS.every((a) => a.imageKey === `${a.ageGroup}-${a.presentation}`)).toBe(true);
-    expect(new Set(AVATARS.map((a) => a.imageKey)).size).toBe(10);
+  it('画像のキーが全員に入っている（個別8＋共有9の17種類）', () => {
+    expect(AVATARS.every((a) => a.imageKey !== null)).toBe(true);
+    expect(new Set(AVATARS.map((a) => a.imageKey)).size).toBe(17);
+    for (const a of AVATARS) {
+      const individual = a.ageGroup === 'elementary' && a.presentation === 'm';
+      expect(a.imageKey).toBe(individual ? a.id : `${a.ageGroup}-${a.presentation}`);
+    }
   });
 
   it('全員が有効', () => {

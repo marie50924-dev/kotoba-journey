@@ -268,8 +268,11 @@ describe('80人名簿が統合後も欠けていない', () => {
       expect(avatar.familyName.length).toBeGreaterThan(0);
       expect(avatar.givenName.length).toBeGreaterThan(0);
       expect(fullName(avatar)).toBe(`${avatar.familyName}${avatar.givenName}`);
-      // 基準画像は年代×見た目区分の10種類を共有する。
-      expect(avatar.imageKey).toBe(`${avatar.ageGroup}-${avatar.presentation}`);
+      // 個別画像ができた区分（小学生m）は自分のID、ほかは区分の共有キー。
+      const individual = avatar.ageGroup === 'elementary' && avatar.presentation === 'm';
+      expect(avatar.imageKey).toBe(
+        individual ? avatar.id : `${avatar.ageGroup}-${avatar.presentation}`,
+      );
     }
   });
 });

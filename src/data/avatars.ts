@@ -117,6 +117,33 @@ export function baseImageKey(
 }
 
 /**
+ * 1人ずつの個別画像ができている区分。
+ *
+ * ここに入っている区分の人は、共有の基準画像ではなく、自分のIDと同じキーの
+ * 画像を使う。残りの区分は基準画像を8人で共有したまま。
+ * 個別画像ができた区分を、ここへ足していく。
+ *
+ * 区分は「年代-見た目区分」で書く。中学生は middle であって junior ではない
+ * （junior は旅の情景イラスト側の呼び名で、別系統）。
+ */
+const INDIVIDUAL_IMAGE_DIVISIONS: ReadonlySet<string> = new Set(['elementary-m']);
+
+/**
+ * その人が使う画像のキー。
+ *
+ * 個別画像がある区分なら自分のID、まだなら区分の共有キーを返す。
+ * ID は `<年代>-<見た目区分>-<2桁>` なので、そのままキーとして使える。
+ */
+export function imageKeyFor(
+  id: string,
+  ageGroup: AvatarAgeGroup,
+  presentation: AvatarPresentation,
+): string {
+  const division = baseImageKey(ageGroup, presentation);
+  return INDIVIDUAL_IMAGE_DIVISIONS.has(division) ? id : division;
+}
+
+/**
  * imageKey として許す形。
  *
  * imageKey は「拡張子を含まない安全なキー」として扱う。ファイル名そのものや
@@ -180,9 +207,9 @@ function buildRoster(file: RosterFile): AvatarDefinition[] {
       familyNameKana: entry.familyNameKana,
       givenNameKana: entry.givenNameKana,
       romanizedName: entry.romanizedName,
-      // 基準画像は年代×見た目区分の10種類。同じ区分の8人が同じ画像を共有する。
-      // 80人ぶんの個別画像ができたら、ここを entry.id へ変えれば1人単位になる。
-      imageKey: baseImageKey(entry.ageGroup, entry.presentation),
+      // 個別画像ができている区分は1人ずつ別の画像、まだの区分は区分の基準画像を
+      // 8人で共有する。どちらになるかは INDIVIDUAL_IMAGE_DIVISIONS で決まる。
+      imageKey: imageKeyFor(entry.id, entry.ageGroup, entry.presentation),
       enabled: true,
     };
   });
