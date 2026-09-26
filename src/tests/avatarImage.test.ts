@@ -142,12 +142,28 @@ describe('avatarThumb の組み立て方', () => {
   });
 
   it('仮サムネイルは、画像があるかどうかに関わらず必ず組み立てている', () => {
-    // fallback の生成が if の外にあること。
-    const fallbackAt = thumbSource.indexOf("class: 'avatar-thumb__fallback'");
-    const branchAt = thumbSource.indexOf('if (imageUrl !== null)');
+    // 生成が if より前にあること。
+    const fallbackAt = runtimeSource.indexOf("class: 'avatar-thumb__fallback'");
+    const branchAt = runtimeSource.indexOf('if (imageUrl !== null)');
     expect(fallbackAt).toBeGreaterThan(0);
     expect(branchAt).toBeGreaterThan(0);
     expect(fallbackAt, '仮サムネイルが条件分岐の中で作られている').toBeLessThan(branchAt);
+  });
+
+  it('仮サムネイルを、条件を付けずに円へ入れている', () => {
+    // 生成が分岐の外にあっても、円へ入れるところで条件を付けられると
+    // 画像があるときに仮サムネイルが無くなり、失敗時に空の円が出てしまう。
+    // 子要素として素の fallback を渡していることを見る。
+    expect(runtimeSource, '円の子要素が [fallback] になっていない').toMatch(
+      /\[\s*fallback\s*,?\s*\]/,
+    );
+    // fallback に三項演算子や && を掛けていないこと。
+    expect(runtimeSource, '仮サムネイルに条件が付いている').not.toMatch(
+      /[?&|]\s*[^\n]*\bfallback\b/,
+    );
+    expect(runtimeSource, '仮サムネイルに条件が付いている').not.toMatch(
+      /\bfallback\b[^\n]*[?]/,
+    );
   });
 
   it('URL が無いときは <img> を作らない', () => {
