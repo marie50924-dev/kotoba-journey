@@ -2,24 +2,33 @@ import { el } from '../app/dom';
 import {
   AGE_GROUP_COLOR,
   AGE_GROUP_LABEL,
+  avatarImageUrl,
   displayName,
   fullName,
   type AvatarDefinition,
 } from '../data/avatars';
 
 /**
- * キャラクターの仮サムネイル。
+ * キャラクターのサムネイル。
  *
- * ★ここが本番立ち絵への差し替え箇所です★
+ * imageKey が入っていれば実画像を出し、無ければ仮サムネイルを出す。
+ * 切り替えの判断はここ1か所に閉じてあり、呼び出し側（11か所）は変更しなくてよい。
  *
- * 本番用の個別透過立ち絵は未納品のため、ここでは
- *   年代色 + イニシャル（下の名前の先頭1文字） + 名前
- * だけを描いた、ひと目で仮と分かる表示を出している。
- * コンセプトシートの切り抜きは本番素材として使わない。
+ * 仮サムネイル（imageKey が null のとき）
+ *   年代色 + イニシャル（下の名前の先頭1文字） + 年代名 + 名前。
+ *   ひと目で仮と分かるよう、白い破線の縁取りを付ける。
  *
- * 立ち絵が納品されたら、AvatarDefinition.imageKey に値を入れ、
- * この関数の中だけを <img> 表示へ差し替えれば全画面に反映される。
- * 呼び出し側は変更しなくてよい。
+ * 実画像（imageKey があるとき）
+ *   public/assets/avatars/<imageKey>.webp を読む。円形・object-fit: cover。
+ *   仮サムネイルは常に土台として先に描いておき、画像の読み込みが
+ *   「成功したときだけ」前面へ出して仮表示を隠す。こうすると
+ *     - 読み込み中は仮サムネイルが見えるので、空白にならない
+ *     - 失敗したら仮サムネイルがそのまま残るので、名前も年代も消えない
+ *     - 要素の大きさは最初から決まっているので、レイアウトが跳ねない
+ *   の3つが同時に成り立つ。画像の有無で寸法（96/58/40px）は変わらない。
+ *
+ * 読み込み失敗は例外にしない。画面の進行を止めないため、error を受けたら
+ * 画像を隠すだけにして、こちらから throw もログ出力もしない。
  */
 
 export interface AvatarThumbOptions {
@@ -41,19 +50,50 @@ export function avatarThumb(
   options: AvatarThumbOptions = {},
 ): HTMLElement {
   const size = options.size ?? 'md';
+  const ageLabel = AGE_GROUP_LABEL[avatar.ageGroup];
+  const imageUrl = avatarImageUrl(avatar);
 
-  // imageKey が入ったら、ここを <img> に差し替える（現在は未納品のため常に null）。
+  // 仮サムネイルは、実画像があるかどうかに関わらず必ず土台として描く。
+  const fallback = el('span', { class: 'avatar-thumb__fallback' }, [
+    el('span', { class: 'avatar-thumb__initial', text: avatarInitial(avatar) }),
+    el('span', { class: 'avatar-thumb__age', text: ageLabel }),
+  ]);
+
   const face = el(
     'span',
     {
       class: 'avatar-thumb__face',
       style: `--age-color:${AGE_GROUP_COLOR[avatar.ageGroup]}`,
     },
-    [
-      el('span', { class: 'avatar-thumb__initial', text: avatarInitial(avatar) }),
-      el('span', { class: 'avatar-thumb__age', text: AGE_GROUP_LABEL[avatar.ageGroup] }),
-    ],
+    [fallback],
   );
+
+  if (imageUrl !== null) {
+    const image = el('img', {
+      class: 'avatar-thumb__img',
+      src: imageUrl,
+      // 読み上げは外側の role="img" と aria-label が担うが、
+      // 画像単体として扱われた場合にも氏名と年代が伝わるようにしておく。
+      alt: `${fullName(avatar)}（${ageLabel}）`,
+      decoding: 'async',
+      loading: 'lazy',
+    });
+
+    // 成功したときだけ前面へ出す。失敗したら画像だけを消す。
+    const succeed = (): void => face.classList.add('has-image');
+    const fail = (): void => face.classList.add('image-failed');
+
+    image.addEventListener('load', succeed);
+    image.addEventListener('error', fail);
+    // キャッシュ済みで、listener を付ける前に終わっていた場合を拾う。
+    // complete でも naturalWidth が 0 なら読めていない。
+    if (image.complete) {
+      if (image.naturalWidth > 0) succeed();
+      else fail();
+    }
+
+    face.append(image);
+  }
 
   return el(
     'span',

@@ -12,6 +12,9 @@
 }
 
 .avatar-thumb__face {
+  /* 実画像を重ねる基準。円の外へはみ出した画像は切る。 */
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -25,6 +28,58 @@
   box-shadow: 0 2px 6px rgba(16, 36, 58, 0.22);
   line-height: 1;
   flex: 0 0 auto;
+}
+
+/*
+ * 仮サムネイルの中身（頭文字＋年代名）。
+ * 実画像の読み込みが成功したときだけ隠す。読み込み中と失敗時は出したままにする。
+ */
+.avatar-thumb__fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1;
+}
+
+/*
+ * 主人公の実画像。
+ *
+ * 仮サムネイルの上に重ねて置き、成功するまでは透明にしておく。
+ * display:none にしないのは、loading="lazy" の画像が表示されるまで
+ * 読み込まれない環境があるため。透明なら読み込みは始まる。
+ * 寸法は円（.avatar-thumb__face）に追従するので、画像の有無で
+ * レイアウトの大きさは変わらない。
+ */
+.avatar-thumb__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+}
+
+/* 読み込み成功。画像を出し、仮表示と「仮」を示す破線を消す。 */
+.avatar-thumb__face.has-image .avatar-thumb__img {
+  opacity: 1;
+}
+
+.avatar-thumb__face.has-image .avatar-thumb__fallback {
+  display: none;
+}
+
+.avatar-thumb__face.has-image {
+  border-style: none;
+  background: var(--c-paper-2);
+}
+
+/* 読み込み失敗。画像だけを消す。仮サムネイルは残すので名前も年代も消えない。 */
+.avatar-thumb__face.image-failed .avatar-thumb__img {
+  display: none;
 }
 
 .avatar-thumb__initial {

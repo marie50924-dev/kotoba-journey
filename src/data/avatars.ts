@@ -85,6 +85,43 @@ export const PRESENTATION_LABEL: Record<AvatarPresentation, string> = {
   f: '女性',
 };
 
+/**
+ * imageKey として許す形。
+ *
+ * imageKey は「拡張子を含まない安全なキー」として扱う。ファイル名そのものや
+ * パスを入れられるようにすると、`../` や別ディレクトリを指す値が紛れ込んだときに
+ * そのまま URL へ入ってしまう。そこで小文字英数字とハイフンだけに限り、
+ * 先頭と末尾をハイフンにしない形だけを通す。
+ *
+ * 通す例   : 'elementary-m'  'adult-f-03'
+ * 通さない例: 'elementary-m.webp'（拡張子）
+ *             '../secret'（パス）
+ *             'assets/avatars/x'（ディレクトリ）
+ *             'Elementary-M'（大文字）
+ *             ''（空）
+ */
+const IMAGE_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function isSafeImageKey(value: unknown): value is string {
+  return typeof value === 'string' && IMAGE_KEY_PATTERN.test(value);
+}
+
+/** Vite の base を反映した URL を作る。GitHub Pages のサブパス公開に対応する。 */
+function assetUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path}`;
+}
+
+/**
+ * 主人公の画像URL。
+ *
+ * imageKey が未設定（納品前）のときと、安全でないキーが入っているときは null を返す。
+ * null のときは画面側が仮サムネイルを出す。拡張子 .webp はここだけで付ける。
+ */
+export function avatarImageUrl(avatar: Pick<AvatarDefinition, 'imageKey'>): string | null {
+  if (!isSafeImageKey(avatar.imageKey)) return null;
+  return assetUrl(`assets/avatars/${avatar.imageKey}.webp`);
+}
+
 function isAgeGroupValue(value: string): value is AvatarAgeGroup {
   return (AVATAR_AGE_GROUPS as readonly string[]).includes(value);
 }
