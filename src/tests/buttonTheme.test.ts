@@ -288,6 +288,134 @@ describe('副ボタン .btn--ghost の正式配色', () => {
   });
 });
 
+describe('ポインタを重ねたときの反応（hover）', () => {
+  /*
+   * hover の指定を囲んでいるメディアクエリの中身。
+   *
+   * 取り出しは it の中から呼ぶ。describe の本体で取り出して失敗すると、
+   * ファイル全体が collection の段階で落ちて、他の検査の結果も出なくなる。
+   */
+  function hoverMedia(): string {
+    const found = baseCss.match(
+      /@media\s*\(hover:\s*hover\)\s*and\s*\(pointer:\s*fine\)\s*\{([\s\S]*?)\n\}/,
+    );
+    expect(
+      found,
+      'hover 用のメディアクエリ @media (hover: hover) and (pointer: fine) が見つからない',
+    ).not.toBeNull();
+    return (found as RegExpMatchArray)[1];
+  }
+
+  /** メディアクエリの中の、あるセレクタの宣言。 */
+  function hoverBlock(selector: string): string {
+    const pattern = new RegExp(
+      `${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`,
+    );
+    const found = hoverMedia().match(pattern);
+    expect(
+      found,
+      `${selector} の指定が hover のメディアクエリの中にない（:not(:disabled) が外されていないか）`,
+    ).not.toBeNull();
+    return (found as RegExpMatchArray)[1];
+  }
+
+  it('hover できる入力だけに当てている（指の端末には当てない）', () => {
+    expect(baseCss).toMatch(/@media\s*\(hover:\s*hover\)\s*and\s*\(pointer:\s*fine\)/);
+  });
+
+  it('主要ボタン・副ボタンのどちらも、押せないボタンには反応させない', () => {
+    expect(hoverMedia()).toContain('.btn--primary:not(:disabled):hover');
+    expect(hoverMedia()).toContain('.btn--ghost:not(:disabled):hover');
+  });
+
+  it('hover の指定はメディアクエリの外に置かれていない', () => {
+    // 行頭の .btn...:hover は、メディアクエリの中ではインデントされる。
+    expect(baseCss).not.toMatch(/^\.btn[^\n{]*:hover\s*\{/m);
+  });
+
+  describe('主要ボタンは上端がわずかに明るくなる', () => {
+    const hover = () => hoverBlock('.btn--primary:not(:disabled):hover');
+
+    it('縦グラデーションの2色が青系のまま指定されている', () => {
+      const stops = rgbaList(prop(hover(), 'background'));
+      expect(stops, 'hover の色が rgba で2つ書かれていない').toHaveLength(2);
+      for (const stop of stops) {
+        expect(isBlueish(stop), `rgb(${stop.r},${stop.g},${stop.b}) が青系でない`).toBe(true);
+        expect(stop.a, '不透明になっている').toBeLessThan(1);
+      }
+    });
+
+    for (const backdrop of BACKDROPS) {
+      it(`背後が ${backdrop.name} でも上端が通常状態より明るい`, () => {
+        const [normalTop] = gradientStops(primary);
+        const [hoverTop] = rgbaList(prop(hover(), 'background'));
+        const before = relativeLuminance(composite(normalTop, backdrop.color));
+        const after = relativeLuminance(composite(hoverTop, backdrop.color));
+        expect(after, `通常 ${before.toFixed(4)} → hover ${after.toFixed(4)}`).toBeGreaterThan(
+          before,
+        );
+      });
+    }
+
+    it('明るくしても、白文字のコントラストが通常状態より下がらない', () => {
+      const [nTop, nBottom] = gradientStops(primary);
+      const hoverStops = rgbaList(prop(hover(), 'background'));
+      const normalWorst = Math.min(
+        ...BACKDROPS.map((b) =>
+          contrast(composite(midpoint(nTop, nBottom), b.color), WHITE),
+        ),
+      );
+      const hoverWorst = Math.min(
+        ...BACKDROPS.map((b) =>
+          contrast(composite(midpoint(hoverStops[0], hoverStops[1]), b.color), WHITE),
+        ),
+      );
+      expect(
+        hoverWorst,
+        `通常の最悪 ${normalWorst.toFixed(3)}:1 / hover の最悪 ${hoverWorst.toFixed(3)}:1`,
+      ).toBeGreaterThanOrEqual(normalWorst);
+    });
+
+    for (const backdrop of BACKDROPS) {
+      it(`hover 中も 背後が ${backdrop.name} で ${MIN_TEXT_CONTRAST}:1 以上`, () => {
+        const stops = rgbaList(prop(hover(), 'background'));
+        const value = contrast(
+          composite(midpoint(stops[0], stops[1]), backdrop.color),
+          WHITE,
+        );
+        expect(value, `${value.toFixed(2)}:1`).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+      });
+    }
+  });
+
+  describe('副ボタンはわずかに変化する', () => {
+    const hover = () => hoverBlock('.btn--ghost:not(:disabled):hover');
+    const sky = hexToRgb('#123a5e');
+
+    it('通常状態と違う淡い青の半透明である', () => {
+      const [hoverFill] = rgbaList(prop(hover(), 'background'));
+      const [normalFill] = rgbaList(prop(ghost, 'background'));
+      expect(hoverFill, 'hover の色が rgba で書かれていない').toBeDefined();
+      expect(isBlueish(hoverFill)).toBe(true);
+      expect(hoverFill.a).toBeLessThan(1);
+      const changed =
+        hoverFill.r !== normalFill.r ||
+        hoverFill.g !== normalFill.g ||
+        hoverFill.b !== normalFill.b ||
+        hoverFill.a !== normalFill.a;
+      expect(changed, '通常状態と同じ色で、変化がない').toBe(true);
+    });
+
+    for (const backdrop of BACKDROPS) {
+      it(`背後が ${backdrop.name} でも文字が ${MIN_TEXT_CONTRAST}:1 以上`, () => {
+        const [hoverFill] = rgbaList(prop(hover(), 'background'));
+        const value = contrast(composite(hoverFill, backdrop.color), sky);
+        expect(value, `${value.toFixed(2)}:1`).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+      });
+    }
+  });
+});
+
 describe('操作状態の指定', () => {
   it('押したときの反応は残っている', () => {
     expect(block(baseCss, '.btn:active')).toContain('scale(0.98)');
