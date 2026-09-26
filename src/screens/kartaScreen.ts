@@ -22,6 +22,57 @@ const INCORRECT_DISPLAY_MS = 800;
 const SAME_LANGUAGE_DISPLAY_MS = 450;
 
 /**
+ * 札の文字をこれより小さくはしない下限。
+ * ここまで縮めても収まらない語が出たら、文字を隠すのではなく
+ * このサイズのまま置く。読めない大きさにしない方を優先する。
+ */
+const MIN_CARD_FONT_PX = 11;
+
+/**
+ * 1枚の札の文字が、札の内側に収まっているか。
+ *
+ * 札は `overflow: hidden` なので、はみ出した分は切れて見えなくなる。
+ * 切れていないことを、次の2つで見る。
+ * - 横: 文字の外接幅が、折り返し幅を超えていない
+ * - 縦: 文字の外接高さが、札の内側の高さ（枠と余白を除いた高さ）に収まっている
+ *
+ * 札は傾けてあるので getBoundingClientRect は使わない。
+ * 回転前のレイアウト上の大きさで見る。
+ */
+function cardTextFits(text: HTMLElement, innerHeight: number): boolean {
+  return text.scrollWidth <= text.clientWidth && text.offsetHeight <= innerHeight + 0.5;
+}
+
+/**
+ * 収まらない札だけ、文字を1pxずつ小さくする。
+ *
+ * まず基準の大きさで置き、収まっていればそのまま返す。
+ * 収まる短い札は縮まないので、盤面全体が一律に小さくなることはない。
+ * 横と縦の両方が収まった時点で止める。下限は `MIN_CARD_FONT_PX`。
+ *
+ * 特定の語や pairId を名指しで扱わない。長さと枠の関係だけで決めるので、
+ * 日本語の札にも英語の札にも、これから語を足したときにも同じように効く。
+ */
+function fitCardFontSize(node: HTMLElement, baseFontSize: number, innerHeight: number): number {
+  const text = node.querySelector<HTMLElement>('.card__text');
+  if (!text) return baseFontSize;
+  let size = baseFontSize;
+  while (!cardTextFits(text, innerHeight) && size > MIN_CARD_FONT_PX) {
+    size = Math.max(MIN_CARD_FONT_PX, size - 1);
+    node.style.fontSize = `${size}px`;
+  }
+  return size;
+}
+
+/** 札の枠と余白のぶん、内側で使える高さがどれだけ減るか。 */
+function verticalInset(node: HTMLElement): number {
+  const style = getComputedStyle(node);
+  return (
+    (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0)
+  );
+}
+
+/**
  * カルタ画面。
  * 盤面は縦スクロールさせず、20枚でも必ず一画面へ収める。
  * カードの配置は衝突しないスロット方式で計算し、傾きだけを小さく変化させる。
@@ -91,7 +142,10 @@ export function kartaScreen(ctx: AppContext): HTMLElement {
       seed: layoutSeed,
     });
 
-    const fontSize = Math.max(11, Math.min(20, layout.cardHeight * 0.3));
+    const fontSize = Math.max(MIN_CARD_FONT_PX, Math.min(20, layout.cardHeight * 0.3));
+    // まず全部の札を基準の大きさで置く。
+    // 置き終える前に測ると、直前の札の大きさで測ってしまう。
+    const placed: HTMLButtonElement[] = [];
     deck.forEach((card, index) => {
       const slot = layout.slots[index];
       const node = cardNodes.get(card.id);
@@ -102,7 +156,17 @@ export function kartaScreen(ctx: AppContext): HTMLElement {
       node.style.height = `${slot.height}px`;
       node.style.setProperty('--tilt', `${slot.rotation.toFixed(2)}deg`);
       node.style.fontSize = `${fontSize}px`;
+      placed.push(node);
     });
+
+    // そのうえで、収まらない札だけ小さくする。
+    // 「コンピューター」のような長い語が3行になって下が切れるのを防ぐ。
+    const first = placed[0];
+    if (!first) return;
+    const innerHeight = first.clientHeight - verticalInset(first);
+    for (const node of placed) {
+      fitCardFontSize(node, fontSize, innerHeight);
+    }
   }
 
   const resizeObserver = new ResizeObserver(() => applyLayout());

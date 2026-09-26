@@ -392,6 +392,160 @@ try {
       }
     });
   }
+
+  // ---- 4. 長い札の文字が切れない（20枚の最小札） ----
+  //
+  // 20枚の盤面は札がいちばん小さい。基準の文字サイズのままだと、
+  // 74「コンピューター」のような長い語が3行になり、札の下が切れていた。
+  // 札は overflow: hidden なので、切れた行は読めないまま消える。
+  //
+  // いまは、収まらない札だけ文字を小さくする。短い札は基準のまま。
+  // seed を固定して、74・3・28・89 が必ず同じ盤面に出るようにしている。
+  {
+    // Date.now と Math.random を固定すると createSeed() が決まる。
+    // この now では 20枚（10語）の盤面が 3,17,19,28,34,43,58,74,84,89 になる。
+    const FIXED_NOW = 1700000002854;
+    const BOARD_PAIR_IDS = [3, 17, 19, 28, 34, 43, 58, 74, 84, 89];
+    /** 文字を小さくしてはいけない短い語。基準の大きさのままであること。 */
+    const SHORT_WORDS = [
+      [3, 'あお', 'blue'],
+      [28, 'たべる', 'eat'],
+      [89, 'あける', 'open'],
+    ];
+    /** 切れていた長い語。全文が残り、11px 以上で読めること。 */
+    const LONG_WORD = [74, 'コンピューター', 'computer'];
+    const MIN_FONT_PX = 11;
+
+    for (const viewport of [{ width: 320, height: 568 }, { width: 393, height: 852 }]) {
+      const label = `${viewport.width}x${viewport.height} 20枚の長い札`;
+      await runCase(label, async () => {
+        const context = await browser.newContext({ viewport });
+        await context.addInitScript((now) => {
+          Date.now = () => now;
+          Math.random = () => 0;
+        }, FIXED_NOW);
+        try {
+          const page = await context.newPage();
+          const jsErrors = [];
+          page.on('pageerror', (e) => jsErrors.push(e.message));
+
+          await page.goto(baseUrl, { waitUntil: 'networkidle' });
+          await page.getByRole('button', { name: '旅をはじめる' }).click();
+          await page.waitForSelector('.screen--avatar-select');
+          await page.locator('.avatar-card').first().click();
+          await page.getByRole('button', { name: 'この人を選ぶ' }).click();
+          await page.waitForSelector('.screen--avatar-confirm');
+          await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+          await page.waitForSelector('.option-card--category');
+          // 日常英会話は共通の90語を使うので、74 を盤面へ出せる。
+          await page.getByRole('button', { name: /社会人/ }).click();
+          await page.waitForSelector('.course-group');
+          await page.getByRole('button', { name: '日常英会話', exact: true }).click();
+          await page.getByRole('button', { name: /^20枚/ }).click();
+          await page.getByRole('button', { name: '出発する' }).click();
+          await page.waitForSelector('.screen--travel');
+          await page.getByRole('button', { name: 'スキップ' }).click();
+          await page.waitForSelector('.screen--intro');
+          await page.getByRole('button', { name: 'この国でことばを集める' }).click();
+          await page.waitForSelector('.card');
+          await page.waitForTimeout(300);
+
+          const shot = await page.evaluate(() => {
+            const cards = [...document.querySelectorAll('.card')].map((card) => {
+              const text = card.querySelector('.card__text');
+              const style = getComputedStyle(card);
+              const inset =
+                (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+              return {
+                id: card.getAttribute('data-card-id'),
+                text: text.textContent,
+                fontSize: parseFloat(style.fontSize),
+                // 札は傾けてあるので getBoundingClientRect は使わない。
+                // 回転前のレイアウト上の大きさで、内側に収まっているかを見る。
+                innerHeight: card.clientHeight - inset,
+                innerWidth: text.clientWidth,
+                textHeight: text.offsetHeight,
+                textWidth: text.scrollWidth,
+              };
+            });
+            return {
+              cards,
+              hScroll:
+                document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            };
+          });
+
+          const byId = new Map(shot.cards.map((c) => [c.id, c]));
+          check(shot.cards.length === 20, `${label}: 札が20枚ない（${shot.cards.length}）`);
+          check(
+            JSON.stringify(
+              [...new Set(shot.cards.map((c) => Number(c.id.split('-')[0])))].sort((a, b) => a - b),
+            ) === JSON.stringify(BOARD_PAIR_IDS),
+            `${label}: 固定seedの盤面が想定と違う（${shot.cards.map((c) => c.id).join(',')}）`,
+          );
+
+          // --- どの札も、文字が枠の内側に収まっている ---
+          for (const card of shot.cards) {
+            check(
+              card.textWidth <= card.innerWidth + 0.5,
+              `${label}: ${card.id}「${card.text}」が横へはみ出している（${card.textWidth} > ${card.innerWidth}）`,
+            );
+            check(
+              card.textHeight <= card.innerHeight + 0.5,
+              `${label}: ${card.id}「${card.text}」が縦に切れている（${card.textHeight} > ${card.innerHeight}）`,
+            );
+            check(
+              card.fontSize >= MIN_FONT_PX,
+              `${label}: ${card.id}「${card.text}」の文字が ${MIN_FONT_PX}px 未満（${card.fontSize}）`,
+            );
+          }
+          check(shot.hScroll <= 0, `${label}: 横スクロールが出ている（${shot.hScroll}px）`);
+
+          // --- 長い語は、省略も欠落もなく全文が残っている ---
+          const [longId, longJa, longEn] = LONG_WORD;
+          for (const [lang, expected] of [['ja', longJa], ['en', longEn]]) {
+            const card = byId.get(`${longId}-${lang}`);
+            check(card !== undefined, `${label}: ${longId}-${lang} の札が無い`);
+            if (!card) continue;
+            // 「…」で省略したり、一部を消したりしていない。
+            check(
+              card.text === expected,
+              `${label}: ${longId}-${lang} の文字が全文でない（${card.text}）`,
+            );
+            check(
+              card.textHeight <= card.innerHeight + 0.5,
+              `${label}: ${longId}-${lang}「${expected}」が縦に切れている（${card.textHeight} > ${card.innerHeight}）`,
+            );
+            check(
+              card.fontSize >= MIN_FONT_PX,
+              `${label}: ${longId}-${lang} の文字が ${MIN_FONT_PX}px 未満（${card.fontSize}）`,
+            );
+          }
+
+          // --- 短い語は、基準の大きさのまま。全札を一律に小さくしていない ---
+          const base = Math.max(...shot.cards.map((c) => c.fontSize));
+          for (const [shortId, ja, en] of SHORT_WORDS) {
+            for (const [lang, expected] of [['ja', ja], ['en', en]]) {
+              const card = byId.get(`${shortId}-${lang}`);
+              check(card !== undefined, `${label}: ${shortId}-${lang} の札が無い`);
+              if (!card) continue;
+              check(card.text === expected, `${label}: ${shortId}-${lang} の文字が違う（${card.text}）`);
+              check(
+                card.fontSize === base,
+                `${label}: ${shortId}-${lang}「${expected}」が不要に小さくなっている（${card.fontSize} < ${base}）`,
+              );
+            }
+          }
+
+          const long = byId.get(`${longId}-ja`);
+          check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
+          return ` 基準${base.toFixed(1)}px / コンピューター${long.fontSize.toFixed(1)}px・${long.textHeight}px（枠内${long.innerHeight}px）`;
+        } finally {
+          await context.close();
+        }
+      });
+    }
+  }
 } finally {
   await browser.close();
   server.close();
