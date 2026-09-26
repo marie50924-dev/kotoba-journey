@@ -72,9 +72,15 @@
   display: none;
 }
 
+/*
+ * 成功時の地色は、年代ごとの淡色（--age-image-bg）。
+ * 基準画像は透過なので、透けた部分にこの色が出る。年代色そのままだと
+ * 服と同じ色相になって肩が溶けるため、明度を上げた色を data 側で持っている。
+ * 値が渡らなかった場合だけ白へ落とす。
+ */
 .avatar-thumb__face.has-image {
   border-style: none;
-  background: var(--c-paper-2);
+  background: var(--age-image-bg, var(--c-paper-2));
 }
 
 /* 読み込み失敗。画像だけを消す。仮サムネイルは残すので名前も年代も消えない。 */

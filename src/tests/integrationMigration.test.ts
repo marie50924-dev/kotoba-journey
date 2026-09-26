@@ -268,8 +268,8 @@ describe('80人名簿が統合後も欠けていない', () => {
       expect(avatar.familyName.length).toBeGreaterThan(0);
       expect(avatar.givenName.length).toBeGreaterThan(0);
       expect(fullName(avatar)).toBe(`${avatar.familyName}${avatar.givenName}`);
-      // 本番の透過立ち絵は未納品。納品されるまで imageKey は null。
-      expect(avatar.imageKey).toBeNull();
+      // 基準画像は年代×見た目区分の10種類を共有する。
+      expect(avatar.imageKey).toBe(`${avatar.ageGroup}-${avatar.presentation}`);
     }
   });
 });

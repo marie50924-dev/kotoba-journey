@@ -121,17 +121,17 @@ describe('画像URLの作り方', () => {
   });
 });
 
-describe('名簿の現状（基準画像は未納品）', () => {
-  it('80人ぶんあり、imageKey は全員 null のまま', () => {
+describe('名簿の現状（基準画像10枚を共有）', () => {
+  it('80人ぶんあり、imageKey が全員に入っている', () => {
     expect(AVATARS).toHaveLength(80);
-    expect(AVATARS.filter((a) => a.imageKey !== null)).toHaveLength(0);
+    expect(AVATARS.filter((a) => a.imageKey === null)).toHaveLength(0);
   });
 
-  it('全員ぶん URL が作られない（＝全員が仮サムネイル）', () => {
-    expect(AVATARS.filter((a) => avatarImageUrl(a) !== null)).toHaveLength(0);
+  it('全員ぶん URL が作られる（＝全員が実画像）', () => {
+    expect(AVATARS.filter((a) => avatarImageUrl(a) === null)).toHaveLength(0);
   });
 
-  it('この工程では誰も無効化していない', () => {
+  it('誰も無効化していない', () => {
     expect(AVATARS.filter((a) => !a.enabled)).toHaveLength(0);
   });
 });

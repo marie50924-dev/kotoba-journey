@@ -81,8 +81,9 @@ describe('80人の正式名簿', () => {
     expect(AVATARS.map((a) => a.id)).toEqual(expected);
   });
 
-  it('本番立ち絵は未納品なので imageKey は全員 null', () => {
-    expect(AVATARS.every((a) => a.imageKey === null)).toBe(true);
+  it('基準画像のキーが全員に入っている（年代×見た目区分の10種類）', () => {
+    expect(AVATARS.every((a) => a.imageKey === `${a.ageGroup}-${a.presentation}`)).toBe(true);
+    expect(new Set(AVATARS.map((a) => a.imageKey)).size).toBe(10);
   });
 
   it('全員が有効', () => {

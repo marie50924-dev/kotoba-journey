@@ -86,6 +86,37 @@ export const PRESENTATION_LABEL: Record<AvatarPresentation, string> = {
 };
 
 /**
+ * 主人公の円の背景色。
+ *
+ * 基準画像は透過なので、透けた部分にこの色が出る。年代色そのままだと
+ * 服の色と同じ色相になって肩が背景へ溶けるため、明度を上げた淡色にしてある。
+ * 仮サムネイル（画像が無いとき）の年代色 AGE_GROUP_COLOR とは別の色で、
+ * そちらは変更していない。
+ *
+ * 定義はここ1か所だけ。画面ごとに色を書かない。
+ */
+export const AGE_GROUP_IMAGE_BACKGROUND: Record<AvatarAgeGroup, string> = {
+  elementary: '#f8d2b8',
+  middle: '#bfe5d6',
+  high: '#c7ddec',
+  university: '#dfd0ef',
+  adult: '#e7c8c0',
+};
+
+/**
+ * 年代×見た目区分から、基準画像のキーを作る。
+ *
+ * 名簿側の年代IDをそのまま使う。中学生は 'middle' で、旅の情景イラスト側の
+ * 'junior' とは別物なので、ここで取り違えてはいけない。
+ */
+export function baseImageKey(
+  ageGroup: AvatarAgeGroup,
+  presentation: AvatarPresentation,
+): string {
+  return `${ageGroup}-${presentation}`;
+}
+
+/**
  * imageKey として許す形。
  *
  * imageKey は「拡張子を含まない安全なキー」として扱う。ファイル名そのものや
@@ -149,8 +180,9 @@ function buildRoster(file: RosterFile): AvatarDefinition[] {
       familyNameKana: entry.familyNameKana,
       givenNameKana: entry.givenNameKana,
       romanizedName: entry.romanizedName,
-      // 本番立ち絵は未納品。納品後にここへキーを入れる。
-      imageKey: null,
+      // 基準画像は年代×見た目区分の10種類。同じ区分の8人が同じ画像を共有する。
+      // 80人ぶんの個別画像ができたら、ここを entry.id へ変えれば1人単位になる。
+      imageKey: baseImageKey(entry.ageGroup, entry.presentation),
       enabled: true,
     };
   });

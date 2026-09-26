@@ -1,6 +1,7 @@
 import { el } from '../app/dom';
 import {
   AGE_GROUP_COLOR,
+  AGE_GROUP_IMAGE_BACKGROUND,
   AGE_GROUP_LABEL,
   avatarImageUrl,
   displayName,
@@ -63,7 +64,12 @@ export function avatarThumb(
     'span',
     {
       class: 'avatar-thumb__face',
-      style: `--age-color:${AGE_GROUP_COLOR[avatar.ageGroup]}`,
+      // --age-color は仮サムネイルの地色、--age-image-bg は実画像の透過部分から
+      // 見える淡色。どちらも年代（avatar.ageGroup）だけで決まり、名前や並び順には
+      // 依存しない。色の値はデータ側の1か所で定義している。
+      style:
+        `--age-color:${AGE_GROUP_COLOR[avatar.ageGroup]};` +
+        `--age-image-bg:${AGE_GROUP_IMAGE_BACKGROUND[avatar.ageGroup]}`,
     },
     [fallback],
   );
