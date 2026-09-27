@@ -268,9 +268,9 @@ describe('80人名簿が統合後も欠けていない', () => {
       expect(avatar.familyName.length).toBeGreaterThan(0);
       expect(avatar.givenName.length).toBeGreaterThan(0);
       expect(fullName(avatar)).toBe(`${avatar.familyName}${avatar.givenName}`);
-      // 個別画像ができた区分（小学生m・小学生f）は自分のID、ほかは区分の共有キー。
+      // 個別画像ができた区分は自分のID、ほかは区分の共有キー。
       const division = `${avatar.ageGroup}-${avatar.presentation}`;
-      const individual = ['elementary-m', 'elementary-f'].includes(division);
+      const individual = ['elementary-m', 'elementary-f', 'middle-m'].includes(division);
       expect(avatar.imageKey).toBe(individual ? avatar.id : division);
     }
   });

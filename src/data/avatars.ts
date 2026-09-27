@@ -129,6 +129,7 @@ export function baseImageKey(
 const INDIVIDUAL_IMAGE_DIVISIONS: ReadonlySet<string> = new Set([
   'elementary-m',
   'elementary-f',
+  'middle-m',
 ]);
 
 /**
