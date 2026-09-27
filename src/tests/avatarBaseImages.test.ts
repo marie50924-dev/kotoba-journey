@@ -39,6 +39,7 @@ const INDIVIDUAL_DIVISIONS: readonly string[] = [
   'high-m',
   'high-f',
   'university-m',
+  'university-f',
 ];
 
 /** 個別画像を持つ人のID。 */
@@ -104,11 +105,11 @@ describe('配信用WebP', () => {
 });
 
 describe('名簿と画像の対応', () => {
-  it('使われているキーの集合が、個別56＋共有3の59種類と完全一致する', () => {
+  it('使われているキーの集合が、個別64＋共有2の66種類と完全一致する', () => {
     const used = new Set(AVATARS.map((a) => a.imageKey));
     expect([...used].sort()).toEqual([...EXPECTED_USED_KEYS].sort());
     expect(used.size).toBe(INDIVIDUAL_DIVISIONS.length * 8 + SHARED_DIVISIONS.length);
-    expect(used.size).toBe(59);
+    expect(used.size).toBe(66);
   });
 
   it('80人全員に imageKey が入っている', () => {
@@ -292,6 +293,31 @@ describe('名簿と画像の対応', () => {
       expect((avatar.imageKey as string).startsWith('middle-')).toBe(false);
       expect((avatar.imageKey as string).startsWith('high-')).toBe(false);
       expect((avatar.imageKey as string).includes('-f-')).toBe(false);
+    }
+  });
+
+  it('大学生以外へ university-f-* が付いていない', () => {
+    for (const avatar of AVATARS) {
+      if (avatar.ageGroup === 'university') continue;
+      expect((avatar.imageKey as string).startsWith('university-f-')).toBe(false);
+    }
+  });
+
+  it("presentation='m' の人へ university-f-* が付いていない", () => {
+    for (const avatar of AVATARS.filter((a) => a.presentation === 'm')) {
+      expect((avatar.imageKey as string).startsWith('university-f-')).toBe(false);
+    }
+  });
+
+  it('大学生fへ、別の年代・別の区分の個別キーが付いていない', () => {
+    for (const avatar of AVATARS.filter(
+      (a) => a.ageGroup === 'university' && a.presentation === 'f',
+    )) {
+      expect((avatar.imageKey as string).startsWith('university-f-')).toBe(true);
+      expect((avatar.imageKey as string).startsWith('elementary-')).toBe(false);
+      expect((avatar.imageKey as string).startsWith('middle-')).toBe(false);
+      expect((avatar.imageKey as string).startsWith('high-')).toBe(false);
+      expect((avatar.imageKey as string).includes('-m-')).toBe(false);
     }
   });
 
