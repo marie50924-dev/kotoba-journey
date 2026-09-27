@@ -31,7 +31,12 @@ const DIVISIONS: readonly string[] = AVATAR_AGE_GROUPS.flatMap((age) =>
 );
 
 /** 個別画像へ切り替え済みの区分。ここが増えるたびに更新する。 */
-const INDIVIDUAL_DIVISIONS: readonly string[] = ['elementary-m', 'elementary-f', 'middle-m'];
+const INDIVIDUAL_DIVISIONS: readonly string[] = [
+  'elementary-m',
+  'elementary-f',
+  'middle-m',
+  'middle-f',
+];
 
 /** 個別画像を持つ人のID。 */
 const INDIVIDUAL_IDS: readonly string[] = INDIVIDUAL_DIVISIONS.flatMap((d) =>
@@ -43,10 +48,10 @@ const SHARED_DIVISIONS: readonly string[] = DIVISIONS.filter(
   (d) => !INDIVIDUAL_DIVISIONS.includes(d),
 );
 
-/** いま実際に使われるキーの集合（個別8 + 共有9 = 17）。 */
+/** いま実際に使われるキーの集合（個別 = 切替済み区分 × 8人 + 共有 = 残りの区分）。 */
 const EXPECTED_USED_KEYS: readonly string[] = [...INDIVIDUAL_IDS, ...SHARED_DIVISIONS];
 
-/** 置いてあるべき画像ファイルのキー（基準10 + 個別8 = 18）。 */
+/** 置いてあるべき画像ファイルのキー（基準10区分 + 個別化済みの全員ぶん）。 */
 const EXPECTED_KEYS: readonly string[] = [...DIVISIONS, ...INDIVIDUAL_IDS];
 
 /*
@@ -96,11 +101,11 @@ describe('配信用WebP', () => {
 });
 
 describe('名簿と画像の対応', () => {
-  it('使われているキーの集合が、個別24＋共有7の31種類と完全一致する', () => {
+  it('使われているキーの集合が、個別32＋共有6の38種類と完全一致する', () => {
     const used = new Set(AVATARS.map((a) => a.imageKey));
     expect([...used].sort()).toEqual([...EXPECTED_USED_KEYS].sort());
     expect(used.size).toBe(INDIVIDUAL_DIVISIONS.length * 8 + SHARED_DIVISIONS.length);
-    expect(used.size).toBe(31);
+    expect(used.size).toBe(38);
   });
 
   it('80人全員に imageKey が入っている', () => {
@@ -193,6 +198,28 @@ describe('名簿と画像の対応', () => {
   it('中学生mへ小学生の個別キーが付いていない', () => {
     for (const avatar of AVATARS.filter((a) => a.ageGroup === 'middle' && a.presentation === 'm')) {
       expect((avatar.imageKey as string).startsWith('elementary-')).toBe(false);
+    }
+  });
+
+  it('中学生以外へ middle-f-* が付いていない', () => {
+    for (const avatar of AVATARS) {
+      if (avatar.ageGroup === 'middle') continue;
+      expect((avatar.imageKey as string).startsWith('middle-f-')).toBe(false);
+    }
+  });
+
+  it("presentation='m' の人へ middle-f-* が付いていない", () => {
+    for (const avatar of AVATARS.filter((a) => a.presentation === 'm')) {
+      expect((avatar.imageKey as string).startsWith('middle-f-')).toBe(false);
+    }
+  });
+
+  it('中学生fへ、別の年代・別の区分の個別キーが付いていない', () => {
+    for (const avatar of AVATARS.filter((a) => a.ageGroup === 'middle' && a.presentation === 'f')) {
+      // 自分の区分の個別キー以外は受け付けない。
+      expect((avatar.imageKey as string).startsWith('middle-f-')).toBe(true);
+      expect((avatar.imageKey as string).startsWith('elementary-')).toBe(false);
+      expect((avatar.imageKey as string).includes('-m-')).toBe(false);
     }
   });
 
@@ -423,5 +450,14 @@ describe('未設定・失敗時の仕組みを壊していない', () => {
         new RegExp(`\\.avatar-thumb--${cls} \\.avatar-thumb__face\\s*\\{[^}]*width:\\s*${px}`),
       );
     }
+  });
+
+  it('狭い画面（340px以下）での md 50px も変えていない', () => {
+    const css = String(avatarCssInline);
+    const narrow = css.match(/@media \(max-width:\s*340px\)\s*\{([\s\S]*)\}/);
+    expect(narrow, '340px以下の指定が見つからない').not.toBeNull();
+    expect((narrow as RegExpMatchArray)[1]).toMatch(
+      /\.avatar-thumb--md \.avatar-thumb__face\s*\{[^}]*width:\s*50px/,
+    );
   });
 });
