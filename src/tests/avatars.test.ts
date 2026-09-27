@@ -81,11 +81,17 @@ describe('80人の正式名簿', () => {
     expect(AVATARS.map((a) => a.id)).toEqual(expected);
   });
 
-  it('画像のキーが全員に入っている（個別32＋共有6の38種類）', () => {
+  it('画像のキーが全員に入っている（個別40＋共有5の45種類）', () => {
     // 個別画像へ切り替え済みの区分。増えたらここへ足す。
-    const individualDivisions = ['elementary-m', 'elementary-f', 'middle-m', 'middle-f'];
+    const individualDivisions = [
+      'elementary-m',
+      'elementary-f',
+      'middle-m',
+      'middle-f',
+      'high-m',
+    ];
     expect(AVATARS.every((a) => a.imageKey !== null)).toBe(true);
-    expect(new Set(AVATARS.map((a) => a.imageKey)).size).toBe(38);
+    expect(new Set(AVATARS.map((a) => a.imageKey)).size).toBe(45);
     for (const a of AVATARS) {
       const division = `${a.ageGroup}-${a.presentation}`;
       expect(a.imageKey).toBe(individualDivisions.includes(division) ? a.id : division);

@@ -36,6 +36,7 @@ const INDIVIDUAL_DIVISIONS: readonly string[] = [
   'elementary-f',
   'middle-m',
   'middle-f',
+  'high-m',
 ];
 
 /** 個別画像を持つ人のID。 */
@@ -101,11 +102,11 @@ describe('配信用WebP', () => {
 });
 
 describe('名簿と画像の対応', () => {
-  it('使われているキーの集合が、個別32＋共有6の38種類と完全一致する', () => {
+  it('使われているキーの集合が、個別40＋共有5の45種類と完全一致する', () => {
     const used = new Set(AVATARS.map((a) => a.imageKey));
     expect([...used].sort()).toEqual([...EXPECTED_USED_KEYS].sort());
     expect(used.size).toBe(INDIVIDUAL_DIVISIONS.length * 8 + SHARED_DIVISIONS.length);
-    expect(used.size).toBe(38);
+    expect(used.size).toBe(45);
   });
 
   it('80人全員に imageKey が入っている', () => {
@@ -223,6 +224,28 @@ describe('名簿と画像の対応', () => {
     }
   });
 
+  it('高校生以外へ high-m-* が付いていない', () => {
+    for (const avatar of AVATARS) {
+      if (avatar.ageGroup === 'high') continue;
+      expect((avatar.imageKey as string).startsWith('high-m-')).toBe(false);
+    }
+  });
+
+  it("presentation='f' の人へ high-m-* が付いていない", () => {
+    for (const avatar of AVATARS.filter((a) => a.presentation === 'f')) {
+      expect((avatar.imageKey as string).startsWith('high-m-')).toBe(false);
+    }
+  });
+
+  it('高校生mへ、別の年代・別の区分の個別キーが付いていない', () => {
+    for (const avatar of AVATARS.filter((a) => a.ageGroup === 'high' && a.presentation === 'm')) {
+      expect((avatar.imageKey as string).startsWith('high-m-')).toBe(true);
+      expect((avatar.imageKey as string).startsWith('elementary-')).toBe(false);
+      expect((avatar.imageKey as string).startsWith('middle-')).toBe(false);
+      expect((avatar.imageKey as string).includes('-f-')).toBe(false);
+    }
+  });
+
   it('キーはすべて安全な形式', () => {
     for (const avatar of AVATARS) {
       expect(isSafeImageKey(avatar.imageKey), `${avatar.id}: ${avatar.imageKey}`).toBe(true);
@@ -331,6 +354,27 @@ describe('中学生は middle で、junior と混同しない', () => {
 
   it('旅の情景イラスト側の junior.webp は残っている（別系統なので消さない）', () => {
     expect(baseNames(CHARACTER_WEBP)).toContain('junior.webp');
+  });
+
+  it('高校生のキーもファイルも high-m / high-f で始まる（区分なしの high と混同しない）', () => {
+    const highs = AVATARS.filter((a) => a.ageGroup === 'high');
+    expect(highs).toHaveLength(16);
+    for (const avatar of highs) {
+      expect((avatar.imageKey as string).startsWith('high-')).toBe(true);
+      // 区分を書かない 'high' そのものはキーにしない。
+      expect(avatar.imageKey).not.toBe('high');
+    }
+    // 区分の基準画像は、使われていなくても残す。
+    for (const key of ['high-m', 'high-f']) {
+      expect(baseNames(PUBLIC_WEBP)).toContain(`${key}.webp`);
+    }
+  });
+
+  it('主人公の画像側に、区分なしの high.webp を作っていない（旅の情景側と別物）', () => {
+    // 旅の情景イラストは public/assets/characters/high.webp。
+    // 主人公側へ同じ名前を置くと、どちらの絵か分からなくなる。
+    expect(baseNames(PUBLIC_WEBP)).not.toContain('high.webp');
+    expect(baseNames(CHARACTER_WEBP)).toContain('high.webp');
   });
 });
 
