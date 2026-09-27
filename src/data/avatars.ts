@@ -126,7 +126,10 @@ export function baseImageKey(
  * 区分は「年代-見た目区分」で書く。中学生は middle であって junior ではない
  * （junior は旅の情景イラスト側の呼び名で、別系統）。
  */
-const INDIVIDUAL_IMAGE_DIVISIONS: ReadonlySet<string> = new Set(['elementary-m']);
+const INDIVIDUAL_IMAGE_DIVISIONS: ReadonlySet<string> = new Set([
+  'elementary-m',
+  'elementary-f',
+]);
 
 /**
  * その人が使う画像のキー。

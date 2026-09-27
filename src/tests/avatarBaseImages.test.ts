@@ -31,7 +31,7 @@ const DIVISIONS: readonly string[] = AVATAR_AGE_GROUPS.flatMap((age) =>
 );
 
 /** 個別画像へ切り替え済みの区分。ここが増えるたびに更新する。 */
-const INDIVIDUAL_DIVISIONS: readonly string[] = ['elementary-m'];
+const INDIVIDUAL_DIVISIONS: readonly string[] = ['elementary-m', 'elementary-f'];
 
 /** 個別画像を持つ人のID。 */
 const INDIVIDUAL_IDS: readonly string[] = INDIVIDUAL_DIVISIONS.flatMap((d) =>
@@ -96,10 +96,11 @@ describe('配信用WebP', () => {
 });
 
 describe('名簿と画像の対応', () => {
-  it('使われているキーの集合が、個別8＋共有9の17種類と完全一致する', () => {
+  it('使われているキーの集合が、個別16＋共有8の24種類と完全一致する', () => {
     const used = new Set(AVATARS.map((a) => a.imageKey));
     expect([...used].sort()).toEqual([...EXPECTED_USED_KEYS].sort());
-    expect(used.size).toBe(17);
+    expect(used.size).toBe(INDIVIDUAL_DIVISIONS.length * 8 + SHARED_DIVISIONS.length);
+    expect(used.size).toBe(24);
   });
 
   it('80人全員に imageKey が入っている', () => {
@@ -134,21 +135,45 @@ describe('名簿と画像の対応', () => {
     }
   });
 
-  it('個別キーは、その区分の人以外へ付いていない', () => {
+  it('個別キーは、本人以外へ付いていない', () => {
     for (const avatar of AVATARS) {
       if (INDIVIDUAL_IDS.includes(avatar.imageKey as string)) {
         expect(avatar.id).toBe(avatar.imageKey);
-        expect(avatar.ageGroup).toBe('elementary');
-        expect(avatar.presentation).toBe('m');
+        // キーの区分と、その人の区分が一致すること。
+        expect(baseImageKey(avatar.ageGroup, avatar.presentation)).toBe(
+          (avatar.imageKey as string).slice(0, (avatar.imageKey as string).lastIndexOf('-')),
+        );
       }
     }
   });
 
-  it('小学生mの8人が共有キーへ戻っていない', () => {
-    const em = AVATARS.filter((a) => a.ageGroup === 'elementary' && a.presentation === 'm');
-    expect(em).toHaveLength(8);
-    expect(em.every((a) => a.imageKey === a.id)).toBe(true);
-    expect(em.filter((a) => a.imageKey === 'elementary-m')).toHaveLength(0);
+  for (const division of INDIVIDUAL_DIVISIONS) {
+    it(`${division} の8人が共有キーへ戻っていない`, () => {
+      const members = AVATARS.filter(
+        (a) => baseImageKey(a.ageGroup, a.presentation) === division,
+      );
+      expect(members).toHaveLength(8);
+      expect(members.every((a) => a.imageKey === a.id)).toBe(true);
+      expect(members.filter((a) => a.imageKey === division)).toHaveLength(0);
+    });
+  }
+
+  it('m区分の人へ f 区分の個別キーが付いていない（逆も同じ）', () => {
+    for (const avatar of AVATARS) {
+      const key = avatar.imageKey as string;
+      if (avatar.presentation === 'm') {
+        expect(key.includes('-f-'), `${avatar.id} に ${key}`).toBe(false);
+      } else {
+        expect(key.includes('-m-'), `${avatar.id} に ${key}`).toBe(false);
+      }
+    }
+  });
+
+  it('小学生以外の人へ小学生の個別キーが付いていない', () => {
+    for (const avatar of AVATARS) {
+      if (avatar.ageGroup === 'elementary') continue;
+      expect((avatar.imageKey as string).startsWith('elementary-')).toBe(false);
+    }
   });
 
   it('キーはすべて安全な形式', () => {
@@ -175,14 +200,16 @@ describe('名簿と画像の対応', () => {
 });
 
 describe('旧基準画像は残すが、もう誰も使わない', () => {
-  it('elementary-m.png と elementary-m.webp が残っている', () => {
-    expect(baseNames(SOURCE_PNG)).toContain('elementary-m.png');
-    expect(baseNames(PUBLIC_WEBP)).toContain('elementary-m.webp');
-  });
+  for (const division of INDIVIDUAL_DIVISIONS) {
+    it(`${division}.png と ${division}.webp が残っている`, () => {
+      expect(baseNames(SOURCE_PNG)).toContain(`${division}.png`);
+      expect(baseNames(PUBLIC_WEBP)).toContain(`${division}.webp`);
+    });
 
-  it('elementary-m を現在使用する人物は0人', () => {
-    expect(AVATARS.filter((a) => a.imageKey === 'elementary-m')).toHaveLength(0);
-  });
+    it(`${division} を現在使用する人物は0人`, () => {
+      expect(AVATARS.filter((a) => a.imageKey === division)).toHaveLength(0);
+    });
+  }
 
   it('基準画像10区分ぶんのファイルは、使われていなくても残す（復帰用）', () => {
     for (const division of DIVISIONS) {
@@ -192,7 +219,7 @@ describe('旧基準画像は残すが、もう誰も使わない', () => {
   });
 });
 
-describe('個別画像（小学生m）', () => {
+describe('個別画像', () => {
   for (const id of INDIVIDUAL_IDS) {
     it(`${id} の原寸PNGと配信用WebPがある`, () => {
       expect(baseNames(SOURCE_PNG)).toContain(`${id}.png`);
@@ -200,20 +227,31 @@ describe('個別画像（小学生m）', () => {
     });
   }
 
-  it('個別画像は8枚ちょうど', () => {
-    const individual = baseNames(PUBLIC_WEBP).filter((n) => /^elementary-m-\d{2}\.webp$/.test(n));
-    expect(individual).toHaveLength(8);
+  for (const division of INDIVIDUAL_DIVISIONS) {
+    it(`${division} の個別画像は8枚ちょうど`, () => {
+      const pattern = new RegExp(`^${division}-\\d{2}\\.webp$`);
+      expect(baseNames(PUBLIC_WEBP).filter((n) => pattern.test(n))).toHaveLength(8);
+    });
+  }
+
+  it('個別画像は区分の数 × 8枚', () => {
+    const individual = baseNames(PUBLIC_WEBP).filter((n) =>
+      INDIVIDUAL_DIVISIONS.some((d) => new RegExp(`^${d}-\\d{2}\\.webp$`).test(n)),
+    );
+    expect(individual).toHaveLength(INDIVIDUAL_DIVISIONS.length * 8);
   });
 
-  it('個別キーが他の年代・区分へ混ざっていない', () => {
+  it('個別キーの持ち主の区分が、キーの区分と一致する', () => {
     for (const id of INDIVIDUAL_IDS) {
       const owner = AVATARS.find((a) => a.id === id);
       expect(owner, `${id} が名簿にない`).toBeDefined();
-      expect(owner?.ageGroup).toBe('elementary');
-      expect(owner?.presentation).toBe('m');
+      const division = id.slice(0, id.lastIndexOf('-'));
+      expect(baseImageKey(owner!.ageGroup, owner!.presentation)).toBe(division);
     }
-    // middle など他区分の人が個別キーを持っていないこと。
-    const others = AVATARS.filter((a) => !(a.ageGroup === 'elementary' && a.presentation === 'm'));
+    // 個別化していない区分の人が、個別キーを持っていないこと。
+    const others = AVATARS.filter(
+      (a) => !INDIVIDUAL_DIVISIONS.includes(baseImageKey(a.ageGroup, a.presentation)),
+    );
     for (const a of others) {
       expect(INDIVIDUAL_IDS).not.toContain(a.imageKey as string);
     }
