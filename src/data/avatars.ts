@@ -133,6 +133,7 @@ const INDIVIDUAL_IMAGE_DIVISIONS: ReadonlySet<string> = new Set([
   'middle-f',
   'high-m',
   'high-f',
+  'university-m',
 ]);
 
 /**

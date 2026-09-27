@@ -81,7 +81,7 @@ describe('80人の正式名簿', () => {
     expect(AVATARS.map((a) => a.id)).toEqual(expected);
   });
 
-  it('画像のキーが全員に入っている（個別48＋共有4の52種類）', () => {
+  it('画像のキーが全員に入っている（個別56＋共有3の59種類）', () => {
     // 個別画像へ切り替え済みの区分。増えたらここへ足す。
     const individualDivisions = [
       'elementary-m',
@@ -90,9 +90,10 @@ describe('80人の正式名簿', () => {
       'middle-f',
       'high-m',
       'high-f',
+      'university-m',
     ];
     expect(AVATARS.every((a) => a.imageKey !== null)).toBe(true);
-    expect(new Set(AVATARS.map((a) => a.imageKey)).size).toBe(52);
+    expect(new Set(AVATARS.map((a) => a.imageKey)).size).toBe(59);
     for (const a of AVATARS) {
       const division = `${a.ageGroup}-${a.presentation}`;
       expect(a.imageKey).toBe(individualDivisions.includes(division) ? a.id : division);
