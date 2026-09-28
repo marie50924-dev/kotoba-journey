@@ -239,8 +239,23 @@
   gap: 10px;
 }
 
+/*
+ * 搭乗券。行き先の国の正式イラストを縦長の券面として見せる。
+ * 画面の高さに応じて縮み、移動画面が1画面に収まるようにする。
+ */
 .travel__ticket {
-  width: min(62%, 260px);
+  width: min(52%, 220px);
+}
+
+.travel__ticket .chara-card__frame {
+  height: min(46vh, 300px);
+}
+
+.travel__ticket .chara-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 38%;
 }
 
 /* 自分のキャラクター。立ち絵が入ったら avatarThumb 側だけが変わる。 */
@@ -326,18 +341,11 @@
  *
  * 縮めないと、同行者の顔と名前が下のボタンに隠れてしまう。
  * 顔と名前は対で見せたいので、名前が隠れるくらいなら絵を小さくする。
- * 絵は装飾で、切り抜いても意味は失われない（object-fit: cover で中央を残す）。
  * 320x568 だけが対象で、375x667 以上の対応画面では従来どおりの大きさ。
  */
 @media (max-height: 640px) {
   .screen--intro .intro__photo .chara-card__frame {
-    max-height: 200px;
-  }
-
-  .screen--intro .intro__photo .chara-card__img {
-    height: 200px;
-    object-fit: cover;
-    object-position: center;
+    height: 150px;
   }
 }
 
@@ -383,8 +391,31 @@
   font-weight: 700;
 }
 
+/*
+ * 到着記念写真。
+ *
+ * 国の正式イラストは縦長（およそ 9:19.5）で、そのまま幅いっぱいに置くと
+ * 1枚で画面を埋めてしまい、同行者の顔と名前が下へ押し出される。
+ * そこで横長の窓に額装し、名所の集まる中央やや上を見せる。
+ *
+ * 切り出しているのは画面上の見せ方だけで、画像ファイルには手を加えていない。
+ * 原寸は assets-source/countries/ に無改変のまま置いてある。
+ */
 .intro__photo {
   width: 100%;
+}
+
+.intro__photo .chara-card__frame {
+  height: 200px;
+}
+
+.intro__photo .chara-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* 見せる高さは国ごとにデータ側（countryArt.focusY）が決める。
+     指定が無い絵のための既定として、中央やや上を置いておく。 */
+  object-position: center 38%;
 }
 
 /* 到着記念の並び。自分のキャラクターと同行 NPC の置き場所。 */

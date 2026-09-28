@@ -8,10 +8,11 @@ import type {
   InfoSource,
   NamedItem,
 } from '../data/countryIntros';
-import { ageGroupFromAvatarAgeGroup, findAgeGroup } from '../data/characters';
-import { findAvatar, displayName, AVATARS } from '../data/avatars';
+import { findAvatar, displayName, AVATARS, type AvatarDefinition } from '../data/avatars';
 import { castNpcs } from '../domain/npcCasting';
-import { characterCard } from '../components/characterCard';
+import { findCountryArt } from '../data/countryArt';
+import { findDestination } from '../data/destinations';
+import { sceneCard } from '../components/characterCard';
 import { avatarThumb } from '../components/avatarThumb';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
@@ -43,7 +44,6 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
   const intro = findCountryIntro(ctx.selection.destinationId ?? '');
   const record = ctx.records.get();
   const me = findAvatar(record.selectedAvatarId);
-  const group = findAgeGroup(ageGroupFromAvatarAgeGroup(me?.ageGroup))!;
 
   // 同行する NPC。自分は選ばれない（castNpcs が除外する）。
   const companions = me
@@ -66,8 +66,14 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
 
   if (!intro) {
     // 紹介データが未整備の国でも、ゲーム開始は妨げない。
-    return screenShell({ title: '—', onBack: () => ctx.back(), variant: 'screen--intro' }, [
-      el('p', { class: 'note', text: UI.passport.empty }),
+    // 紹介文は出せないが、行き先の絵と名前は出す。
+    // 絵は事実を主張しないので、本文確認の有無に関わらず出してよい。
+    const destination = findDestination(ctx.selection.destinationId);
+    const name = destination?.label ?? '—';
+    return screenShell({ title: name, onBack: () => ctx.back(), variant: 'screen--intro' }, [
+      countryArtCard(name, ctx.selection.destinationId ?? ''),
+      el('p', { class: 'intro__preparing', text: UI.countryIntro.preparing }),
+      castRow(me, companions),
       el('div', { class: 'screen__footer' }, [startButton]),
     ]);
   }
@@ -116,28 +122,11 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
           : el('p', { class: 'intro__preparing', text: UI.countryIntro.preparing }),
 
       // 到着記念写真のように見せる。
-      characterCard(group, {
-        variant: 'photo',
-        class: 'intro__photo',
-        caption: `${intro.countryNameJa}にとうちゃく`,
-        label: `${intro.countryNameJa}の旅の風景`,
-      }),
+      // 絵は国ごとの正式イラスト。人物は焼き込まれていないので、
+      // 旅をする本人はこの下の intro__cast に別で出す。
+      countryArtCard(intro.countryNameJa, intro.countryId),
       // 自分のキャラクターと同行者。将来ここへ正式な立ち絵が並ぶ。
-      me
-        ? el('div', { class: 'intro__cast' }, [
-            el('span', { class: 'intro__cast-me' }, [
-              // 名前は真下に出すので、画像側は読み上げから外す。
-              avatarThumb(me, { size: 'md', label: '' }),
-              el('span', { class: 'intro__cast-name', text: displayName(me) }),
-            ]),
-            ...companions.map((npc) =>
-              el('span', { class: 'intro__cast-npc' }, [
-                avatarThumb(npc, { size: 'sm', label: '' }),
-                el('span', { class: 'intro__cast-name', text: displayName(npc) }),
-              ]),
-            ),
-          ])
-        : null,
+      castRow(me, companions),
 
       // ---- もっと知る（任意） ----
       // 準備中の国では公開導線へ出さない。
@@ -295,4 +284,50 @@ function flagNode(intro: CountryIntro): HTMLElement {
     role: 'img',
     'aria-label': `${intro.countryNameJa}の国旗`,
   });
+}
+
+/**
+ * 国の正式イラスト。到着記念写真のように額装して見せる。
+ *
+ * 絵は複数の場所にある名所を1枚に集めた想像の風景なので、
+ * 「ここから全部が見える」と読める言い方をしない。
+ * 絵が用意されていない国では、何も出さずに進行だけを通す。
+ */
+function countryArtCard(countryNameJa: string, countryId: string): HTMLElement | null {
+  const art = findCountryArt(countryId);
+  if (!art) return null;
+  return sceneCard(
+    { src: art.image, alt: art.alt, width: art.width, height: art.height, focusY: art.focusY },
+    {
+      variant: 'photo',
+      class: 'intro__photo',
+      caption: `${countryNameJa}にとうちゃく — ${art.caption}`,
+    },
+  );
+}
+
+/**
+ * 到着記念の並び。旅をする本人と、同行する NPC を顔と名前の対で出す。
+ *
+ * 本人は利用者が選んだキャラクターで、国の絵にも表紙の絵にも描かれていない。
+ * 取りちがえが起きないよう、必ずこの並びの中で名前と一緒に出す。
+ */
+function castRow(
+  me: AvatarDefinition | undefined,
+  companions: readonly AvatarDefinition[],
+): HTMLElement | null {
+  if (!me) return null;
+  return el('div', { class: 'intro__cast' }, [
+    el('span', { class: 'intro__cast-me' }, [
+      // 名前は真下に出すので、画像側は読み上げから外す。
+      avatarThumb(me, { size: 'md', label: '' }),
+      el('span', { class: 'intro__cast-name', text: displayName(me) }),
+    ]),
+    ...companions.map((npc) =>
+      el('span', { class: 'intro__cast-npc' }, [
+        avatarThumb(npc, { size: 'sm', label: '' }),
+        el('span', { class: 'intro__cast-name', text: displayName(npc) }),
+      ]),
+    ),
+  ]);
 }

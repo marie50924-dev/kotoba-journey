@@ -2,14 +2,18 @@
  * 表紙の正式採用素材。
  *
  * 原寸ファイルは assets-source/title/ に無改変で保管してある。
- * public/assets/title/ にあるのは配信用に可逆な範囲で軽量化した WebP で、
- * 形・色・構図・文字には一切手を加えていない（拡大縮小と再エンコードのみ）。
+ * public/assets/title/ にあるのは配信用の WebP で、
+ * 形・色・構図・文字には一切手を加えていない。
  *
+ * 一枚絵の表紙（2026-09-28 採用）
+ *   title-adopted-pilot-ca : 852x1846 原寸のまま WebP 化  2626KB -> 412KB
+ *   ロゴ・パイロット・CA・旅行かばん・開始ボタンの絵が1枚に描かれている。
+ *   縮小も切り抜きもしていない。再エンコードだけを行った。
+ *
+ * 旧・分離レイヤー素材（表紙では使っていない。案内キャラクターだけ移動画面で使う）
  *   title-background : 853x1844  原寸のまま WebP 化        2168KB -> 301KB
  *   title-logo       : 1997x787 -> 1200x473  WebP          1790KB -> 107KB
  *   suitcase-mascot  : 1402x1122 -> 760x608  WebP          1603KB ->  99KB
- *
- * 表示に必要な解像度（430px 幅 x DPR3）を上回る分だけ縮小している。
  */
 
 /** Vite の base を反映した URL を作る。GitHub Pages のサブパス公開に対応する。 */
@@ -18,6 +22,8 @@ function assetUrl(path: string): string {
 }
 
 export const TITLE_ASSETS = {
+  /** 一枚絵の表紙。ロゴ・人物・開始ボタンの絵をすべて含む。 */
+  cover: assetUrl('assets/title/title-adopted-pilot-ca.webp'),
   background: assetUrl('assets/title/title-background.webp'),
   logo: assetUrl('assets/title/title-logo.webp'),
   mascot: assetUrl('assets/title/suitcase-mascot.webp'),
@@ -25,7 +31,32 @@ export const TITLE_ASSETS = {
 
 /** 素材の原寸。レイアウト計算とテストで使う。 */
 export const TITLE_ASSET_SIZES = {
+  cover: { width: 852, height: 1846 },
   background: { width: 853, height: 1844 },
   logo: { width: 1200, height: 473 },
   mascot: { width: 760, height: 608 },
+} as const;
+
+/**
+ * 表紙の絵に描かれている「旅をはじめる」ボタンの位置。
+ *
+ * 原寸 852x1846 の画素を測って求めた比率で、絵の左上を 0、右下を 1 とする。
+ * 青く光る枠の外周が L=165px / T=1549px / R=679px / B=1678px にあたる。
+ *
+ * この値は CSS の配置とテストの両方から参照する。
+ * 絵を差し替えるときは測り直すこと。絵を切り抜いて合わせてはいけない。
+ */
+export const TITLE_COVER_BUTTON = {
+  left: 165 / 852,
+  top: 1549 / 1846,
+  right: 679 / 852,
+  bottom: 1678 / 1846,
+} as const;
+
+/** 描かれたボタンの中心と大きさ（比率）。CSS の配置に使う。 */
+export const TITLE_COVER_BUTTON_BOX = {
+  left: TITLE_COVER_BUTTON.left,
+  width: TITLE_COVER_BUTTON.right - TITLE_COVER_BUTTON.left,
+  centerY: (TITLE_COVER_BUTTON.top + TITLE_COVER_BUTTON.bottom) / 2,
+  height: TITLE_COVER_BUTTON.bottom - TITLE_COVER_BUTTON.top,
 } as const;

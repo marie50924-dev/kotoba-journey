@@ -1,9 +1,9 @@
 import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { findDestination, TRAVEL_MODE_LABEL } from '../data/destinations';
-import { ageGroupFromAvatarAgeGroup, findAgeGroup } from '../data/characters';
 import { findAvatar, displayName } from '../data/avatars';
-import { characterCard } from '../components/characterCard';
+import { findCountryArt } from '../data/countryArt';
+import { sceneCard } from '../components/characterCard';
 import { avatarThumb } from '../components/avatarThumb';
 import { TITLE_ASSETS } from '../data/titleAssets';
 import type { AppContext } from '../app/state';
@@ -19,14 +19,14 @@ const SHORT_DURATION_MS = 900;
  * 短い進行アニメを見せる。
  * いつでもスキップでき、一度見た国は設定や既訪問により短縮される。
  *
- * 搭乗券の絵は正式採用済みの旅の情景イラスト。コースではなく
- * 「選んだキャラクターの年代」に合わせて選ぶ。
+ * 搭乗券の絵は行き先の国の正式イラスト。人物は焼き込まれていないので、
+ * 旅をする本人は avatarThumb と名前の組で別に出す。
+ * 年代別の2人組イラストは「本人」と取りちがえられるため、ここでは使わない。
  */
 export function travelScreen(ctx: AppContext): HTMLElement {
   const destination = findDestination(ctx.selection.destinationId);
   const record = ctx.records.get();
   const me = findAvatar(record.selectedAvatarId);
-  const group = findAgeGroup(ageGroupFromAvatarAgeGroup(me?.ageGroup))!;
 
   const seen = destination ? record.seenTravelIntros.includes(destination.id) : false;
   const duration = record.skipTravelAnimation || seen ? SHORT_DURATION_MS : TRAVEL_DURATION_MS;
@@ -75,12 +75,7 @@ export function travelScreen(ctx: AppContext): HTMLElement {
     ]),
     el('div', { class: 'travel__cast' }, [
       // 提供素材は背景込みなので、切り抜いた風に見せず搭乗券カードとして額装する。
-      characterCard(group, {
-        variant: 'boarding',
-        class: 'travel__ticket',
-        caption: `${destination?.label ?? ''}ゆき`,
-        label: `${destination?.label ?? ''}へむかう旅の風景`,
-      }),
+      ticketCard(destination?.id, destination?.label ?? ''),
       // 自分のキャラクター。立ち絵が納品されたら avatarThumb の中だけが差し替わる。
       me
         ? el('div', { class: 'travel__me' }, [
@@ -103,4 +98,19 @@ export function travelScreen(ctx: AppContext): HTMLElement {
   root.addEventListener('screen:destroy', () => window.clearTimeout(timer));
 
   return root;
+}
+
+/**
+ * 搭乗券風のカード。行き先の国の正式イラストを額装する。
+ *
+ * 絵は複数の場所にある名所を1枚に集めた想像の風景で、人物は入っていない。
+ * 絵が用意されていない行き先では、何も出さずに移動演出だけを通す。
+ */
+function ticketCard(countryId: string | undefined, label: string): HTMLElement | null {
+  const art = findCountryArt(countryId);
+  if (!art) return null;
+  return sceneCard(
+    { src: art.image, alt: art.alt, width: art.width, height: art.height, focusY: art.focusY },
+    { variant: 'boarding', class: 'travel__ticket', caption: `${label}ゆき` },
+  );
 }

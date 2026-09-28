@@ -62,6 +62,17 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+/**
+ * 絵に描かれた「旅をはじめる」ボタンの位置。
+ *
+ * 原寸 852x1846 の画素を測った値で、src/data/titleAssets.ts の
+ * TITLE_COVER_BUTTON と同じ数字。こちらは .mjs なので TypeScript を読み込めず、
+ * 同じ値を書いてある。ずれていないことは下の検査で確かめる
+ * （画面側は inline style としてこの比率を出しているので、突き合わせられる）。
+ */
+const COVER_NATURAL = { width: 852, height: 1846 };
+const COVER_BUTTON_PX = { left: 165, top: 1549, right: 679, bottom: 1678 };
+
 /** 表紙の実測値を集める。 */
 function titleMetrics() {
   const pick = (sel) => {
@@ -70,22 +81,44 @@ function titleMetrics() {
     const r = node.getBoundingClientRect();
     return { x: r.x, y: r.y, width: r.width, height: r.height };
   };
-  const buttons = [...document.querySelectorAll('.title__actions button')].map((el) => {
+  // 表紙の操作ボタンは、絵の上に重ねる「旅をはじめる」と、下の操作列の2種類。
+  const buttons = [...document.querySelectorAll('.screen--title button')].map((el) => {
     const r = el.getBoundingClientRect();
     return { text: el.textContent.trim(), x: r.x, y: r.y, width: r.width, height: r.height };
   });
+  const cover = document.querySelector('.title__cover');
+  const start = document.querySelector('.title__start');
+  // 画面が絵から付けた位置指定。データと食い違っていないかを見るために読む。
+  const startStyle = start
+    ? {
+        left: start.style.left,
+        top: start.style.top,
+        width: start.style.width,
+        height: start.style.height,
+      }
+    : null;
+  // 画面の中でいちばん下にある要素の下端。
+  // documentElement.scrollHeight は html { height: 100% } で頭打ちになるため使わない。
+  const bottoms = [...document.querySelectorAll('.screen--title *')].map(
+    (el) => el.getBoundingClientRect().bottom,
+  );
   return {
-    logo: pick('.title__logo'),
-    mascot: pick('.title__mascot'),
-    background: pick('.title__bg'),
+    box: pick('.title__cover-box'),
+    cover: pick('.title__cover'),
+    start: pick('.title__start'),
+    startStyle,
+    startLabel: start?.textContent.trim() ?? '',
+    // 絵の中のロゴと人物を DOM で二重に重ねていないこと。
+    legacyLayers: document.querySelectorAll('.title__logo, .title__mascot, .title__bg').length,
+    coverAlt: cover?.getAttribute('alt') ?? '',
     buttons,
     hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
-    vScroll: document.documentElement.scrollHeight > window.innerHeight + 1,
+    vScroll: document.body.scrollHeight > window.innerHeight + 1,
+    lowestBottom: bottoms.length > 0 ? Math.max(...bottoms) : 0,
     viewport: { width: window.innerWidth, height: window.innerHeight },
     // 画像が実際に復号できたか（読み込み失敗の検出）。
-    logoLoaded: document.querySelector('.title__logo')?.naturalWidth > 0,
-    bgLoaded: document.querySelector('.title__bg')?.naturalWidth > 0,
-    mascotLoaded: document.querySelector('.title__mascot')?.naturalWidth > 0,
+    coverLoaded: cover?.complete === true && cover?.naturalWidth > 0,
+    coverNatural: cover ? { width: cover.naturalWidth, height: cover.naturalHeight } : null,
   };
 }
 
@@ -105,23 +138,101 @@ try {
         page.on('pageerror', (e) => jsErrors.push(e.message));
 
         await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        // 遅延読み込みを待つ。naturalWidth は実体があっても直後は 0 のことがある。
+        await page
+          .waitForFunction(
+            () => {
+              const img = document.querySelector('.title__cover');
+              return img !== null && img.complete && img.naturalWidth > 0;
+            },
+            undefined,
+            { timeout: 8000 },
+          )
+          .catch(() => {});
         await page.waitForTimeout(700);
         const m = await page.evaluate(titleMetrics);
 
-        check(m.logoLoaded, `${label}: 表紙ロゴが読み込めていない`);
-        check(m.bgLoaded, `${label}: 表紙背景が読み込めていない`);
-        check(m.mascotLoaded, `${label}: 案内キャラクターが読み込めていない`);
+        check(m.coverLoaded, `${label}: 表紙の一枚絵が読み込めていない`);
+        check(
+          m.coverNatural?.width === COVER_NATURAL.width &&
+            m.coverNatural?.height === COVER_NATURAL.height,
+          `${label}: 表紙の画素数が受領物と違う（${m.coverNatural?.width}x${m.coverNatural?.height}）`,
+        );
+        // 絵の中にロゴと人物があるので、DOM で二重に重ねてはいけない。
+        check(m.legacyLayers === 0, `${label}: ロゴ／キャラクターの画像を絵の上へ重ねている`);
+        check(m.coverAlt.includes('ことばトラベル'), `${label}: 表紙の絵に代替テキストが無い`);
 
-        for (const [name, box] of [['ロゴ', m.logo], ['キャラクター', m.mascot]]) {
-          check(box !== null, `${label}: ${name}が存在しない`);
-          if (!box) continue;
-          check(box.x >= -0.5, `${label}: ${name}が左へはみ出している`);
-          check(box.y >= -0.5, `${label}: ${name}が上へはみ出している`);
-          check(box.x + box.width <= m.viewport.width + 0.5, `${label}: ${name}が右へはみ出している`);
-          check(box.y + box.height <= m.viewport.height + 0.5, `${label}: ${name}が下へはみ出している`);
+        // 絵が切れていない＝絵の矩形が画面の中に完全に収まっている。
+        check(m.box !== null, `${label}: 表紙の絵が存在しない`);
+        if (m.box) {
+          check(m.box.x >= -0.5, `${label}: 絵が左へはみ出している（${m.box.x.toFixed(1)}）`);
+          check(m.box.y >= -0.5, `${label}: 絵が上へはみ出している（${m.box.y.toFixed(1)}）`);
+          check(
+            m.box.x + m.box.width <= m.viewport.width + 0.5,
+            `${label}: 絵が右へはみ出している（${(m.box.x + m.box.width).toFixed(1)} > ${m.viewport.width}）`,
+          );
+          check(
+            m.box.y + m.box.height <= m.viewport.height + 0.5,
+            `${label}: 絵が下へはみ出している（${(m.box.y + m.box.height).toFixed(1)} > ${m.viewport.height}）`,
+          );
+          // 縦横比が原寸と一致する＝引き伸ばしも切り抜きも起きていない。
+          const wanted = COVER_NATURAL.width / COVER_NATURAL.height;
+          const shown = m.box.width / m.box.height;
+          check(
+            Math.abs(shown - wanted) / wanted < 0.01,
+            `${label}: 絵の縦横比が原寸と違う（${shown.toFixed(4)} / 原寸 ${wanted.toFixed(4)}）`,
+          );
         }
 
-        check(m.buttons.length === 3, `${label}: 表紙のボタンが3つそろっていない`);
+        // 画面が付けた位置指定が、実測した比率と一致している。
+        check(m.startStyle !== null, `${label}: 開始ボタンが存在しない`);
+        if (m.startStyle) {
+          const pct = (v) => Number.parseFloat(v) / 100;
+          const wantLeft = COVER_BUTTON_PX.left / COVER_NATURAL.width;
+          const wantWidth = (COVER_BUTTON_PX.right - COVER_BUTTON_PX.left) / COVER_NATURAL.width;
+          const wantCenterY =
+            (COVER_BUTTON_PX.top + COVER_BUTTON_PX.bottom) / 2 / COVER_NATURAL.height;
+          check(
+            Math.abs(pct(m.startStyle.left) - wantLeft) < 0.0005,
+            `${label}: 開始ボタンの左位置が実測値と違う（${m.startStyle.left}）`,
+          );
+          check(
+            Math.abs(pct(m.startStyle.width) - wantWidth) < 0.0005,
+            `${label}: 開始ボタンの幅が実測値と違う（${m.startStyle.width}）`,
+          );
+          check(
+            Math.abs(pct(m.startStyle.top) - wantCenterY) < 0.0005,
+            `${label}: 開始ボタンの中心が実測値と違う（${m.startStyle.top}）`,
+          );
+        }
+
+        // 実際に描かれた位置が、絵の中のボタンと重なっている。
+        if (m.box && m.start) {
+          const drawn = {
+            x: m.box.x + (COVER_BUTTON_PX.left / COVER_NATURAL.width) * m.box.width,
+            y: m.box.y + (COVER_BUTTON_PX.top / COVER_NATURAL.height) * m.box.height,
+            width: ((COVER_BUTTON_PX.right - COVER_BUTTON_PX.left) / COVER_NATURAL.width) * m.box.width,
+            height:
+              ((COVER_BUTTON_PX.bottom - COVER_BUTTON_PX.top) / COVER_NATURAL.height) * m.box.height,
+          };
+          check(
+            Math.abs(m.start.x - drawn.x) <= 1 && Math.abs(m.start.width - drawn.width) <= 1,
+            `${label}: 押せる範囲が絵のボタンと横にずれている（実 ${m.start.x.toFixed(1)}+${m.start.width.toFixed(1)} / 絵 ${drawn.x.toFixed(1)}+${drawn.width.toFixed(1)}）`,
+          );
+          // 縦は 44px を下回らないよう上下へ広げるので、中心が合っていればよい。
+          const drawnCenter = drawn.y + drawn.height / 2;
+          const startCenter = m.start.y + m.start.height / 2;
+          check(
+            Math.abs(startCenter - drawnCenter) <= 1,
+            `${label}: 押せる範囲が絵のボタンと縦にずれている（実 ${startCenter.toFixed(1)} / 絵 ${drawnCenter.toFixed(1)}）`,
+          );
+          check(
+            m.start.height + 0.5 >= drawn.height,
+            `${label}: 押せる範囲が絵のボタンより小さい`,
+          );
+        }
+
+        check(m.buttons.length === 3, `${label}: 表紙のボタンが3つそろっていない（${m.buttons.length}）`);
         for (const b of m.buttons) {
           check(
             b.x >= -0.5 && b.y >= -0.5 &&
@@ -134,21 +245,40 @@ try {
             `${label}: 「${b.text}」のタップ領域が 44x44 未満（${b.width.toFixed(1)}x${b.height.toFixed(1)}）`,
           );
         }
-
-        // ロゴ・キャラクター・ボタンが互いに重ならない。
-        if (m.logo && m.mascot) {
-          check(!rectsOverlap(m.logo, m.mascot), `${label}: ロゴとキャラクターが重なっている`);
-        }
-        for (const b of m.buttons) {
-          if (m.logo) check(!rectsOverlap(m.logo, b), `${label}: ロゴと「${b.text}」が重なっている`);
-          if (m.mascot) check(!rectsOverlap(m.mascot, b), `${label}: キャラクターと「${b.text}」が重なっている`);
+        // ボタンどうしが重なっていない（重なると意図しないほうが押される）。
+        for (let i = 0; i < m.buttons.length; i += 1) {
+          for (let j = i + 1; j < m.buttons.length; j += 1) {
+            check(
+              !rectsOverlap(m.buttons[i], m.buttons[j]),
+              `${label}: 「${m.buttons[i].text}」と「${m.buttons[j].text}」が重なっている`,
+            );
+          }
         }
 
         check(!m.hScroll, `${label}: 表紙で横スクロールが発生している`);
         check(!m.vScroll, `${label}: 表紙が1画面に収まっていない`);
+        check(
+          m.lowestBottom <= m.viewport.height + 0.5,
+          `${label}: 表紙の中身が画面の下からはみ出している（${m.lowestBottom.toFixed(1)} > ${m.viewport.height}）`,
+        );
+
+        // キーボードだけで旅を始められる。
+        await page.keyboard.press('Tab');
+        const focused = await page.evaluate(() => document.activeElement?.className ?? '');
+        check(
+          focused.includes('title__start'),
+          `${label}: Tab の最初で開始ボタンへ移らない（${focused}）`,
+        );
+        await page.keyboard.press('Enter');
+        await page.waitForSelector('.screen--avatar-select', { timeout: 4000 }).catch(() => {});
+        check(
+          (await page.locator('.screen--avatar-select').count()) === 1,
+          `${label}: キーボードの Enter で旅を始められない`,
+        );
+
         check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
 
-        return ` 表紙  ロゴ ${m.logo.width.toFixed(0)}px / キャラ ${m.mascot.width.toFixed(0)}px`;
+        return ` 表紙  絵 ${m.box.width.toFixed(0)}x${m.box.height.toFixed(0)}px / 開始ボタン ${m.start.width.toFixed(0)}x${m.start.height.toFixed(0)}px`;
       } finally {
         await context.close();
       }
@@ -223,18 +353,18 @@ try {
         check(await page.locator('.screen--travel').count() === 1, `${tag}: 移動演出が出ない`);
         check(await page.getByRole('button', { name: 'スキップ' }).isVisible(), `${tag}: スキップできない`);
 
-        // 旅の正式イラストは、選んだキャラクターの年代に合わせて出す。
-        const charaSrc = await page.locator('.chara-card__img').first().getAttribute('src');
+        // 搭乗券の絵は、行き先の国の正式イラスト。
+        const ticketSrc = await page.locator('.travel__ticket .chara-card__img').getAttribute('src');
         check(
-          charaSrc.includes('elementary'),
-          `${tag}: 小学生を選んだのに小学生の旅イラストが出ていない（${charaSrc}）`,
+          ticketSrc.includes('assets/countries/japan-adopted'),
+          `${tag}: 日本へ向かうのに日本の絵が出ていない（${ticketSrc}）`,
         );
         // 読み込みとデコードが終わるのを待ってから測る。
         // 即座に naturalWidth を見ると、実体があっても 0 のことがある。
-        const charaLoaded = await page
+        const ticketLoaded = await page
           .waitForFunction(
             () => {
-              const img = document.querySelector('.chara-card__img');
+              const img = document.querySelector('.travel__ticket .chara-card__img');
               return img !== null && img.complete && img.naturalWidth > 0;
             },
             undefined,
@@ -242,10 +372,31 @@ try {
           )
           .then(() => true)
           .catch(() => false);
-        check(charaLoaded, `${tag}: 旅の正式イラストが読み込めていない`);
+        check(ticketLoaded, `${tag}: 行き先の正式イラストが読み込めていない`);
+        // 旅をするのは利用者が選んだ本人。
+        // 表紙のパイロットと CA、年代別の2人組は、本人としても同行者としても出さない。
+        const travelImages = await page.evaluate(() =>
+          [...document.images].map((i) => i.getAttribute('src') ?? ''),
+        );
+        check(
+          travelImages.every((src) => !src.includes('assets/characters/')),
+          `${tag}: 移動画面に年代別の2人組イラストが出ている（${travelImages.join(' ')}）`,
+        );
+        check(
+          travelImages.every((src) => !src.includes('title-adopted-pilot-ca')),
+          `${tag}: 移動画面に表紙のパイロットと CA が出ている`,
+        );
         check(
           await page.locator('.travel__me .avatar-thumb').count() === 1,
           `${tag}: 移動画面に自分のキャラクターが出ていない`,
+        );
+        // 本人かどうかは、名前や並び順ではなく画像のIDで照合する。
+        const travelMeSrc = await page
+          .locator('.travel__me .avatar-thumb__img')
+          .getAttribute('src');
+        check(
+          travelMeSrc.includes(`/avatars/${chosenId}.webp`),
+          `${tag}: 移動画面の本人が選んだ人と違う（${travelMeSrc} / 選択 ${chosenId}）`,
         );
         await page.getByRole('button', { name: 'スキップ' }).click();
 
@@ -265,10 +416,39 @@ try {
           await page.locator('.intro__summary').count() === 0,
           `${tag}: 下書きなのに紹介文が出ている`,
         );
+        // 到着記念の絵は、その国の正式イラスト。
+        const introSrc = await page.locator('.intro__photo .chara-card__img').getAttribute('src');
+        check(
+          introSrc.includes('assets/countries/japan-adopted'),
+          `${tag}: 国紹介に日本の絵が出ていない（${introSrc}）`,
+        );
+        const introAlt = await page.locator('.intro__photo .chara-card__img').getAttribute('alt');
+        check(introAlt.length > 8, `${tag}: 国の絵に代替テキストが無い`);
+        for (const word of ['一望', '見わたせ', '見渡せ']) {
+          check(!introAlt.includes(word), `${tag}: 国の絵の説明に「${word}」が入っている`);
+        }
+        const introImages = await page.evaluate(() =>
+          [...document.images].map((i) => i.getAttribute('src') ?? ''),
+        );
+        check(
+          introImages.every((src) => !src.includes('assets/characters/')),
+          `${tag}: 国紹介に年代別の2人組イラストが出ている`,
+        );
+        check(
+          introImages.every((src) => !src.includes('title-adopted-pilot-ca')),
+          `${tag}: 国紹介に表紙のパイロットと CA が出ている`,
+        );
         // 国紹介には自分のキャラクターと NPC を置く構造が残っている。
         check(
           await page.locator('.intro__cast-me .avatar-thumb').count() === 1,
           `${tag}: 国紹介に自分のキャラクターの置き場所が無い`,
+        );
+        const introMeSrc = await page
+          .locator('.intro__cast-me .avatar-thumb__img')
+          .getAttribute('src');
+        check(
+          introMeSrc.includes(`/avatars/${chosenId}.webp`),
+          `${tag}: 国紹介の本人が選んだ人と違う（${introMeSrc} / 選択 ${chosenId}）`,
         );
         const companions = await page.locator('.intro__cast-npc').count();
         check(companions >= 1, `${tag}: 国紹介に NPC の置き場所が無い`);
@@ -351,8 +531,9 @@ try {
         await page.waitForTimeout(400);
 
         const m = await page.evaluate(titleMetrics);
-        check(m.logo !== null && m.logo.width > 0, 'reduced-motion: ロゴが見えない');
-        check(m.mascot !== null && m.mascot.width > 0, 'reduced-motion: キャラクターが見えない');
+        check(m.box !== null && m.box.width > 0, 'reduced-motion: 表紙の絵が見えない');
+        check(m.coverLoaded, 'reduced-motion: 表紙の絵が読み込めていない');
+        check(m.start !== null && m.start.width > 0, 'reduced-motion: 開始ボタンが見えない');
         check(m.buttons.length === 3, 'reduced-motion: 表紙のボタンが欠けている');
 
         await page.getByRole('button', { name: '旅をはじめる' }).click();
