@@ -1,228 +1,159 @@
 /*
  * 正式表紙。
  *
- * 採用した表紙は一枚絵で、ロゴ・人物・「旅をはじめる」ボタンの絵が
- * すべてその中に描かれている。重ねるのは操作できる本物のボタンだけにする。
+ * 背景・ロゴ・人物・操作を別のレイヤーとして重ねる。
  *
- * 絵は切り抜かない。画面の縦横比が絵と違う幅では左右に余白が出るが、
- * ロゴ・顔・ボタンが切れるより余白のほうを選ぶ。
- * （絵は 852x1846 ＝ 縦長。16:9 の画面では上下どちらかが必ず切れてしまう。）
+ * 背景は object-fit: cover なので、どの画面でも左右の余白は 0 になる。
+ * 切り取られるのは背景だけで、ロゴ・人物・ボタンには当たらない。
+ * 縦の見せ方は画面コードが実測値から付ける（object-position）。
  *
- * 短い画面で絵が小さくなりすぎないよう、絵の下へ要素を積まない。
- * 「マイパスポート」「設定」は絵の下端へ重ねる。重ねる先は花畑の帯で、
- * ロゴ・人物・絵のボタンはそこに無い。開発用の説明文は表紙へ出さない。
- * これで 320x568 の絵は 220x477 から 253x548 へ広がる（面積 +32%）。
+ * 操作のまとまりが使う高さ
+ *   下余白10 + 主ボタン60 + すきま8 + 副ボタン44 = 122px（＋安全領域）
  */
 
 .screen--title {
+  --title-controls: calc(var(--safe-bottom) + 122px);
   position: relative;
   overflow: hidden;
-  /* 絵の左右に出る余白と、読み込み前の下地。絵の空と地面の色に寄せてある。 */
+  /* 背景が読み込めなくても暗い画面にならないよう、下地に空と地面の色を置く。 */
   background: linear-gradient(180deg, #2a5fa8 0%, #7ec2ea 38%, #e9c9d8 72%, #e3d4bd 100%);
 }
 
-/* ---- 表紙の絵 ---- */
-/*
- * 画面いっぱいを絵の置き場所にする。
- * 下端には、重ねた操作列と絵のボタンがぶつからないだけの余白を残す。
- * ホームバーのある端末では safe-area のぶんだけ余白が増え、
- * 絵も操作列もそろって上がるので、間隔は保たれる。
- */
-.title__art {
+/* ---- レイヤー0：背景 ---- */
+.t-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* 縦横を引き伸ばさず、画面を覆う。object-position は画面コードが付ける。 */
+  object-fit: cover;
+  z-index: 0;
+}
+
+/* ---- レイヤー1：明度調整（下だけ） ---- */
+.t-scrim {
   position: absolute;
   inset: 0;
   z-index: 1;
-  padding: var(--safe-top) var(--safe-right) calc(var(--safe-bottom) + 20px) var(--safe-left);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  pointer-events: none;
+  background: linear-gradient(
+    0deg,
+    rgba(10, 30, 54, 0.5) 0%,
+    rgba(10, 30, 54, 0.2) 16%,
+    rgba(10, 30, 54, 0) 34%
+  );
 }
 
+/* ---- レイヤー2：ロゴ ---- */
 /*
- * 絵と同じ大きさの箱。
- * 中の <img> を max-width / max-height で収め、箱は画像に合わせて縮む。
- * これで「箱の 1% ＝ 絵の 1%」になり、ボタンを比率で置ける。
+ * 地球儀（背景の 21%〜33%）より上に収める大きさにしてある。
+ * 透過素材なので、絵柄の外の透明な余白ぶんだけ実際の文字は内側に出る。
  */
-.title__cover-box {
-  position: relative;
-  /* 絵と同じ縦横比を箱そのものに持たせる。
-     高さは親いっぱい、幅は比率から決まり、はみ出す幅では max-width が抑える。
-     こうすると箱の矩形＝絵の矩形になり、ボタンを比率で置ける。 */
-  aspect-ratio: 852 / 1846;
-  height: 100%;
-  max-width: 100%;
-  line-height: 0;
-}
-
-.title__cover {
-  display: block;
-  width: 100%;
-  height: 100%;
-  /* 箱が絵と同じ比率なので、引き伸ばしも切り抜きも起きない。 */
-  object-fit: contain;
-  border-radius: var(--radius);
-  animation: title-cover-in 620ms ease-out both;
-}
-
-@keyframes title-cover-in {
-  from {
-    opacity: 0;
-    transform: scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* ---- 絵に重ねる本物のボタン ---- */
-/*
- * 位置と大きさは titleScreen.ts が実測値から付ける（left/top/width/height）。
- * ここでは「どう見せるか」だけを決める。
- *
- * 見た目は絵のボタンに任せ、この要素自体は透明にする。
- * ただしキーボードで選んだときは枠を出す。触れる範囲は 44x44 以上を保つ。
- */
-.title__start {
+.t-logo {
   position: absolute;
-  transform: translateY(-50%);
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  padding: 0;
-  border: none;
-  background: transparent;
-  border-radius: 12px;
-  /* 押した瞬間に絵とずれないよう、拡大縮小の演出は外す。 */
-  transition: none;
-  cursor: pointer;
+  top: calc(var(--safe-top) + 2.5dvh);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(78vw, 400px);
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 4px 12px rgba(10, 30, 60, 0.42));
 }
 
-.title__start:active {
-  transform: translateY(-50%) scale(0.98);
-}
-
-/* 読み上げ用の文字。絵の中に同じ文字があるので、目には出さない。 */
-.title__start-label {
+/* ロゴが読めなかったときの文字だけの代替。 */
+.t-logo-fallback {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* ---- 絵が読み込めなかったときの代替 ---- */
-.title__fallback {
+  top: calc(var(--safe-top) + 3.5dvh);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
   display: none;
   text-align: center;
   color: #fff;
-  text-shadow: 0 2px 8px rgba(9, 32, 54, 0.5);
+  text-shadow: 0 2px 8px rgba(9, 32, 54, 0.6);
+  white-space: nowrap;
 }
 
-.title__fallback .title__ja {
+.t-logo-ja {
   font-size: clamp(28px, 9vw, 40px);
   font-weight: 900;
   letter-spacing: 0.06em;
 }
 
-.title__fallback .title__en {
+.t-logo-en {
   font-size: clamp(11px, 3.4vw, 14px);
-  letter-spacing: 0.32em;
+  letter-spacing: 0.3em;
   font-weight: 700;
 }
 
-.screen--title.is-cover-missing .title__fallback {
+.screen--title.is-logo-missing .t-logo {
+  display: none;
+}
+
+.screen--title.is-logo-missing .t-logo-fallback {
   display: block;
 }
 
-.screen--title.is-cover-missing .title__cover-box {
-  display: none;
-}
-
+/* ---- レイヤー3：人物 ---- */
 /*
- * 絵が読み込めないときは重ねる相手が無い。
- * 文字ロゴと通常の青いボタンを、画面の中で縦に並べ直す。
+ * 高さの決め方は2つの上限のうち小さいほう。
+ *   1つめ: 頭が画面の36%より下に来る高さ（地球儀の下端33%を越えない）
+ *          画面高 - 36% - 操作の高さ - すきま8  ＝ 64dvh - 操作 - 8
+ *   2つめ: 幅が画面の64%を越えない高さ（富士山を人物で覆わないため）
+ *          64vw x (1536/1024) ＝ 96vw
+ * 靴は主ボタンより上に来る（透過素材の下端に4%の余白があるぶん、さらに上）。
  */
-.screen--title.is-cover-missing .title__art {
-  padding-bottom: calc(var(--safe-bottom) + 120px);
-}
-
-.screen--title.is-cover-missing .title__actions::before {
-  display: none;
-}
-
-/* 代替表示では、通常の青いボタンとして操作列に並ぶ。 */
-.screen--title.is-cover-missing .title__start {
-  position: static;
-  transform: none;
-  padding: 10px 16px;
-  border: 1px solid var(--c-line);
-}
-
-.screen--title.is-cover-missing .title__start:active {
-  transform: scale(0.98);
-}
-
-.screen--title.is-cover-missing .title__start-label {
-  position: static;
-  width: auto;
-  height: auto;
-  margin: 0;
-  overflow: visible;
-  clip-path: none;
-}
-
-/* ---- 絵の下端へ重ねる操作列 ---- */
-/*
- * 下端の余白は safe-area-inset-bottom に 8px を足した値。
- * ホームバーのある端末では、その高さだけ操作列が上がる。
- */
-.title__actions {
+.t-cast {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 8px);
+  bottom: calc(var(--title-controls) + 8px);
   transform: translateX(-50%);
+  height: min(calc(64vh - var(--title-controls) - 8px), 96vw);
+  height: min(calc(64dvh - var(--title-controls) - 8px), 96vw);
+  width: auto;
+  z-index: 2;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(10, 30, 60, 0.34));
+}
+
+/* ---- レイヤー4・5：操作 ---- */
+.t-actions {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 10px);
+  transform: translateX(-50%);
+  width: min(calc(100% - 24px), 420px);
   z-index: 3;
-  width: min(calc(100% - 12px), 420px);
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* 花畑の上でも読めるよう、操作列の背後だけをわずかに沈める。 */
-.title__actions::before {
-  content: '';
-  position: absolute;
-  inset: -8px -10px -10px;
-  border-radius: 16px;
-  background: linear-gradient(
-    180deg,
-    rgba(12, 32, 56, 0) 0%,
-    rgba(12, 32, 56, 0.28) 45%,
-    rgba(12, 32, 56, 0.4) 100%
-  );
-  z-index: -1;
-  pointer-events: none;
+/* 主操作。画面でいちばん目立つ大きさにする。 */
+.t-start {
+  width: 100%;
+  min-height: 60px;
+  font-size: 19px;
+  letter-spacing: 0.04em;
 }
 
-.title__sub-actions {
+/* 副操作。主ボタンより小さく、控えめに。 */
+.t-sub {
   display: flex;
   gap: 8px;
 }
 
-.title__sub-actions .btn {
+.t-sub .btn {
   flex: 1 1 0;
   min-width: 0;
-  color: var(--c-ink);
-  /* 表紙の主要ボタンはすべて 44x44 CSS px 以上を確保する。 */
   min-height: var(--tap-min);
+  font-size: 13px;
+  color: var(--c-ink);
+  background: rgba(255, 255, 255, 0.88);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .title__cover {
-    animation: none;
+@media (max-width: 340px) {
+  .t-sub .btn {
+    font-size: 12px;
   }
 }

@@ -60,3 +60,48 @@ export const TITLE_COVER_BUTTON_BOX = {
   centerY: (TITLE_COVER_BUTTON.top + TITLE_COVER_BUTTON.bottom) / 2,
   height: TITLE_COVER_BUTTON.bottom - TITLE_COVER_BUTTON.top,
 } as const;
+
+/**
+ * 表紙の分離素材（layered-v1）。
+ *
+ * 採用見本 approved-preview.png に合わせて個別に制作された3点。
+ * 原寸は assets-source/title/layered-v1/ に無改変で保管し、
+ * public/ にあるのは同じ画素数のまま WebP へ再エンコードしたもの。
+ *
+ *   background  : 852x1846  ロゴ・人物・かばん・ボタンを含まない全面背景
+ *   logo        : 1997x788  透過。文字は「ことばトラベル」「KOTOBA JOURNEY」
+ *   characters  : 1024x1536 透過。パイロット・CA・手荷物・旅行かばん
+ *
+ * ボタンは画像に描かれていない。操作はすべて本物の <button> で出す。
+ */
+export const TITLE_LAYERS = {
+  background: assetUrl('assets/title/layered-v1/background.webp'),
+  logo: assetUrl('assets/title/layered-v1/logo.webp'),
+  characters: assetUrl('assets/title/layered-v1/characters.webp'),
+} as const;
+
+export const TITLE_LAYER_SIZES = {
+  background: { width: 852, height: 1846 },
+  logo: { width: 1997, height: 788 },
+  characters: { width: 1024, height: 1536 },
+} as const;
+
+/**
+ * 背景の中で、ロゴや人物で隠してはいけないもの。
+ * 背景画像の左上を 0、右下を 1 とする比率で、目盛りを重ねて実測した。
+ */
+export const TITLE_BACKGROUND_LANDMARKS = {
+  /** 光る地球儀。円周を隠さない。 */
+  globe: { left: 0.36, top: 0.21, right: 0.58, bottom: 0.33 },
+  /** 富士山。山頂と山体を見せる。 */
+  fuji: { left: 0.05, top: 0.33, right: 0.30, bottom: 0.41 },
+} as const;
+
+/**
+ * 背景を cover で敷くときの縦の見せ方（object-position の Y）。
+ *
+ * 0.27 にすると、対応する全画面サイズで地球儀の中心が
+ * 画面の高さの約26%へ来る。画面ごとに切り取り量が変わっても、
+ * 地球儀とロゴ・人物の位置関係が保たれる。
+ */
+export const TITLE_BACKGROUND_POSITION_Y = 0.27;

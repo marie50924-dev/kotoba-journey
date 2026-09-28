@@ -20,7 +20,9 @@ const VIEWPORTS = [
   { width: 320, height: 568 },
   { width: 375, height: 667 },
   { width: 393, height: 852 },
-  { width: 402, height: 874 },
+  // Safari のアドレスバーが出ていて画面が低いときも確かめる。
+  { width: 393, height: 745 },
+  { width: 393, height: 700 },
   { width: 430, height: 932 },
 ];
 
@@ -63,71 +65,124 @@ function rectsOverlap(a, b) {
 }
 
 /**
- * 絵に描かれた「旅をはじめる」ボタンの位置。
+ * 表紙の素材と、背景の中で隠してはいけないものの位置。
  *
- * 原寸 852x1846 の画素を測った値で、src/data/titleAssets.ts の
- * TITLE_COVER_BUTTON と同じ数字。こちらは .mjs なので TypeScript を読み込めず、
- * 同じ値を書いてある。ずれていないことは下の検査で確かめる
- * （画面側は inline style としてこの比率を出しているので、突き合わせられる）。
+ * 数値は src/data/titleAssets.ts の実測値と同じ。
+ * こちらは .mjs なので TypeScript を読み込めず、同じ値を書いてある。
+ * 画面側は background の object-position としてこの比率を出しているので、
+ * 食い違っていないことは下の検査で突き合わせる。
  */
-const COVER_NATURAL = { width: 852, height: 1846 };
-const COVER_BUTTON_PX = { left: 165, top: 1549, right: 679, bottom: 1678 };
+const BG_NATURAL = { width: 852, height: 1846 };
+const BG_POSITION_Y = 0.27;
+/** 背景の中の位置（比率）。 */
+const LANDMARKS = {
+  globe: { left: 0.36, top: 0.21, right: 0.58, bottom: 0.33 },
+  fuji: { left: 0.05, top: 0.33, right: 0.3, bottom: 0.41 },
+};
+/** 透過素材の、絵柄が入っている範囲（原寸比）。透明な余白を除くために使う。 */
+const LOGO_ART = { l: 18 / 1997, r: 1, t: 88 / 788, b: 754 / 788 };
+const CAST_ART = { l: 15 / 1024, r: 1021 / 1024, t: 28 / 1536, b: 1474 / 1536 };
 
 /** 表紙の実測値を集める。 */
 function titleMetrics() {
-  const pick = (sel) => {
+  const rect = (sel) => {
     const node = document.querySelector(sel);
     if (!node) return null;
     const r = node.getBoundingClientRect();
     return { x: r.x, y: r.y, width: r.width, height: r.height };
   };
-  // 表紙の操作ボタンは、絵の上に重ねる「旅をはじめる」と、下の操作列の2種類。
+  const bg = document.querySelector('.t-bg');
+  const logo = document.querySelector('.t-logo');
+  const cast = document.querySelector('.t-cast');
   const buttons = [...document.querySelectorAll('.screen--title button')].map((el) => {
     const r = el.getBoundingClientRect();
     return { text: el.textContent.trim(), x: r.x, y: r.y, width: r.width, height: r.height };
   });
-  const cover = document.querySelector('.title__cover');
-  const start = document.querySelector('.title__start');
-  // 画面が絵から付けた位置指定。データと食い違っていないかを見るために読む。
-  const startStyle = start
-    ? {
-        left: start.style.left,
-        top: start.style.top,
-        width: start.style.width,
-        height: start.style.height,
-      }
-    : null;
   // 画面の中でいちばん下にある要素の下端。
   // documentElement.scrollHeight は html { height: 100% } で頭打ちになるため使わない。
   const bottoms = [...document.querySelectorAll('.screen--title *')].map(
     (el) => el.getBoundingClientRect().bottom,
   );
   return {
-    box: pick('.title__cover-box'),
-    cover: pick('.title__cover'),
-    start: pick('.title__start'),
-    startStyle,
-    startLabel: start?.textContent.trim() ?? '',
-    // 絵の中のロゴと人物を DOM で二重に重ねていないこと。
-    legacyLayers: document.querySelectorAll('.title__logo, .title__mascot, .title__bg').length,
-    // 開発用の説明文は表紙へ出さない。
-    devNote: document.querySelectorAll('.title__note').length,
-    subActions: (() => {
-      const n = document.querySelector('.title__sub-actions');
-      if (!n) return null;
-      const r = n.getBoundingClientRect();
-      return { x: r.x, y: r.y, width: r.width, height: r.height };
-    })(),
-    coverAlt: cover?.getAttribute('alt') ?? '',
+    bg: rect('.t-bg'),
+    logo: rect('.t-logo'),
+    cast: rect('.t-cast'),
+    start: rect('.t-start'),
+    sub: rect('.t-sub'),
     buttons,
+    // 画面が背景へ付けた縦の見せ方。データと食い違っていないかを見る。
+    bgObjectPosition: bg ? bg.style.objectPosition : '',
+    // 要素の矩形は画面いっぱいでも、object-fit によっては
+    // 実際に絵が塗られる範囲が内側へ寄る（左右に余白が出る）。
+    // 塗られる範囲そのものを求めて確かめる。
+    bgPainted: (() => {
+      if (!bg) return null;
+      const r = bg.getBoundingClientRect();
+      const fit = getComputedStyle(bg).objectFit;
+      const nw = bg.naturalWidth;
+      const nh = bg.naturalHeight;
+      if (!nw || !nh) return null;
+      const scale =
+        fit === 'contain'
+          ? Math.min(r.width / nw, r.height / nh)
+          : fit === 'cover'
+            ? Math.max(r.width / nw, r.height / nh)
+            : fit === 'none'
+              ? 1
+              : null;
+      if (scale === null) return { fit, x: r.x, y: r.y, width: r.width, height: r.height };
+      const w = nw * scale;
+      const h = nh * scale;
+      return { fit, x: r.x + (r.width - w) / 2, y: r.y + (r.height - h) / 2, width: w, height: h };
+    })(),
+    bgNatural: bg ? { width: bg.naturalWidth, height: bg.naturalHeight } : null,
+    bgLoaded: bg?.complete === true && bg?.naturalWidth > 0,
+    logoLoaded: logo?.complete === true && logo?.naturalWidth > 0,
+    castLoaded: cast?.complete === true && cast?.naturalWidth > 0,
+    logoAlt: logo?.getAttribute('alt') ?? '',
+    castAriaHidden: cast?.getAttribute('aria-hidden') ?? '',
+    // 一枚絵の名残（焼き込まれたロゴ・ボタン）が残っていないこと。
+    legacyCover: document.querySelectorAll('.title__cover, .title__cover-box, .title__start').length,
+    devNote: document.querySelectorAll('.title__note').length,
     hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
     vScroll: document.body.scrollHeight > window.innerHeight + 1,
     lowestBottom: bottoms.length > 0 ? Math.max(...bottoms) : 0,
     viewport: { width: window.innerWidth, height: window.innerHeight },
-    // 画像が実際に復号できたか（読み込み失敗の検出）。
-    coverLoaded: cover?.complete === true && cover?.naturalWidth > 0,
-    coverNatural: cover ? { width: cover.naturalWidth, height: cover.naturalHeight } : null,
   };
+}
+
+/** 背景の中の比率を、画面の座標へ直す。 */
+function landmarkRect(m, box) {
+  const scale = Math.max(m.bg.width / BG_NATURAL.width, m.bg.height / BG_NATURAL.height);
+  const renderedW = BG_NATURAL.width * scale;
+  const renderedH = BG_NATURAL.height * scale;
+  const offsetX = (renderedW - m.bg.width) * 0.5;
+  const offsetY = (renderedH - m.bg.height) * BG_POSITION_Y;
+  const px = (f) => m.bg.x + f * renderedW - offsetX;
+  const py = (f) => m.bg.y + f * renderedH - offsetY;
+  return {
+    x: px(box.left),
+    y: py(box.top),
+    width: px(box.right) - px(box.left),
+    height: py(box.bottom) - py(box.top),
+  };
+}
+
+/** 透過素材の、絵柄が入っている矩形。 */
+function artRect(box, art) {
+  return {
+    x: box.x + art.l * box.width,
+    y: box.y + art.t * box.height,
+    width: (art.r - art.l) * box.width,
+    height: (art.b - art.t) * box.height,
+  };
+}
+
+/** 重なっている面積（px^2）。 */
+function overlapArea(a, b) {
+  const w = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+  const h = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+  return w * h;
 }
 
 const { server, port } = await serveDist();
@@ -146,108 +201,123 @@ try {
         page.on('pageerror', (e) => jsErrors.push(e.message));
 
         await page.goto(baseUrl, { waitUntil: 'networkidle' });
-        // 遅延読み込みを待つ。naturalWidth は実体があっても直後は 0 のことがある。
+        // 3つの素材の読み込みを待つ。naturalWidth は実体があっても直後は 0 のことがある。
         await page
           .waitForFunction(
-            () => {
-              const img = document.querySelector('.title__cover');
-              return img !== null && img.complete && img.naturalWidth > 0;
-            },
+            () =>
+              ['.t-bg', '.t-logo', '.t-cast'].every((sel) => {
+                const img = document.querySelector(sel);
+                return img !== null && img.complete && img.naturalWidth > 0;
+              }),
             undefined,
-            { timeout: 8000 },
+            { timeout: 9000 },
           )
           .catch(() => {});
         await page.waitForTimeout(700);
         const m = await page.evaluate(titleMetrics);
 
-        check(m.coverLoaded, `${label}: 表紙の一枚絵が読み込めていない`);
+        check(m.bgLoaded, `${label}: 背景が読み込めていない`);
+        check(m.logoLoaded, `${label}: ロゴが読み込めていない`);
+        check(m.castLoaded, `${label}: 人物が読み込めていない`);
         check(
-          m.coverNatural?.width === COVER_NATURAL.width &&
-            m.coverNatural?.height === COVER_NATURAL.height,
-          `${label}: 表紙の画素数が受領物と違う（${m.coverNatural?.width}x${m.coverNatural?.height}）`,
+          m.bgNatural?.width === BG_NATURAL.width && m.bgNatural?.height === BG_NATURAL.height,
+          `${label}: 背景の画素数が受領物と違う（${m.bgNatural?.width}x${m.bgNatural?.height}）`,
         );
-        // 絵の中にロゴと人物があるので、DOM で二重に重ねてはいけない。
-        check(m.legacyLayers === 0, `${label}: ロゴ／キャラクターの画像を絵の上へ重ねている`);
-        check(m.coverAlt.includes('ことばトラベル'), `${label}: 表紙の絵に代替テキストが無い`);
+        // 一枚絵の名残（焼き込まれたロゴとボタン）が残っていないこと。
+        check(m.legacyCover === 0, `${label}: 一枚絵の表紙が残っている`);
         check(m.devNote === 0, `${label}: 開発用の説明文が表紙に出ている`);
-        // 操作列は絵の下端へ重ねる。画面の中に収まっていること。
-        check(m.subActions !== null, `${label}: 操作列が存在しない`);
-        if (m.subActions) {
+        check(m.logoAlt.includes('ことばトラベル'), `${label}: ロゴに代替テキストが無い`);
+        check(m.castAriaHidden === 'true', `${label}: 人物の絵が読み上げから外れていない`);
+
+        // 画面が背景へ付けた縦の見せ方が、実測値と一致している。
+        check(
+          Math.abs(Number.parseFloat(m.bgObjectPosition.split(' ')[1]) / 100 - BG_POSITION_Y) <
+            0.0005,
+          `${label}: 背景の縦の見せ方が実測値と違う（${m.bgObjectPosition}）`,
+        );
+
+        // 背景は画面を覆う。左右の余白は 0。
+        // 要素の矩形ではなく、実際に絵が塗られる範囲で確かめる。
+        check(m.bgPainted !== null, `${label}: 背景が存在しない`);
+        if (m.bgPainted) {
           check(
-            m.subActions.y + m.subActions.height <= m.viewport.height + 0.5,
-            `${label}: 操作列が画面の下からはみ出している（${(m.subActions.y + m.subActions.height).toFixed(1)} > ${m.viewport.height}）`,
+            m.bgPainted.fit === 'cover',
+            `${label}: 背景の敷き方が cover ではない（${m.bgPainted.fit}）`,
+          );
+          const left = m.bgPainted.x;
+          const right = m.viewport.width - (m.bgPainted.x + m.bgPainted.width);
+          check(
+            left <= 0.5 && right <= 0.5,
+            `${label}: 背景の左右に余白がある（左${left.toFixed(1)}px 右${right.toFixed(1)}px）`,
+          );
+          const top = m.bgPainted.y;
+          const bottom = m.viewport.height - (m.bgPainted.y + m.bgPainted.height);
+          check(
+            top <= 0.5 && bottom <= 0.5,
+            `${label}: 背景の上下に余白がある（上${top.toFixed(1)}px 下${bottom.toFixed(1)}px）`,
           );
         }
 
-        // 絵が切れていない＝絵の矩形が画面の中に完全に収まっている。
-        check(m.box !== null, `${label}: 表紙の絵が存在しない`);
-        if (m.box) {
-          check(m.box.x >= -0.5, `${label}: 絵が左へはみ出している（${m.box.x.toFixed(1)}）`);
-          check(m.box.y >= -0.5, `${label}: 絵が上へはみ出している（${m.box.y.toFixed(1)}）`);
+        // 地球儀と富士山が画面の中にあり、ロゴにも人物にも隠されていない。
+        const globe = landmarkRect(m, LANDMARKS.globe);
+        const fuji = landmarkRect(m, LANDMARKS.fuji);
+        const logoArt = artRect(m.logo, LOGO_ART);
+        const castArt = artRect(m.cast, CAST_ART);
+        for (const [name, box] of [['地球儀', globe], ['富士山', fuji]]) {
           check(
-            m.box.x + m.box.width <= m.viewport.width + 0.5,
-            `${label}: 絵が右へはみ出している（${(m.box.x + m.box.width).toFixed(1)} > ${m.viewport.width}）`,
-          );
-          check(
-            m.box.y + m.box.height <= m.viewport.height + 0.5,
-            `${label}: 絵が下へはみ出している（${(m.box.y + m.box.height).toFixed(1)} > ${m.viewport.height}）`,
-          );
-          // 縦横比が原寸と一致する＝引き伸ばしも切り抜きも起きていない。
-          const wanted = COVER_NATURAL.width / COVER_NATURAL.height;
-          const shown = m.box.width / m.box.height;
-          check(
-            Math.abs(shown - wanted) / wanted < 0.01,
-            `${label}: 絵の縦横比が原寸と違う（${shown.toFixed(4)} / 原寸 ${wanted.toFixed(4)}）`,
+            box.x >= -0.5 &&
+              box.y >= -0.5 &&
+              box.x + box.width <= m.viewport.width + 0.5 &&
+              box.y + box.height <= m.viewport.height + 0.5,
+            `${label}: ${name}が画面の外にある（${box.x.toFixed(1)},${box.y.toFixed(1)} ${box.width.toFixed(1)}x${box.height.toFixed(1)}）`,
           );
         }
+        check(
+          overlapArea(globe, logoArt) === 0,
+          `${label}: 地球儀をロゴが隠している（${overlapArea(globe, logoArt).toFixed(0)}px2）`,
+        );
+        check(
+          overlapArea(globe, castArt) === 0,
+          `${label}: 地球儀を人物が隠している（${overlapArea(globe, castArt).toFixed(0)}px2）`,
+        );
+        // 富士山は山頂と山体が見えればよい。左半分は人物にかからないこと。
+        const fujiLeftHalf = { x: fuji.x, y: fuji.y, width: fuji.width / 2, height: fuji.height };
+        check(
+          overlapArea(fujiLeftHalf, castArt) === 0,
+          `${label}: 富士山の山頂側を人物が隠している（${overlapArea(fujiLeftHalf, castArt).toFixed(0)}px2）`,
+        );
 
-        // 画面が付けた位置指定が、実測した比率と一致している。
-        check(m.startStyle !== null, `${label}: 開始ボタンが存在しない`);
-        if (m.startStyle) {
-          const pct = (v) => Number.parseFloat(v) / 100;
-          const wantLeft = COVER_BUTTON_PX.left / COVER_NATURAL.width;
-          const wantWidth = (COVER_BUTTON_PX.right - COVER_BUTTON_PX.left) / COVER_NATURAL.width;
-          const wantCenterY =
-            (COVER_BUTTON_PX.top + COVER_BUTTON_PX.bottom) / 2 / COVER_NATURAL.height;
+        // ロゴと人物は切れていない（絵柄の矩形が画面の中に収まっている）。
+        for (const [name, box] of [['ロゴ', logoArt], ['人物', castArt]]) {
           check(
-            Math.abs(pct(m.startStyle.left) - wantLeft) < 0.0005,
-            `${label}: 開始ボタンの左位置が実測値と違う（${m.startStyle.left}）`,
-          );
-          check(
-            Math.abs(pct(m.startStyle.width) - wantWidth) < 0.0005,
-            `${label}: 開始ボタンの幅が実測値と違う（${m.startStyle.width}）`,
-          );
-          check(
-            Math.abs(pct(m.startStyle.top) - wantCenterY) < 0.0005,
-            `${label}: 開始ボタンの中心が実測値と違う（${m.startStyle.top}）`,
+            box.x >= -0.5 &&
+              box.y >= -0.5 &&
+              box.x + box.width <= m.viewport.width + 0.5 &&
+              box.y + box.height <= m.viewport.height + 0.5,
+            `${label}: ${name}が画面からはみ出している（${box.x.toFixed(1)},${box.y.toFixed(1)} ${box.width.toFixed(1)}x${box.height.toFixed(1)}）`,
           );
         }
+        // 透過素材は縦横比のまま出す（引き伸ばさない）。
+        check(
+          Math.abs(m.logo.width / m.logo.height - 1997 / 788) / (1997 / 788) < 0.01,
+          `${label}: ロゴの縦横比が原寸と違う`,
+        );
+        check(
+          Math.abs(m.cast.width / m.cast.height - 1024 / 1536) / (1024 / 1536) < 0.01,
+          `${label}: 人物の縦横比が原寸と違う`,
+        );
 
-        // 実際に描かれた位置が、絵の中のボタンと重なっている。
-        if (m.box && m.start) {
-          const drawn = {
-            x: m.box.x + (COVER_BUTTON_PX.left / COVER_NATURAL.width) * m.box.width,
-            y: m.box.y + (COVER_BUTTON_PX.top / COVER_NATURAL.height) * m.box.height,
-            width: ((COVER_BUTTON_PX.right - COVER_BUTTON_PX.left) / COVER_NATURAL.width) * m.box.width,
-            height:
-              ((COVER_BUTTON_PX.bottom - COVER_BUTTON_PX.top) / COVER_NATURAL.height) * m.box.height,
-          };
-          check(
-            Math.abs(m.start.x - drawn.x) <= 1 && Math.abs(m.start.width - drawn.width) <= 1,
-            `${label}: 押せる範囲が絵のボタンと横にずれている（実 ${m.start.x.toFixed(1)}+${m.start.width.toFixed(1)} / 絵 ${drawn.x.toFixed(1)}+${drawn.width.toFixed(1)}）`,
-          );
-          // 縦は 44px を下回らないよう上下へ広げるので、中心が合っていればよい。
-          const drawnCenter = drawn.y + drawn.height / 2;
-          const startCenter = m.start.y + m.start.height / 2;
-          check(
-            Math.abs(startCenter - drawnCenter) <= 1,
-            `${label}: 押せる範囲が絵のボタンと縦にずれている（実 ${startCenter.toFixed(1)} / 絵 ${drawnCenter.toFixed(1)}）`,
-          );
-          check(
-            m.start.height + 0.5 >= drawn.height,
-            `${label}: 押せる範囲が絵のボタンより小さい`,
-          );
-        }
+        // 人物の靴が主ボタンより上にある。
+        check(
+          castArt.y + castArt.height <= m.start.y + 0.5,
+          `${label}: 人物が開始ボタンに重なっている（靴 ${(castArt.y + castArt.height).toFixed(1)} / ボタン上端 ${m.start.y.toFixed(1)}）`,
+        );
+
+        // 主操作が副操作より大きい。
+        check(
+          m.start.height > 44 && m.start.width >= m.sub.width - 0.5,
+          `${label}: 開始ボタンが主操作として大きくない（${m.start.width.toFixed(1)}x${m.start.height.toFixed(1)}）`,
+        );
 
         check(m.buttons.length === 3, `${label}: 表紙のボタンが3つそろっていない（${m.buttons.length}）`);
         for (const b of m.buttons) {
@@ -272,13 +342,10 @@ try {
           }
         }
 
-        // 絵の上に重ねた開始ボタンと、その下の操作列がぶつかっていないこと。
-        if (m.start && m.subActions) {
-          const gap = m.subActions.y - (m.start.y + m.start.height);
-          check(
-            gap >= 0,
-            `${label}: 開始ボタンと操作列が重なっている（すきま ${gap.toFixed(1)}px）`,
-          );
+        // 主操作と副操作がぶつかっていないこと。
+        if (m.start && m.sub) {
+          const gap = m.sub.y - (m.start.y + m.start.height);
+          check(gap >= 0, `${label}: 主操作と副操作が重なっている（すきま ${gap.toFixed(1)}px）`);
         }
 
         check(!m.hScroll, `${label}: 表紙で横スクロールが発生している`);
@@ -292,7 +359,7 @@ try {
         await page.keyboard.press('Tab');
         const focused = await page.evaluate(() => document.activeElement?.className ?? '');
         check(
-          focused.includes('title__start'),
+          focused.includes('t-start'),
           `${label}: Tab の最初で開始ボタンへ移らない（${focused}）`,
         );
         await page.keyboard.press('Enter');
@@ -304,8 +371,8 @@ try {
 
         check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
 
-        const gap = m.subActions ? m.subActions.y - (m.start.y + m.start.height) : NaN;
-        return ` 表紙  絵 ${m.box.width.toFixed(0)}x${m.box.height.toFixed(0)}px / 開始ボタン ${m.start.width.toFixed(0)}x${m.start.height.toFixed(0)}px / 操作列とのすきま ${gap.toFixed(1)}px`;
+        const globeOut = landmarkRect(m, LANDMARKS.globe);
+        return ` 表紙  余白0 / 地球儀 ${globeOut.width.toFixed(0)}x${globeOut.height.toFixed(0)}px / 人物 ${(m.cast.width * (CAST_ART.r - CAST_ART.l)).toFixed(0)}x${(m.cast.height * (CAST_ART.b - CAST_ART.t)).toFixed(0)}px / 主ボタン ${m.start.width.toFixed(0)}x${m.start.height.toFixed(0)}px`;
       } finally {
         await context.close();
       }
@@ -558,8 +625,9 @@ try {
         await page.waitForTimeout(400);
 
         const m = await page.evaluate(titleMetrics);
-        check(m.box !== null && m.box.width > 0, 'reduced-motion: 表紙の絵が見えない');
-        check(m.coverLoaded, 'reduced-motion: 表紙の絵が読み込めていない');
+        check(m.bgLoaded, 'reduced-motion: 背景が読み込めていない');
+        check(m.logoLoaded, 'reduced-motion: ロゴが読み込めていない');
+        check(m.castLoaded, 'reduced-motion: 人物が読み込めていない');
         check(m.start !== null && m.start.width > 0, 'reduced-motion: 開始ボタンが見えない');
         check(m.buttons.length === 3, 'reduced-motion: 表紙のボタンが欠けている');
 
