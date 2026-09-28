@@ -287,8 +287,58 @@
 }
 
 /* ---- 国紹介 ---- */
+/*
+ * 画面の高さに固定する。
+ *
+ * .screen は min-height しか持たないため、紹介の絵・同行者・ボタンが積み上がると
+ * 画面そのものが伸びていた。320x568 では本文が 616px になり、
+ * 「この国でことばを集める」が下へ 32.3px はみ出して切れていた。
+ * document は html の高さに張り付いて伸びないので、
+ * window.scrollY では動かず、body を直接スクロールしないと届かない状態だった。
+ *
+ * 高さを画面に合わせて固定し、本文だけを縦スクロールさせる。
+ * 下の overflow-y: auto は元からあるが、高さが決まっていないと効かない。
+ */
+.screen--intro {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .screen--intro .screen__body {
   overflow-y: auto;
+}
+
+/*
+ * 先へ進むボタンは、本文をどれだけスクロールしても画面内へ残す。
+ * 背景を敷かないと、下を流れていく本文が透けて読みにくくなる。
+ */
+.screen--intro .screen__footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--c-paper);
+  padding-bottom: 4px;
+}
+
+/*
+ * 背の低い画面では、到着の絵を縮めて全部を1画面へ収める。
+ *
+ * 縮めないと、同行者の顔と名前が下のボタンに隠れてしまう。
+ * 顔と名前は対で見せたいので、名前が隠れるくらいなら絵を小さくする。
+ * 絵は装飾で、切り抜いても意味は失われない（object-fit: cover で中央を残す）。
+ * 320x568 だけが対象で、375x667 以上の対応画面では従来どおりの大きさ。
+ */
+@media (max-height: 640px) {
+  .screen--intro .intro__photo .chara-card__frame {
+    max-height: 200px;
+  }
+
+  .screen--intro .intro__photo .chara-card__img {
+    height: 200px;
+    object-fit: cover;
+    object-position: center;
+  }
 }
 
 .intro__hero {
