@@ -110,6 +110,14 @@ function titleMetrics() {
     startLabel: start?.textContent.trim() ?? '',
     // 絵の中のロゴと人物を DOM で二重に重ねていないこと。
     legacyLayers: document.querySelectorAll('.title__logo, .title__mascot, .title__bg').length,
+    // 開発用の説明文は表紙へ出さない。
+    devNote: document.querySelectorAll('.title__note').length,
+    subActions: (() => {
+      const n = document.querySelector('.title__sub-actions');
+      if (!n) return null;
+      const r = n.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    })(),
     coverAlt: cover?.getAttribute('alt') ?? '',
     buttons,
     hScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -161,6 +169,15 @@ try {
         // 絵の中にロゴと人物があるので、DOM で二重に重ねてはいけない。
         check(m.legacyLayers === 0, `${label}: ロゴ／キャラクターの画像を絵の上へ重ねている`);
         check(m.coverAlt.includes('ことばトラベル'), `${label}: 表紙の絵に代替テキストが無い`);
+        check(m.devNote === 0, `${label}: 開発用の説明文が表紙に出ている`);
+        // 操作列は絵の下端へ重ねる。画面の中に収まっていること。
+        check(m.subActions !== null, `${label}: 操作列が存在しない`);
+        if (m.subActions) {
+          check(
+            m.subActions.y + m.subActions.height <= m.viewport.height + 0.5,
+            `${label}: 操作列が画面の下からはみ出している（${(m.subActions.y + m.subActions.height).toFixed(1)} > ${m.viewport.height}）`,
+          );
+        }
 
         // 絵が切れていない＝絵の矩形が画面の中に完全に収まっている。
         check(m.box !== null, `${label}: 表紙の絵が存在しない`);
@@ -255,6 +272,15 @@ try {
           }
         }
 
+        // 絵の上に重ねた開始ボタンと、その下の操作列がぶつかっていないこと。
+        if (m.start && m.subActions) {
+          const gap = m.subActions.y - (m.start.y + m.start.height);
+          check(
+            gap >= 0,
+            `${label}: 開始ボタンと操作列が重なっている（すきま ${gap.toFixed(1)}px）`,
+          );
+        }
+
         check(!m.hScroll, `${label}: 表紙で横スクロールが発生している`);
         check(!m.vScroll, `${label}: 表紙が1画面に収まっていない`);
         check(
@@ -278,7 +304,8 @@ try {
 
         check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
 
-        return ` 表紙  絵 ${m.box.width.toFixed(0)}x${m.box.height.toFixed(0)}px / 開始ボタン ${m.start.width.toFixed(0)}x${m.start.height.toFixed(0)}px`;
+        const gap = m.subActions ? m.subActions.y - (m.start.y + m.start.height) : NaN;
+        return ` 表紙  絵 ${m.box.width.toFixed(0)}x${m.box.height.toFixed(0)}px / 開始ボタン ${m.start.width.toFixed(0)}x${m.start.height.toFixed(0)}px / 操作列とのすきま ${gap.toFixed(1)}px`;
       } finally {
         await context.close();
       }

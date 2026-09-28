@@ -173,6 +173,29 @@ describe('表紙の CSS', () => {
     expect(rule![0]).toContain('clip-path');
   });
 
+  it('操作列を絵の下端へ重ね、ホームバーのぶんだけ余裕を取っている', () => {
+    // 絵の下へ要素を積むと、短い画面で絵が小さくなる。重ねる側にする。
+    const rule = titleCss.match(/\.title__actions\s*\{[^}]*\}/);
+    expect(rule, '.title__actions の指定が無い').not.toBeNull();
+    expect(rule![0]).toContain('position: absolute');
+    // ホームバーのある端末では、その高さだけ操作列が上がる。
+    expect(rule![0]).toMatch(/bottom:\s*calc\(var\(--safe-bottom\)/);
+  });
+
+  it('絵の置き場所も、ホームバーのぶんだけ下を空けている', () => {
+    // 絵と操作列がそろって上がるので、両者の間隔が保たれる。
+    const rule = titleCss.match(/\.title__art\s*\{[^}]*\}/);
+    expect(rule, '.title__art の指定が無い').not.toBeNull();
+    expect(rule![0]).toMatch(/padding:[^;]*calc\(var\(--safe-bottom\)/);
+  });
+
+  it('開発用の説明文を表紙へ出していない', () => {
+    // 利用者に向けた文ではないので、表紙には置かない。
+    expect(screenSource).not.toContain('grayboxNote');
+    expect(screenSource).not.toContain('title__note');
+    expect(titleCss).not.toContain('.title__note');
+  });
+
   it('絵が出ないときの文字ロゴと、通常ボタンの見た目が用意されている', () => {
     expect(titleCss).toContain('.screen--title.is-cover-missing .title__fallback');
     expect(titleCss).toContain('.screen--title.is-cover-missing .title__start');

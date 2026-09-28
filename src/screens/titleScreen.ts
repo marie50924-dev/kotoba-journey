@@ -75,6 +75,7 @@ export function titleScreen(ctx: AppContext): HTMLElement {
     actions.prepend(startButton);
   });
 
+  // 開発用の説明文は表紙へ出さない。利用者に向けた文ではないため。
   root.append(
     el('div', { class: 'title__art' }, [
       el('div', { class: 'title__fallback' }, [
@@ -84,7 +85,6 @@ export function titleScreen(ctx: AppContext): HTMLElement {
       coverBox,
     ]),
     actions,
-    el('p', { class: 'title__note', text: UI.app.grayboxNote }),
   );
 
   return root;

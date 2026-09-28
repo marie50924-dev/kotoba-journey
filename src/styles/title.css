@@ -7,26 +7,32 @@
  * 絵は切り抜かない。画面の縦横比が絵と違う幅では左右に余白が出るが、
  * ロゴ・顔・ボタンが切れるより余白のほうを選ぶ。
  * （絵は 852x1846 ＝ 縦長。16:9 の画面では上下どちらかが必ず切れてしまう。）
+ *
+ * 短い画面で絵が小さくなりすぎないよう、絵の下へ要素を積まない。
+ * 「マイパスポート」「設定」は絵の下端へ重ねる。重ねる先は花畑の帯で、
+ * ロゴ・人物・絵のボタンはそこに無い。開発用の説明文は表紙へ出さない。
+ * これで 320x568 の絵は 220x477 から 253x548 へ広がる（面積 +32%）。
  */
 
 .screen--title {
   position: relative;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   /* 絵の左右に出る余白と、読み込み前の下地。絵の空と地面の色に寄せてある。 */
   background: linear-gradient(180deg, #2a5fa8 0%, #7ec2ea 38%, #e9c9d8 72%, #e3d4bd 100%);
-  padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + 6px)
-    calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 6px);
-  gap: 8px;
 }
 
 /* ---- 表紙の絵 ---- */
+/*
+ * 画面いっぱいを絵の置き場所にする。
+ * 下端には、重ねた操作列と絵のボタンがぶつからないだけの余白を残す。
+ * ホームバーのある端末では safe-area のぶんだけ余白が増え、
+ * 絵も操作列もそろって上がるので、間隔は保たれる。
+ */
 .title__art {
-  position: relative;
-  flex: 1 1 auto;
-  /* 縮められるようにしておかないと、絵の高さで画面が伸びる。 */
-  min-height: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: var(--safe-top) var(--safe-right) calc(var(--safe-bottom) + 20px) var(--safe-left);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -136,6 +142,18 @@
   display: none;
 }
 
+/*
+ * 絵が読み込めないときは重ねる相手が無い。
+ * 文字ロゴと通常の青いボタンを、画面の中で縦に並べ直す。
+ */
+.screen--title.is-cover-missing .title__art {
+  padding-bottom: calc(var(--safe-bottom) + 120px);
+}
+
+.screen--title.is-cover-missing .title__actions::before {
+  display: none;
+}
+
 /* 代替表示では、通常の青いボタンとして操作列に並ぶ。 */
 .screen--title.is-cover-missing .title__start {
   position: static;
@@ -157,17 +175,37 @@
   clip-path: none;
 }
 
-/* ---- 画面下の操作列 ---- */
+/* ---- 絵の下端へ重ねる操作列 ---- */
+/*
+ * 下端の余白は safe-area-inset-bottom に 8px を足した値。
+ * ホームバーのある端末では、その高さだけ操作列が上がる。
+ */
 .title__actions {
-  position: relative;
-  z-index: 2;
-  flex: 0 0 auto;
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 8px);
+  transform: translateX(-50%);
+  z-index: 3;
+  width: min(calc(100% - 12px), 420px);
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* 花畑の上でも読めるよう、操作列の背後だけをわずかに沈める。 */
+.title__actions::before {
+  content: '';
+  position: absolute;
+  inset: -8px -10px -10px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 32, 56, 0) 0%,
+    rgba(12, 32, 56, 0.28) 45%,
+    rgba(12, 32, 56, 0.4) 100%
+  );
+  z-index: -1;
+  pointer-events: none;
 }
 
 .title__sub-actions {
@@ -181,22 +219,6 @@
   color: var(--c-ink);
   /* 表紙の主要ボタンはすべて 44x44 CSS px 以上を確保する。 */
   min-height: var(--tap-min);
-}
-
-.title__note {
-  position: relative;
-  z-index: 2;
-  flex: 0 0 auto;
-  text-align: center;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.94);
-  text-shadow: 0 1px 4px rgba(9, 32, 54, 0.7);
-}
-
-@media (max-width: 340px) {
-  .title__note {
-    font-size: 10px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
