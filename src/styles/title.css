@@ -7,12 +7,12 @@
  * 切り取られるのは背景だけで、ロゴ・人物・ボタンには当たらない。
  * 縦の見せ方は画面コードが実測値から付ける（object-position）。
  *
- * 操作のまとまりが使う高さ
- *   下余白10 + 主ボタン60 + すきま8 + 副ボタン44 = 122px（＋安全領域）
+ * 操作のまとまりが使う高さは .screen--title の --title-controls に書いてある。
  */
 
 .screen--title {
-  --title-controls: calc(var(--safe-bottom) + 122px);
+  /* 下余白12 + 主ボタン52 + すきま10 + 副ボタン44 = 118px（＋安全領域） */
+  --title-controls: calc(var(--safe-bottom) + 118px);
   position: relative;
   overflow: hidden;
   /* 背景が読み込めなくても暗い画面にならないよう、下地に空と地面の色を置く。 */
@@ -56,6 +56,13 @@
   transform: translateX(-50%);
   width: min(78vw, 400px);
   height: auto;
+  /*
+   * 地球儀の上端は画面の約21%に来る。ロゴの下端がそこへ届かないよう、
+   * 高さに上限を置く。切り欠き（safe-top）があるとロゴは下へ動くので、
+   * そのぶん上限も小さくなり、地球儀に重ならない。
+   */
+  max-height: max(40px, calc(16.5dvh - var(--safe-top)));
+  object-fit: contain;
   z-index: 2;
   filter: drop-shadow(0 4px 12px rgba(10, 30, 60, 0.42));
 }
@@ -99,17 +106,21 @@
  * 高さの決め方は2つの上限のうち小さいほう。
  *   1つめ: 頭が画面の36%より下に来る高さ（地球儀の下端33%を越えない）
  *          画面高 - 36% - 操作の高さ - すきま8  ＝ 64dvh - 操作 - 8
- *   2つめ: 幅が画面の64%を越えない高さ（富士山を人物で覆わないため）
- *          64vw x (1536/1024) ＝ 96vw
+ *   2つめ: 幅が画面の68%を越えない高さ（富士山の山頂側を覆わないため）
+ *          68vw x (1536/1024) ＝ 102vw
  * 靴は主ボタンより上に来る（透過素材の下端に4%の余白があるぶん、さらに上）。
+ */
+/*
+ * 横の中心は 53.5%。採用見本でも人物はわずかに右寄りで、
+ * 左に富士山を見せる場所を空けている。
  */
 .t-cast {
   position: absolute;
-  left: 50%;
+  left: 53.5%;
   bottom: calc(var(--title-controls) + 8px);
   transform: translateX(-50%);
-  height: min(calc(64vh - var(--title-controls) - 8px), 96vw);
-  height: min(calc(64dvh - var(--title-controls) - 8px), 96vw);
+  height: min(calc(64vh - var(--title-controls) - 8px), 102vw);
+  height: min(calc(64dvh - var(--title-controls) - 8px), 102vw);
   width: auto;
   z-index: 2;
   object-fit: contain;
@@ -117,43 +128,128 @@
 }
 
 /* ---- レイヤー4・5：操作 ---- */
+/*
+ * 操作。採用見本に合わせて、どれも丸い（ピル型）にする。
+ * 主ボタンは小ぶりだが、副ボタンより幅・高さ・文字とも大きい。
+ */
 .t-actions {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 10px);
+  bottom: calc(var(--safe-bottom) + 12px);
   transform: translateX(-50%);
   width: min(calc(100% - 24px), 420px);
   z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
 }
 
-/* 主操作。画面でいちばん目立つ大きさにする。 */
+/* 主操作。採用見本では画面幅の約60%の小ぶりなピル型。 */
 .t-start {
-  width: 100%;
-  min-height: 60px;
-  font-size: 19px;
+  width: min(70%, 300px);
+  min-width: 200px;
+  min-height: 52px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 17px;
   letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  /*
+   * 採用見本の主ボタンは、白い細い縁取りの外へ青い光が広がっている。
+   * 影を重ねて同じ見え方にする。画像は使わない。
+   */
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.82),
+    0 0 10px rgba(120, 196, 255, 0.85),
+    0 0 26px rgba(70, 156, 255, 0.7),
+    0 0 46px rgba(48, 128, 232, 0.45),
+    0 8px 22px rgba(18, 78, 145, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
 }
 
 /* 副操作。主ボタンより小さく、控えめに。 */
 .t-sub {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
 }
 
-.t-sub .btn {
-  flex: 1 1 0;
+/*
+ * 採用見本の副ボタンは、白い輪郭だけの透けたピル型で、文字は白い。
+ * 背景の絵が透けて見えるぶん文字が読みにくくなるので、
+ * ほんの少し暗い下地を敷き、文字に薄い影を付けて読めるようにする。
+ * （下側には .t-scrim が掛かっているので、ここは軽い下地で足りる。）
+ */
+.t-sub-btn {
+  flex: 0 1 auto;
   min-width: 0;
   min-height: var(--tap-min);
+  padding: 8px 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.86);
+  border-radius: 999px;
   font-size: 13px;
-  color: var(--c-ink);
-  background: rgba(255, 255, 255, 0.88);
+  font-weight: 700;
+  color: #fff;
+  background: rgba(10, 30, 54, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  text-shadow: 0 1px 3px rgba(6, 22, 42, 0.75);
+  box-shadow: 0 4px 14px rgba(10, 32, 56, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* 押している間だけ、少し明るくして手応えを出す。 */
+.t-sub-btn:active {
+  background: rgba(10, 30, 54, 0.72);
+}
+
+/* 「マイパスポート」は文字数が多いので、ひろく取る。 */
+.t-sub-btn:first-child {
+  flex: 1.25 1 0;
+}
+
+.t-sub-btn:last-child {
+  flex: 1 1 0;
+}
+
+/* 絵記号は飾り。文字と同じ色で、縮まないようにする。 */
+.t-icon {
+  flex: 0 0 auto;
+}
+
+.t-start .t-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.t-sub-btn .t-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.t-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 340px) {
-  .t-sub .btn {
+  .t-sub-btn {
     font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .t-start {
+    min-width: 180px;
+    font-size: 16px;
   }
 }

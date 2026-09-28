@@ -5,6 +5,7 @@ import {
   TITLE_LAYERS,
   TITLE_LAYER_SIZES,
 } from '../data/titleAssets';
+import { chevronIcon, gearIcon, passportIcon, planeIcon } from '../components/titleIcons';
 import type { AppContext } from '../app/state';
 
 /**
@@ -71,20 +72,32 @@ export function titleScreen(ctx: AppContext): HTMLElement {
   });
   characters.addEventListener('error', () => characters.remove());
 
+  // 採用見本と同じ絵記号を添える。記号は飾りで、読み上げと押せる範囲は文字が持つ。
   const startButton = button(UI.actions.start, () => ctx.startJourney(), {
     class: 'btn btn--primary t-start',
   });
+  startButton.textContent = '';
+  startButton.append(
+    planeIcon(),
+    el('span', { class: 't-label', text: UI.actions.start }),
+    chevronIcon(),
+  );
+
+  const passportButton = button(UI.actions.passport, () => ctx.navigate({ name: 'passport' }), {
+    class: 'btn btn--ghost t-sub-btn',
+  });
+  passportButton.textContent = '';
+  passportButton.append(passportIcon(), el('span', { class: 't-label', text: UI.actions.passport }));
+
+  const settingsButton = button(UI.actions.settings, () => ctx.navigate({ name: 'settings' }), {
+    class: 'btn btn--ghost t-sub-btn',
+  });
+  settingsButton.textContent = '';
+  settingsButton.append(gearIcon(), el('span', { class: 't-label', text: UI.actions.settings }));
 
   const actions = el('div', { class: 't-actions' }, [
     startButton,
-    el('div', { class: 't-sub' }, [
-      button(UI.actions.passport, () => ctx.navigate({ name: 'passport' }), {
-        class: 'btn btn--ghost',
-      }),
-      button(UI.actions.settings, () => ctx.navigate({ name: 'settings' }), {
-        class: 'btn btn--ghost',
-      }),
-    ]),
+    el('div', { class: 't-sub' }, [passportButton, settingsButton]),
   ]);
 
   root.append(

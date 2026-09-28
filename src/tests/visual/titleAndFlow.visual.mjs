@@ -85,6 +85,33 @@ const CAST_ART = { l: 15 / 1024, r: 1021 / 1024, t: 28 / 1536, b: 1474 / 1536 };
 
 /** 表紙の実測値を集める。 */
 function titleMetrics() {
+  /**
+   * 画像が実際に塗られる範囲。
+   *
+   * 要素の矩形と塗られる範囲は別物。object-fit: contain では、
+   * 箱の縦横比が絵と違うと絵は内側へ寄る（箱いっぱいには塗られない）。
+   * 欠けや重なりは、箱ではなく塗られる範囲で測らないと正しく出ない。
+   */
+  const painted = (node) => {
+    if (!node) return null;
+    const r = node.getBoundingClientRect();
+    const fit = getComputedStyle(node).objectFit;
+    const nw = node.naturalWidth;
+    const nh = node.naturalHeight;
+    if (!nw || !nh) return null;
+    const scale =
+      fit === 'contain'
+        ? Math.min(r.width / nw, r.height / nh)
+        : fit === 'cover'
+          ? Math.max(r.width / nw, r.height / nh)
+          : fit === 'none'
+            ? 1
+            : null;
+    if (scale === null) return { fit, x: r.x, y: r.y, width: r.width, height: r.height };
+    const w = nw * scale;
+    const h = nh * scale;
+    return { fit, x: r.x + (r.width - w) / 2, y: r.y + (r.height - h) / 2, width: w, height: h };
+  };
   const rect = (sel) => {
     const node = document.querySelector(sel);
     if (!node) return null;
@@ -105,8 +132,11 @@ function titleMetrics() {
   );
   return {
     bg: rect('.t-bg'),
-    logo: rect('.t-logo'),
-    cast: rect('.t-cast'),
+    // 欠け・重なりの判定は、要素の矩形ではなく塗られる範囲で行う。
+    logo: painted(logo),
+    cast: painted(cast),
+    logoBox: rect('.t-logo'),
+    castBox: rect('.t-cast'),
     start: rect('.t-start'),
     sub: rect('.t-sub'),
     buttons,
@@ -115,30 +145,17 @@ function titleMetrics() {
     // 要素の矩形は画面いっぱいでも、object-fit によっては
     // 実際に絵が塗られる範囲が内側へ寄る（左右に余白が出る）。
     // 塗られる範囲そのものを求めて確かめる。
-    bgPainted: (() => {
-      if (!bg) return null;
-      const r = bg.getBoundingClientRect();
-      const fit = getComputedStyle(bg).objectFit;
-      const nw = bg.naturalWidth;
-      const nh = bg.naturalHeight;
-      if (!nw || !nh) return null;
-      const scale =
-        fit === 'contain'
-          ? Math.min(r.width / nw, r.height / nh)
-          : fit === 'cover'
-            ? Math.max(r.width / nw, r.height / nh)
-            : fit === 'none'
-              ? 1
-              : null;
-      if (scale === null) return { fit, x: r.x, y: r.y, width: r.width, height: r.height };
-      const w = nw * scale;
-      const h = nh * scale;
-      return { fit, x: r.x + (r.width - w) / 2, y: r.y + (r.height - h) / 2, width: w, height: h };
-    })(),
+    bgPainted: painted(bg),
     bgNatural: bg ? { width: bg.naturalWidth, height: bg.naturalHeight } : null,
     bgLoaded: bg?.complete === true && bg?.naturalWidth > 0,
     logoLoaded: logo?.complete === true && logo?.naturalWidth > 0,
     castLoaded: cast?.complete === true && cast?.naturalWidth > 0,
+    startFontSize: Number.parseFloat(
+      getComputedStyle(document.querySelector('.t-start')).fontSize,
+    ),
+    subFontSize: Number.parseFloat(
+      getComputedStyle(document.querySelector('.t-sub-btn')).fontSize,
+    ),
     logoAlt: logo?.getAttribute('alt') ?? '',
     castAriaHidden: cast?.getAttribute('aria-hidden') ?? '',
     // 一枚絵の名残（焼き込まれたロゴ・ボタン）が残っていないこと。
@@ -153,13 +170,14 @@ function titleMetrics() {
 
 /** 背景の中の比率を、画面の座標へ直す。 */
 function landmarkRect(m, box) {
-  const scale = Math.max(m.bg.width / BG_NATURAL.width, m.bg.height / BG_NATURAL.height);
+  const boxRect = m.bg;
+  const scale = Math.max(boxRect.width / BG_NATURAL.width, boxRect.height / BG_NATURAL.height);
   const renderedW = BG_NATURAL.width * scale;
   const renderedH = BG_NATURAL.height * scale;
-  const offsetX = (renderedW - m.bg.width) * 0.5;
-  const offsetY = (renderedH - m.bg.height) * BG_POSITION_Y;
-  const px = (f) => m.bg.x + f * renderedW - offsetX;
-  const py = (f) => m.bg.y + f * renderedH - offsetY;
+  const offsetX = (renderedW - boxRect.width) * 0.5;
+  const offsetY = (renderedH - boxRect.height) * BG_POSITION_Y;
+  const px = (f) => boxRect.x + f * renderedW - offsetX;
+  const py = (f) => boxRect.y + f * renderedH - offsetY;
   return {
     x: px(box.left),
     y: py(box.top),
@@ -298,13 +316,16 @@ try {
           );
         }
         // 透過素材は縦横比のまま出す（引き伸ばさない）。
+        // 箱ではなく、実際に塗られる範囲の比で見る。
+        check(m.logo.fit === 'contain', `${label}: ロゴの敷き方が contain ではない（${m.logo.fit}）`);
+        check(m.cast.fit === 'contain', `${label}: 人物の敷き方が contain ではない（${m.cast.fit}）`);
         check(
           Math.abs(m.logo.width / m.logo.height - 1997 / 788) / (1997 / 788) < 0.01,
-          `${label}: ロゴの縦横比が原寸と違う`,
+          `${label}: ロゴの縦横比が原寸と違う（${(m.logo.width / m.logo.height).toFixed(4)}）`,
         );
         check(
           Math.abs(m.cast.width / m.cast.height - 1024 / 1536) / (1024 / 1536) < 0.01,
-          `${label}: 人物の縦横比が原寸と違う`,
+          `${label}: 人物の縦横比が原寸と違う（${(m.cast.width / m.cast.height).toFixed(4)}）`,
         );
 
         // 人物の靴が主ボタンより上にある。
@@ -313,10 +334,22 @@ try {
           `${label}: 人物が開始ボタンに重なっている（靴 ${(castArt.y + castArt.height).toFixed(1)} / ボタン上端 ${m.start.y.toFixed(1)}）`,
         );
 
-        // 主操作が副操作より大きい。
+        // 主操作が副操作より目立つ。副ボタン1つずつと比べる。
+        const subButtons = m.buttons.filter((b) => b.text !== ' 旅をはじめる ' && !b.text.includes('旅をはじめる'));
+        check(subButtons.length === 2, `${label}: 副操作が2つそろっていない（${subButtons.length}）`);
+        for (const b of subButtons) {
+          check(
+            m.start.height > b.height,
+            `${label}: 開始ボタンが「${b.text}」より高くない（${m.start.height.toFixed(1)} / ${b.height.toFixed(1)}）`,
+          );
+          check(
+            m.start.width >= b.width - 0.5,
+            `${label}: 開始ボタンが「${b.text}」より狭い（${m.start.width.toFixed(1)} / ${b.width.toFixed(1)}）`,
+          );
+        }
         check(
-          m.start.height > 44 && m.start.width >= m.sub.width - 0.5,
-          `${label}: 開始ボタンが主操作として大きくない（${m.start.width.toFixed(1)}x${m.start.height.toFixed(1)}）`,
+          m.startFontSize > m.subFontSize,
+          `${label}: 開始ボタンの文字が副操作より大きくない（${m.startFontSize} / ${m.subFontSize}）`,
         );
 
         check(m.buttons.length === 3, `${label}: 表紙のボタンが3つそろっていない（${m.buttons.length}）`);
@@ -377,6 +410,123 @@ try {
         await context.close();
       }
     });
+  }
+
+  // ---- 1b. 切り欠きとホームバーがある端末でも表紙が成立する ----
+  //
+  // この環境では実機の安全領域を再現できないので、CSS変数へ値を差し込んで模す。
+  // 実機（iPhone 15 Pro / Safari）での確認とは別のものとして扱う。
+  for (const safe of [
+    { top: 20, bottom: 34, sizes: [{ width: 320, height: 568 }] },
+    {
+      top: 59,
+      bottom: 34,
+      sizes: [
+        { width: 393, height: 852 },
+        { width: 393, height: 745 },
+        { width: 430, height: 932 },
+      ],
+    },
+  ]) {
+    for (const viewport of safe.sizes) {
+      const label = `安全領域 上${safe.top}/下${safe.bottom} ${viewport.width}x${viewport.height}`;
+      await runCase(label, async () => {
+        const context = await browser.newContext({ viewport });
+        try {
+          const page = await context.newPage();
+          const jsErrors = [];
+          page.on('pageerror', (e) => jsErrors.push(e.message));
+          await page.goto(baseUrl, { waitUntil: 'networkidle' });
+          await page.addStyleTag({
+            content: `:root{--safe-top:${safe.top}px;--safe-bottom:${safe.bottom}px;}`,
+          });
+          await page
+            .waitForFunction(
+              () =>
+                ['.t-bg', '.t-logo', '.t-cast'].every((sel) => {
+                  const img = document.querySelector(sel);
+                  return img !== null && img.complete && img.naturalWidth > 0;
+                }),
+              undefined,
+              { timeout: 9000 },
+            )
+            .catch(() => {});
+          await page.waitForTimeout(450);
+          const m = await page.evaluate(titleMetrics);
+
+          // 背景の左右に余白が出ていない。
+          check(
+            m.bgPainted.x <= 0.5 &&
+              m.viewport.width - (m.bgPainted.x + m.bgPainted.width) <= 0.5,
+            `${label}: 背景の左右に余白がある`,
+          );
+
+          const globe = landmarkRect(m, LANDMARKS.globe);
+          const fuji = landmarkRect(m, LANDMARKS.fuji);
+          const logoArt = artRect(m.logo, LOGO_ART);
+          const castArt = artRect(m.cast, CAST_ART);
+          const fujiLeftHalf = { x: fuji.x, y: fuji.y, width: fuji.width / 2, height: fuji.height };
+
+          check(
+            overlapArea(globe, logoArt) === 0,
+            `${label}: 地球儀をロゴが隠している（${overlapArea(globe, logoArt).toFixed(0)}px2）`,
+          );
+          check(
+            overlapArea(globe, castArt) === 0,
+            `${label}: 地球儀を人物が隠している（${overlapArea(globe, castArt).toFixed(0)}px2）`,
+          );
+          check(
+            overlapArea(fujiLeftHalf, castArt) === 0,
+            `${label}: 富士山の山頂側を人物が隠している（${overlapArea(fujiLeftHalf, castArt).toFixed(0)}px2）`,
+          );
+
+          // ロゴと人物が欠けていない。
+          for (const [name, box] of [['ロゴ', logoArt], ['人物', castArt]]) {
+            check(
+              box.x >= -0.5 &&
+                box.y >= -0.5 &&
+                box.x + box.width <= m.viewport.width + 0.5 &&
+                box.y + box.height <= m.viewport.height + 0.5,
+              `${label}: ${name}が画面からはみ出している`,
+            );
+          }
+
+          // 人物が主ボタンに重なっていない。
+          check(
+            castArt.y + castArt.height <= m.start.y + 0.5,
+            `${label}: 人物が開始ボタンに重なっている（靴 ${(castArt.y + castArt.height).toFixed(1)} / ボタン ${m.start.y.toFixed(1)}）`,
+          );
+
+          // 操作は安全領域の内側にあり、44x44 以上で、重なっていない。
+          for (const b of m.buttons) {
+            check(
+              b.x >= -0.5 &&
+                b.y >= safe.top - 0.5 &&
+                b.x + b.width <= m.viewport.width + 0.5 &&
+                b.y + b.height <= m.viewport.height - safe.bottom + 0.5,
+              `${label}: 「${b.text}」が安全領域の外にある`,
+            );
+            check(
+              b.width >= 44 && b.height >= 44,
+              `${label}: 「${b.text}」のタップ領域が 44x44 未満（${b.width.toFixed(1)}x${b.height.toFixed(1)}）`,
+            );
+          }
+          for (let i = 0; i < m.buttons.length; i += 1) {
+            for (let j = i + 1; j < m.buttons.length; j += 1) {
+              check(
+                !rectsOverlap(m.buttons[i], m.buttons[j]),
+                `${label}: 「${m.buttons[i].text}」と「${m.buttons[j].text}」が重なっている`,
+              );
+            }
+          }
+          check(!m.hScroll, `${label}: 横スクロールが発生している`);
+          check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
+          return ` 余白0 / 地球儀の遮蔽0 / 44px充足 / 安全領域内`;
+        } finally {
+          await context.close();
+        }
+      });
+    }
   }
 
   // ---- 2. キャラクター選択から日本到着・国紹介・カルタ・結果まで進める ----

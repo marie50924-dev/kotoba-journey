@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import titleCssInline from '../styles/title.css?inline';
 import titleScreenSource from '../screens/titleScreen.ts?raw';
+import titleIconsSource from '../components/titleIcons.ts?raw';
 import {
   TITLE_ASSETS,
   TITLE_BACKGROUND_LANDMARKS,
@@ -38,6 +39,7 @@ function withoutComments(css: string): string {
 
 const titleCss = withoutComments(asText(titleCssInline, 'title.css'));
 const screenSource = asText(titleScreenSource, 'titleScreen.ts');
+const iconSource = asText(titleIconsSource, 'titleIcons.ts');
 
 const LAYER_WEBP = import.meta.glob('../../public/assets/title/layered-v1/*.webp');
 const LAYER_SOURCE = import.meta.glob('../../assets-source/title/layered-v1/*');
@@ -211,13 +213,66 @@ describe('表紙の CSS', () => {
 
   it('主操作は副操作より大きい', () => {
     const start = titleCss.match(/\.t-start\s*\{[^}]*\}/);
-    const sub = titleCss.match(/\.t-sub \.btn\s*\{[^}]*\}/);
+    const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/);
     expect(start, '.t-start の指定が無い').not.toBeNull();
-    expect(sub, '.t-sub .btn の指定が無い').not.toBeNull();
-    expect(start![0]).toContain('min-height: 60px');
-    expect(start![0]).toContain('font-size: 19px');
+    expect(sub, '.t-sub-btn の指定が無い').not.toBeNull();
+
+    // 高さも文字も、主ボタンのほうが大きいことを数で見る。
+    const startHeight = Number(start![0].match(/min-height:\s*(\d+)px/)?.[1]);
+    const startFont = Number(start![0].match(/font-size:\s*(\d+)px/)?.[1]);
+    const subFont = Number(sub![0].match(/font-size:\s*(\d+)px/)?.[1]);
+    expect(Number.isFinite(startHeight), '主ボタンの高さが px で書かれていない').toBe(true);
+    expect(Number.isFinite(startFont), '主ボタンの文字の大きさが px で書かれていない').toBe(true);
+    expect(Number.isFinite(subFont), '副ボタンの文字の大きさが px で書かれていない').toBe(true);
+
+    // 44px は指の当たる最小。主ボタンはそれ以上で、副ボタンより高い。
+    expect(startHeight).toBeGreaterThanOrEqual(44);
+    expect(startFont).toBeGreaterThan(subFont);
     expect(sub![0]).toContain('min-height: var(--tap-min)');
-    expect(sub![0]).toContain('font-size: 13px');
+  });
+
+  it('副操作は採用見本と同じく、白い輪郭の透けたピル型', () => {
+    const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/);
+    expect(sub, '.t-sub-btn の指定が無い').not.toBeNull();
+    // 中は透けて背景の絵が見える。白い輪郭と白い文字。
+    expect(sub![0]).toMatch(/border:\s*[\d.]+px solid rgba\(255, 255, 255/);
+    expect(sub![0]).toContain('color: #fff');
+    expect(sub![0]).toMatch(/background:\s*rgba\([^)]*0\.\d+\)/);
+    // 絵の上でも読めるよう、文字に影を付ける。
+    expect(sub![0]).toContain('text-shadow');
+  });
+
+  it('ボタンはどれも丸い（ピル型）で、採用見本と同じ形にしている', () => {
+    const start = titleCss.match(/\.t-start\s*\{[^}]*\}/);
+    const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/);
+    expect(start![0]).toContain('border-radius: 999px');
+    expect(sub![0]).toContain('border-radius: 999px');
+  });
+
+  it('ボタンの絵記号はインライン SVG で、画像ファイルを増やしていない', () => {
+    // 採用見本のボタンには飛行機・矢印・パスポート・歯車の記号がある。
+    // 画像として受領していないので、HTML の図形として描く。
+    expect(iconSource).toContain('createElementNS');
+    expect(iconSource).toContain('http://www.w3.org/2000/svg');
+    // 記号は飾り。読み上げからは外す。
+    expect(iconSource).toContain("setAttribute('aria-hidden', 'true')");
+    // 記号のために画像を読み込まない。
+    expect(iconSource).not.toMatch(/\.(png|webp|jpe?g|svg)['"]/);
+
+    for (const name of ['planeIcon', 'chevronIcon', 'passportIcon', 'gearIcon']) {
+      expect(iconSource, `${name} が無い`).toContain(`export function ${name}(`);
+      expect(screenSource, `${name} を表紙で使っていない`).toContain(`${name}()`);
+    }
+  });
+
+  it('ロゴの高さに上限があり、切り欠きのぶん小さくなる', () => {
+    const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
+    expect(logo, '.t-logo の指定が無い').not.toBeNull();
+    // 切り欠きでロゴが下がると地球儀に重なるので、上限も safe-top で縮める。
+    expect(logo![0]).toMatch(/max-height:\s*max\(/);
+    expect(logo![0]).toContain('--safe-top');
+    // 上限で押さえるとき、縦横が崩れないようにする。
+    expect(logo![0]).toContain('object-fit: contain');
   });
 
   it('ロゴが読めないときの文字だけの代替が用意されている', () => {

@@ -280,8 +280,48 @@ describe('副ボタン .btn--ghost の正式配色', () => {
       });
     }
 
-    it('表紙で文字色が --c-ink へ上書きされても、さらに濃くなる方向にしか動かない', () => {
-      expect(titleCss).toContain('color: var(--c-ink)');
+    /*
+     * 表紙の副ボタンだけは、採用見本に合わせて白い文字・白い輪郭の
+     * 透けたピル型にしてある。色の向きが逆なので、明るさを比べるのではなく、
+     * 実際に重なる色を合成してコントラストを計算する。
+     *
+     * 重なりの順（下から）
+     *   背後の写真 → .t-scrim（下を沈める幕）→ .t-sub-btn の下地 → 白い文字
+     *
+     * 幕の濃さは下へ行くほど強い。副ボタンが置かれる高さでの実際の濃さより、
+     * さらに薄い「いちばん弱い段（0 を除く）」で計算する。
+     * こうしておけば、幕を薄くしても検査が先に落ちる。
+     */
+    it('表紙の副ボタンは白い文字で、いちばん明るい写真の上でも読める', () => {
+      const sub = block(titleCss, '.t-sub-btn');
+      expect(prop(sub, 'color')).toBe('#fff');
+
+      const fillList = rgbaList(prop(sub, 'background'));
+      expect(fillList.length, '副ボタンの下地が rgba で書かれていない').toBe(1);
+      const subFill = fillList[0];
+      expect(subFill.a, '下地が不透明になっている（透けなくなっている）').toBeLessThan(1);
+
+      const scrimAlphas = rgbaList(block(titleCss, '.t-scrim'))
+        .map((c) => c.a)
+        .filter((a) => a > 0);
+      expect(scrimAlphas.length, '.t-scrim の色が読めない').toBeGreaterThan(0);
+      const scrimColor = rgbaList(block(titleCss, '.t-scrim'))[0];
+      const weakestScrim = { ...scrimColor, a: Math.min(...scrimAlphas) };
+
+      for (const backdrop of BACKDROPS) {
+        const behind = composite(weakestScrim, backdrop.color);
+        const effective = composite(subFill, behind);
+        const value = contrast(effective, WHITE);
+        expect(
+          value,
+          `背後が ${backdrop.name} のとき ${value.toFixed(2)}:1`,
+        ).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+      }
+    });
+
+    it('表紙以外の副ボタンは、濃い青の文字のまま', () => {
+      // .btn--ghost の文字色は表紙の外では変えていない。
+      expect(textColor).toBe('var(--c-sky)');
       const ink = hexToRgb('#10243a');
       expect(relativeLuminance(ink)).toBeLessThan(relativeLuminance(sky));
     });
