@@ -172,8 +172,60 @@ describe('avatarThumb の組み立て方', () => {
     expect(imgAt).toBeGreaterThan(branchAt);
   });
 
-  it('alt に氏名と年代を入れている', () => {
-    expect(thumbSource).toContain('alt: `${fullName(avatar)}（${ageLabel}）`');
+  /*
+   * 以前は <img> の alt にも氏名を入れていたが、外側にも role="img" があったため
+   * 画像のロールが二重になり、装飾として渡した空ラベルが
+   * 「名前のない画像」として残っていた。
+   * いまは名前を持つ場所を丸い顔1か所に限り、<img> は装飾にしている。
+   * 検査もその形に合わせる（氏名がどこかに必ずあることは下で見る）。
+   */
+  it('<img> は装飾にしてあり、画像のロールを二重にしない', () => {
+    expect(runtimeSource, '<img> の alt が空になっていない').toContain("alt: ''");
+    expect(
+      runtimeSource.match(/alt:/g) ?? [],
+      'alt を書いている箇所が1つではない',
+    ).toHaveLength(1);
+    expect(
+      runtimeSource.match(/role: /g) ?? [],
+      "role を付けている箇所が1つではない（画像のロールが二重になる）",
+    ).toHaveLength(1);
+  });
+
+  it('名前を持つのは丸い顔だけで、氏名と年代を渡している', () => {
+    expect(runtimeSource).toContain("class: 'avatar-thumb__face'");
+    expect(runtimeSource, '顔に aria-label を渡していない').toMatch(
+      /'aria-label': decorative \? undefined : label/,
+    );
+    expect(runtimeSource, 'ラベルが姓名と年代になっていない').toContain(
+      'const label = options.label ?? `${fullName(avatar)}（${AGE_GROUP_LABEL[avatar.ageGroup]}）`',
+    );
+  });
+
+  it('空のラベルを渡したときは、名前のない画像のロールを残さない', () => {
+    expect(runtimeSource, '空ラベルを装飾として扱っていない').toContain(
+      "const decorative = options.label === ''",
+    );
+    expect(runtimeSource, '装飾のときに role を外していない').toMatch(
+      /role: decorative \? undefined : 'img'/,
+    );
+    expect(runtimeSource, '装飾のときに読み上げから外していない').toMatch(
+      /'aria-hidden': decorative \? 'true' : undefined/,
+    );
+    // 空文字をそのまま aria-label に入れないこと（名前のない画像になる）。
+    expect(runtimeSource, "aria-label に空文字が入りうる書き方が残っている").not.toMatch(
+      /'aria-label':\s*options\.label\s*\?\?/,
+    );
+  });
+
+  it('名前を添える指定（withName）は、読み上げから外れない位置にある', () => {
+    // aria-hidden は丸い顔だけに付ける。外側の箱に付けると、
+    // withName で添えた名前まで一緒に隠れてしまう。
+    const outerAt = runtimeSource.lastIndexOf("class: ['avatar-thumb'");
+    const nameAt = runtimeSource.indexOf('avatar-thumb__name');
+    const hiddenAt = runtimeSource.indexOf("'aria-hidden'");
+    expect(outerAt).toBeGreaterThan(0);
+    expect(nameAt).toBeGreaterThan(outerAt);
+    expect(hiddenAt, 'aria-hidden が外側の箱に付いている').toBeLessThan(outerAt);
   });
 
   it('成功したときだけ has-image を付け、失敗時は image-failed を付ける', () => {

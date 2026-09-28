@@ -126,12 +126,13 @@ export function countryIntroScreen(ctx: AppContext): HTMLElement {
       me
         ? el('div', { class: 'intro__cast' }, [
             el('span', { class: 'intro__cast-me' }, [
-              avatarThumb(me, { size: 'md' }),
+              // 名前は真下に出すので、画像側は読み上げから外す。
+              avatarThumb(me, { size: 'md', label: '' }),
               el('span', { class: 'intro__cast-name', text: displayName(me) }),
             ]),
             ...companions.map((npc) =>
               el('span', { class: 'intro__cast-npc' }, [
-                avatarThumb(npc, { size: 'sm' }),
+                avatarThumb(npc, { size: 'sm', label: '' }),
                 el('span', { class: 'intro__cast-name', text: displayName(npc) }),
               ]),
             ),

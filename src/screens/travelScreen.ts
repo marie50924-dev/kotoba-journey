@@ -84,7 +84,8 @@ export function travelScreen(ctx: AppContext): HTMLElement {
       // 自分のキャラクター。立ち絵が納品されたら avatarThumb の中だけが差し替わる。
       me
         ? el('div', { class: 'travel__me' }, [
-            avatarThumb(me, { size: 'md' }),
+            // 名前はすぐ右に出す。画像側にも名前を持たせると、読み上げで二度言うことになる。
+            avatarThumb(me, { size: 'md', label: '' }),
             el('span', { class: 'travel__me-name', text: displayName(me) }),
           ])
         : null,

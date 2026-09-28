@@ -35,7 +35,8 @@ export function waveQuizResultScreen(ctx: AppContext): HTMLElement {
       el('div', { class: 'quiz-result__hero' }, [
         me
           ? el('div', { class: 'quiz-result__me' }, [
-              avatarThumb(me, { size: 'md' }),
+              // 名前はすぐ隣に出すので、画像側は読み上げから外す。
+              avatarThumb(me, { size: 'md', label: '' }),
               el('span', { class: 'quiz-result__me-name', text: displayName(me) }),
             ])
           : null,

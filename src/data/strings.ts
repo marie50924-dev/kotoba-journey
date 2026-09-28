@@ -120,7 +120,12 @@ export const UI = {
     close: 'とじる',
     later: 'あとで',
     listen: 'きく',
-    npcHere: 'がいます',
+    /*
+     * 帯の一文。名前は顔ごとに添えるので、ここでは名前を繰り返さない。
+     * 繰り返すと狭い画面で横に伸び、読み上げでも同じ名前を二度言うことになる。
+     */
+    npcHereOne: 'この人がいます',
+    npcHereMany: 'この人たちがいます',
   },
 
   courseEntry: {

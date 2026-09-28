@@ -37,7 +37,14 @@ export interface AvatarThumbOptions {
   /** 名前を添えるか。会話の吹き出し横などでは false にする。 */
   withName?: boolean;
   class?: string;
-  /** 読み上げラベル。省略時は姓名。 */
+  /**
+   * 読み上げラベル。省略時は「姓名（年代）」。
+   *
+   * 空文字を渡すと「装飾」として扱い、読み上げから外す。
+   * すぐ隣に名前の文字がある場所（選択カード、確認画面、NPCの帯など）で使う。
+   * 以前は空文字でも role="img" が残り、名前のない画像として読まれていたため、
+   * 空文字のときは role ごと外して aria-hidden にする。
+   */
   label?: string;
 }
 
@@ -60,10 +67,25 @@ export function avatarThumb(
     el('span', { class: 'avatar-thumb__age', text: ageLabel }),
   ]);
 
+  // 空文字のラベルは「隣に名前があるので、この画像は読み上げなくてよい」の意味。
+  const decorative = options.label === '';
+  // 読み上げにも開発状況（仮表示）は出さない。名前と年代だけを伝える。
+  const label = options.label ?? `${fullName(avatar)}（${AGE_GROUP_LABEL[avatar.ageGroup]}）`;
+
   const face = el(
     'span',
     {
       class: 'avatar-thumb__face',
+      /*
+       * 画像としてのロールと名前は、この丸い顔だけが持つ。
+       * 外側の箱にも持たせると画像のロールが二重になり、
+       * 名前のない画像として読まれるものが残ってしまう。
+       * 装飾のとき（label:''）は role ごと外し、読み上げから丸ごと外す。
+       * withName で添えた名前は外側にあるので、隠れずに残る。
+       */
+      role: decorative ? undefined : 'img',
+      'aria-hidden': decorative ? 'true' : undefined,
+      'aria-label': decorative ? undefined : label,
       // --age-color は仮サムネイルの地色、--age-image-bg は実画像の透過部分から
       // 見える淡色。どちらも年代（avatar.ageGroup）だけで決まり、名前や並び順には
       // 依存しない。色の値はデータ側の1か所で定義している。
@@ -78,9 +100,17 @@ export function avatarThumb(
     const image = el('img', {
       class: 'avatar-thumb__img',
       src: imageUrl,
-      // 読み上げは外側の role="img" と aria-label が担うが、
-      // 画像単体として扱われた場合にも氏名と年代が伝わるようにしておく。
-      alt: `${fullName(avatar)}（${ageLabel}）`,
+      /*
+       * alt は空にする。
+       *
+       * 名前を持つのは外側の1か所だけにしたい。ここにも氏名を入れると、
+       * 外側の role="img" と画像とで画像のロールが2つ並び、
+       * 読み上げで同じ名前を二度言うことになる。装飾扱い（label:''）のときは
+       * 外側が aria-hidden なので、ここに名前を残すと逆に「名前のない画像」
+       * ではなく「隠したはずの名前」が読まれてしまう。
+       * どちらの場合も、名前は外側の aria-label か隣の文字が担う。
+       */
+      alt: '',
       decoding: 'async',
       loading: 'lazy',
     });
@@ -105,9 +135,6 @@ export function avatarThumb(
     'span',
     {
       class: ['avatar-thumb', `avatar-thumb--${size}`, options.class].filter(Boolean).join(' '),
-      role: 'img',
-      // 読み上げにも開発状況（仮表示）は出さない。名前と年代だけを伝える。
-      'aria-label': options.label ?? `${fullName(avatar)}（${AGE_GROUP_LABEL[avatar.ageGroup]}）`,
     },
     [
       face,

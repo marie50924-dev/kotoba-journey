@@ -47,7 +47,9 @@ export function chatPanel(options: ChatPanelOptions): HTMLElement {
   function appendLine(line: DialogueLine): void {
     const speaker = line.role === 'npc' ? npc : me;
     const row = el('div', { class: `chat__row chat__row--${line.role}` }, [
-      avatarThumb(speaker, { size: 'sm', label: displayName(speaker) }),
+      // 吹き出しの先頭に同じ名前が出るので、顔は読み上げから外す。
+      // 両方に名前を持たせると、1行ごとに話し手の名前を二度読むことになる。
+      avatarThumb(speaker, { size: 'sm', label: '' }),
       el('div', { class: 'chat__bubble' }, [
         el('span', { class: 'chat__speaker', text: displayName(speaker) }),
         el('p', { class: 'chat__text', text: resolveText(line.text) }),

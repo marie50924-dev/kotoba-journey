@@ -86,7 +86,8 @@ export function quizPromptScreen(ctx: AppContext): HTMLElement {
         // 自分のキャラクター。立ち絵が納品されたら avatarThumb の中だけが差し替わる。
         me
           ? el('div', { class: 'quiz-prompt__me' }, [
-              avatarThumb(me, { size: 'md' }),
+              // 名前はすぐ隣に出すので、画像側は読み上げから外す。
+              avatarThumb(me, { size: 'md', label: '' }),
               el('span', { class: 'quiz-prompt__me-name', text: displayName(me) }),
             ])
           : null,
