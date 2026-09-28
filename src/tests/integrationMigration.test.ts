@@ -280,6 +280,7 @@ describe('80人名簿が統合後も欠けていない', () => {
         'university-m',
         'university-f',
         'adult-m',
+        'adult-f',
       ].includes(division);
       expect(avatar.imageKey).toBe(individual ? avatar.id : division);
     }
