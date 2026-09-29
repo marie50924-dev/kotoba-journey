@@ -126,9 +126,94 @@
 .avatar-thumb--lg .avatar-thumb__age { font-size: 11px; }
 
 /* ---- 選択画面 ---- */
-/* 見出しが「選ぼ／う」のように途中で折り返さない大きさにする。 */
+/*
+ * 表紙の旅の空気を、背景・見出し・一覧の枠の3か所に入れる。
+ *
+ * 色は表紙のボタンと背景から取った。
+ *   濃い青 #0f3b64 / 青 #1d61a2 / 明るい青 #1268e0 / 水色 #baf6ff
+ *   石畳の暖かい光 rgb(244, 206, 150)
+ * 画像は増やさない。すべて CSS のグラデーションで描く。
+ *
+ * 文字が載る場所（一覧の枠の中・下の帯）は白に近い地のままにして、
+ * 色を置くのは文字の無い余白と青い帯だけにしている。
+ */
+
+.screen--avatar-select {
+  background:
+    /* 下半分に石畳の暖かい光。表紙の下部と同じ色味。 */
+    radial-gradient(124% 44% at 50% 100%, rgba(244, 206, 150, 0.46) 0%, rgba(244, 206, 150, 0) 72%),
+    /* 見出しの帯の下に、地球儀の青い光がにじむ。 */
+    radial-gradient(88% 26% at 50% 7%, rgba(126, 206, 255, 0.32) 0%, rgba(126, 206, 255, 0) 74%),
+    linear-gradient(180deg, #e8f2fb 0%, #f7f3ea 44%, #fdf8ee 100%);
+}
+
+/*
+ * 見出しは画面の左右いっぱいに広がる青い帯にする。
+ * .screen の左右と上の余白を負の margin で打ち消し、同じ幅を padding で戻す。
+ * こうすると帯だけが端まで届き、中の文字の位置は変わらない。
+ */
+.screen--avatar-select .screen__header {
+  margin: calc(-1 * (var(--safe-top) + 8px)) calc(-1 * (var(--safe-right) + var(--gutter))) 0
+    calc(-1 * (var(--safe-left) + var(--gutter)));
+  padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + var(--gutter)) 6px
+    calc(var(--safe-left) + var(--gutter));
+  background:
+    radial-gradient(72% 150% at 50% 124%, rgba(120, 214, 255, 0.32) 0%, rgba(120, 214, 255, 0) 72%),
+    linear-gradient(180deg, #0f3b64 0%, #14538c 62%, #1a63a6 100%);
+  box-shadow:
+    0 1.5px 0 rgba(186, 246, 255, 0.55),
+    0 8px 18px rgba(10, 42, 76, 0.22);
+}
+
+/*
+ * 見出しの文字。白抜きで、飛行機の記号を左に添える。
+ * 「旅するあなたを選ぼう」は10文字。320px でも1行に収まる大きさにする。
+ */
 .screen--avatar-select .screen__title {
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 16px;
+  color: #fff;
+  text-shadow:
+    0 1px 2px rgba(4, 22, 44, 0.72),
+    0 0 8px rgba(6, 28, 58, 0.42);
+}
+
+.screen--avatar-select .screen__title-text {
+  white-space: nowrap;
+}
+
+/* 飛行機は飾り。文字と同じ白で、縮まない。 */
+.screen--avatar-select .screen__title .t-icon {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+}
+
+/* 青い帯に載る「もどる」は、白い縁のガラス調にする。白文字で 5.3:1 ある。 */
+.screen--avatar-select .screen__header .btn--back {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.8);
+  color: #fff;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/*
+ * 一覧に使える高さを増やすため、余白と行の高さを詰める。
+ * 320x568 で「完全に見える人数」を増やすことが目的。
+ */
+.screen--avatar-select .screen__body {
+  gap: 8px;
+  padding: 8px 0 2px;
+}
+
+.screen--avatar-select .screen__lead {
+  font-size: 12px;
+  color: #34546f;
 }
 
 .avatar-select__note {
@@ -136,6 +221,7 @@
   color: var(--c-ink-soft);
   line-height: 1.5;
 }
+
 
 .avatar-tabs {
   display: flex;
@@ -148,18 +234,26 @@
   min-width: 0;
   min-height: var(--tap-min);
   padding: 6px 4px;
-  border: 2px solid var(--c-line);
+  border: 1.5px solid rgba(18, 58, 94, 0.22);
   border-radius: var(--radius);
-  background: var(--c-paper-2);
+  background: rgba(255, 255, 255, 0.94);
+  color: #234a68;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
 }
 
+/*
+ * 選んでいるタブは青。表紙と同じ青の系統にそろえ、
+ * 白文字とのコントラストは 5.0:1（上端）〜6.4:1（中央）ある。
+ */
 .avatar-tab[aria-selected='true'] {
-  border-color: var(--c-accent);
-  background: #fff3e8;
-  color: var(--c-accent);
+  border-color: #16508a;
+  background: linear-gradient(180deg, #2472ba 0%, #16508a 100%);
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(186, 246, 255, 0.6),
+    0 3px 9px rgba(12, 46, 84, 0.26);
 }
 
 .avatar-filter {
@@ -172,30 +266,75 @@
   min-width: 0;
   min-height: var(--tap-min);
   padding: 6px 8px;
-  border: 2px solid var(--c-line);
+  border: 1.5px solid rgba(18, 58, 94, 0.22);
   border-radius: var(--radius);
-  background: var(--c-paper-2);
+  background: rgba(255, 255, 255, 0.94);
+  color: #234a68;
   font-size: 13px;
   font-weight: 700;
 }
 
+/*
+ * 絞り込みは「押している／いない」なので、タブとは別の見え方にする。
+ * 淡い青の地＋濃い青の文字（17.0:1）。青い塗りのタブと混同しない。
+ */
 .avatar-filter__btn[aria-pressed='true'] {
-  border-color: var(--c-sky-2);
-  background: #eaf4fb;
-  color: var(--c-sky-2);
+  border-color: #1d61a2;
+  background: #e2f0fc;
+  color: #0f3b64;
+  box-shadow: inset 0 0 0 1px rgba(29, 97, 162, 0.26);
 }
 
+/*
+ * 一覧の枠。表紙の青いボタンと同じ、水色の細い芯＋青い柔らかな光をまとった窓。
+ * 縦スクロールするのは中の .avatar-grid だけで、枠そのものは動かない。
+ */
+.avatar-list {
+  /*
+   * 人数がこの高さに収まる画面では、枠を中身の高さまで縮める。
+   * 縮めないと 393x852 や 430x932 で枠の下半分が空白になる。
+   * 余った高さは下の案内文を押し下げ、そこに背景の暖かい光が見える。
+   */
+  flex: 0 1 auto;
+  /* 縮んだぶんの余白は、枠の上と下へ同じだけ配る。枠が帯の側へ寄らない。 */
+  margin-block: auto;
+  min-height: 0;
+  display: flex;
+  padding: 5px;
+  border: 1.5px solid rgba(26, 99, 166, 0.5);
+  border-radius: 16px;
+  background:
+    radial-gradient(126% 62% at 50% 0%, rgba(216, 237, 252, 0.95) 0%, rgba(255, 255, 255, 0.97) 64%),
+    #fff;
+  box-shadow:
+    0 0 0 1px rgba(186, 246, 255, 0.72),
+    0 0 14px rgba(26, 99, 166, 0.14),
+    0 6px 16px rgba(12, 46, 84, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/*
+ * 顔の一覧。
+ *
+ * 列の幅と顔の大きさは画面幅に追従させる。320px でも 4 列に収まり、
+ * どの画面でも 4 列になるよう下限と上限を決めてある（実測は実ブラウザテスト）。
+ *   320px … 列 65.3px / 顔 44px    393px … 列 86.5px / 顔 53px
+ *   430px … 列 95.8px / 顔 58px
+ * 顔は 44px を下回らせない。小さすぎると誰の顔か分からなくなる。
+ */
 .avatar-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(clamp(62px, 18.5vw, 80px), 1fr));
   /* 行は中身の高さで決め、つぶさない。あふれたぶんはこの枠の中だけで縦スクロールする。 */
   grid-auto-rows: min-content;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding: 2px;
+  /* 右端のカードが縦スクロールバーに重ならないだけの余白。 */
+  padding: 1px 3px 1px 1px;
 }
 
 .avatar-card {
@@ -203,29 +342,62 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  /* サムネイルと名前が必ず入る高さを確保する。 */
-  min-height: 88px;
-  padding: 8px 4px;
-  border: 2px solid var(--c-line);
+  gap: 3px;
+  /* 顔と名前が必ず入る高さ。顔の大きさに合わせて決まる。 */
+  min-height: calc(clamp(50px, 13.5vw, 58px) + 28px);
+  padding: 4px 3px;
+  border: 1.5px solid rgba(18, 58, 94, 0.16);
   border-radius: var(--radius);
   background: var(--c-paper-2);
+  box-shadow: 0 1px 3px rgba(16, 36, 58, 0.1);
   min-width: 0;
 }
 
+/*
+ * 選んでいる人は青。表紙の主ボタンと同じ明るい青を縁に置き、
+ * そのすぐ外へ水色と青の光を広げる。地は淡い青。
+ */
 .avatar-card[aria-selected='true'] {
-  border-color: var(--c-accent);
-  background: #fff3e8;
+  border-color: #1268e0;
+  background: linear-gradient(180deg, #eaf4ff 0%, #dbebff 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(166, 226, 255, 0.92),
+    0 0 10px rgba(18, 104, 224, 0.28),
+    0 3px 8px rgba(12, 46, 84, 0.16);
 }
 
-/* 色だけに頼らず、選択中はチェック記号も出す。 */
+.avatar-card[aria-selected='true'] .avatar-thumb__name {
+  color: #0f3b64;
+}
+
+/* 名前の行は詰める。1行ぶんの高さがそのまま見える人数に効く。 */
+.avatar-list .avatar-card .avatar-thumb__name {
+  line-height: 1.25;
+}
+
+/* 色だけに頼らず、選択中はチェック記号も出す。青い丸に白いチェック。 */
 .avatar-card__check {
   position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 13px;
+  top: 3px;
+  right: 3px;
+  /*
+   * 顔の円も position を持つので、重なり順を明示しないと顔がチェック印を
+   * 覆ってしまう（320px では顔がカードの角まで届く）。必ず前面に置く。
+   */
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #1268e0;
+  color: #fff;
+  font-size: 11px;
   font-weight: 900;
-  color: var(--c-accent);
+  line-height: 1;
+  box-shadow:
+    0 0 0 1.5px #fff,
+    0 1px 3px rgba(12, 46, 84, 0.42);
   visibility: hidden;
 }
 
@@ -246,13 +418,25 @@
   padding: 12px 0;
 }
 
-/* 確定バー */
+/*
+ * 確定バー（下の帯）。
+ *
+ * スクロールする一覧の外に置いてあるので、選んだ人が一覧から見えなくなっても
+ * 顔・姓名・決定ボタンはいつでも画面に残る。搭乗券のような枠にしてある。
+ */
 .avatar-select__confirm {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 8px;
+  padding: 6px 8px;
+  border: 1.5px solid rgba(26, 99, 166, 0.42);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(232, 242, 252, 0.97) 100%);
+  box-shadow:
+    0 0 0 1px rgba(186, 246, 255, 0.6),
+    0 4px 12px rgba(12, 46, 84, 0.13);
 }
+
 
 /* 「この人を選ぶ」は 320px でも1行に収める。 */
 .avatar-select__confirm .btn {
@@ -278,6 +462,30 @@
   font-weight: 700;
 }
 
+/* 呼び名と姓名を2行に積む。横に並べると 320px で姓名が省略される。 */
+.avatar-select__chosen-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.avatar-select__chosen-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2a6ea3;
+}
+
+/* 本人の姓名。最長は5文字（一ノ瀬七海など）。 */
+.avatar-select__chosen-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f3b64;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---- 確認画面 ---- */
 .avatar-confirm {
   display: flex;
@@ -298,19 +506,92 @@
   color: var(--c-ink-soft);
 }
 
+/*
+ * 狭い画面では、見出しの「飛行機＋10文字」と「もどる」が同じ帯に並びきらない。
+ * 380px 以下では、記号と文字を少し小さくし、右側の釣り合い用の余白を詰める。
+ * 実測の空き（320px で 40px 以上）を確かめたうえでの値。
+ */
+@media (max-width: 380px) {
+  .screen--avatar-select .screen__title {
+    font-size: 14px;
+    gap: 5px;
+  }
+
+  .screen--avatar-select .screen__title .t-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .screen--avatar-select .screen__header .btn--back {
+    font-size: 12px;
+    padding: 8px 8px;
+  }
+
+  .screen--avatar-select .screen__header-spacer {
+    flex: 0 0 14px;
+  }
+}
+
 @media (max-width: 340px) {
   .avatar-tab {
     font-size: 11px;
     padding: 6px 2px;
   }
 
-  .avatar-grid {
-    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  /* 名前と姓名を少しだけ詰める。顔の大きさは下の一覧用の指定で決まる。 */
+  .avatar-list .avatar-card .avatar-thumb__name {
+    font-size: 11px;
   }
 
+  .avatar-select__chosen-name {
+    font-size: 14px;
+  }
+
+  /*
+   * 共有サムネイル（md）の狭い画面での寸法。
+   * 旅の画面・出題画面・結果画面・国紹介でも使っているので、ここは変えない。
+   * 主人公選択の一覧だけは、下の .avatar-list 用の指定で上書きする。
+   */
   .avatar-thumb--md .avatar-thumb__face {
     width: 50px;
     height: 50px;
   }
   .avatar-thumb--md .avatar-thumb__initial { font-size: 19px; }
+}
+
+/*
+ * 主人公選択の一覧の中だけ、顔の大きさを画面に追従させる。
+ *
+ * 共有サムネイル（.avatar-thumb--md）の 58px と、狭い画面の 50px は
+ * 旅の画面・出題画面・結果画面・国紹介でも使うので変えない。
+ * ここは .avatar-list を一段かぶせて、一覧の中だけを上書きしている。
+ *
+ * 実測（顔の一辺）
+ *   320x568 … 50px    375x667 … 50.6px
+ *   393x852 … 68.8px  430x932 … 72px
+ * 50px を下回らせない。小さすぎると誰の顔か分からなくなる。
+ */
+.avatar-list .avatar-card .avatar-thumb__face {
+  width: clamp(50px, 13.5vw, 58px);
+  height: clamp(50px, 13.5vw, 58px);
+}
+
+.avatar-list .avatar-card .avatar-thumb__initial {
+  font-size: clamp(19px, 5.2vw, 22px);
+}
+
+/*
+ * 縦に余裕のある画面では顔を大きくする。
+ * 320x568 のような短い画面で大きくすると、完全に見える人数が減ってしまうので
+ * 高さ 700px 以上のときだけ。393x852・430x932 では 16人とも見えたままになる。
+ */
+@media (min-height: 700px) {
+  .avatar-list .avatar-card .avatar-thumb__face {
+    width: clamp(50px, 17.5vw, 72px);
+    height: clamp(50px, 17.5vw, 72px);
+  }
+
+  .avatar-list .avatar-card {
+    min-height: calc(clamp(50px, 17.5vw, 72px) + 28px);
+  }
 }

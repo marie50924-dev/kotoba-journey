@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSuite } from './visualCaseReporter.mjs';
+import { decodePng, pixelAt, textContrast } from './pngPixels.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
 const BASE_PATH = '/kotoba-journey/';
@@ -131,6 +132,76 @@ async function forbiddenNotesOnScreen(page) {
     const text = document.body.innerText;
     return phrases.filter((phrase) => text.includes(phrase));
   }, FORBIDDEN_NOTES);
+}
+
+/*
+ * 主人公選択の一覧で「完全に見える」人数を数える。
+ *
+ * 完全に見える = カードの箱・顔の円・名前の文字の3つが、
+ * 一覧の枠の見えている範囲（表示領域とも重ねた範囲）に全部入っている。
+ * 顔だけ見えて名前が切れている人や、カードの下端が切れている人は数えない。
+ */
+function fullyVisibleAvatars() {
+  const grid = document.querySelector('.avatar-grid');
+  const g = grid.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const box = {
+    left: Math.max(g.left, 0),
+    top: Math.max(g.top, 0),
+    right: Math.min(g.right, vw),
+    bottom: Math.min(g.bottom, vh),
+  };
+  const inside = (r) =>
+    r !== undefined &&
+    r !== null &&
+    r.width > 0 &&
+    r.height > 0 &&
+    r.top >= box.top - 0.5 &&
+    r.bottom <= box.bottom + 0.5 &&
+    r.left >= box.left - 0.5 &&
+    r.right <= box.right + 0.5;
+
+  const cards = [...document.querySelectorAll('.avatar-card')];
+  const full = cards.filter((c) =>
+    inside(c.getBoundingClientRect()) &&
+    inside(c.querySelector('.avatar-thumb__face')?.getBoundingClientRect()) &&
+    inside(c.querySelector('.avatar-thumb__name')?.getBoundingClientRect()),
+  );
+  const face = cards[0]?.querySelector('.avatar-thumb__face').getBoundingClientRect();
+  return {
+    cards: cards.length,
+    full: full.length,
+    faceSize: face ? Math.min(face.width, face.height) : 0,
+    columns: (() => {
+      if (cards.length === 0) return 0;
+      const t = cards[0].getBoundingClientRect().top;
+      return cards.filter((c) => Math.abs(c.getBoundingClientRect().top - t) < 2).length;
+    })(),
+  };
+}
+
+/** 一覧をスクロールしきったとき、何人に到達できるか。 */
+function reachableAvatars() {
+  const grid = document.querySelector('.avatar-grid');
+  const cards = [...document.querySelectorAll('.avatar-card')];
+  const reached = new Set();
+  const steps = Math.ceil(grid.scrollHeight / Math.max(1, grid.clientHeight)) * 2 + 4;
+  for (let i = 0; i <= steps; i += 1) {
+    grid.scrollTop = (grid.clientHeight * i) / 2;
+    const g = grid.getBoundingClientRect();
+    const top = Math.max(g.top, 0);
+    const bottom = Math.min(g.bottom, window.innerHeight);
+    for (const c of cards) {
+      const r = c.getBoundingClientRect();
+      const name = c.querySelector('.avatar-thumb__name').getBoundingClientRect();
+      if (r.top >= top - 0.5 && r.bottom <= bottom + 0.5 && name.bottom <= bottom + 0.5) {
+        reached.add(c.dataset.avatarId);
+      }
+    }
+  }
+  grid.scrollTop = 0;
+  return { reached: reached.size, total: cards.length };
 }
 
 async function clearBoard(page) {
@@ -446,7 +517,331 @@ try {
     });
   }
 
-  // ---- 11. prefers-reduced-motion でも会話が読める ----
+  /*
+   * ---- 11. 主人公選択の再設計 ----
+   *
+   * 見出し・選択の色・一覧の枠・下の帯を、実際に描かれた画面で測る。
+   * 画素を読むので deviceScaleFactor を 2 にして別の context で開く。
+   */
+  const SELECT_SIZES = [
+    // minFull … その画面で「完全に見える」ことを求める最低人数（実測に基づく）
+    { width: 320, height: 568, minFull: 12 },
+    { width: 393, height: 852, minFull: 16 },
+    { width: 430, height: 932, minFull: 16 },
+  ];
+
+  for (const vp of SELECT_SIZES) {
+    const label = `${vp.width}x${vp.height}`;
+    await runCase(`${label} 主人公選択`, async () => {
+      const context = await browser.newContext({
+        viewport: { width: vp.width, height: vp.height },
+        deviceScaleFactor: 2,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: '旅をはじめる' }).click();
+        await page.waitForSelector('.avatar-grid');
+        // 顔の画像が出そろってから測る。
+        await page.waitForTimeout(500);
+
+        // --- 見出し ---
+        const heading = await page.evaluate(() => {
+          const title = document.querySelector('.screen__title-text');
+          const icon = document.querySelector('.screen__title .t-icon');
+          const back = document.querySelector('.btn--back');
+          const range = document.createRange();
+          range.selectNodeContents(title);
+          const t = title.getBoundingClientRect();
+          const i = icon ? icon.getBoundingClientRect() : null;
+          const b = back ? back.getBoundingClientRect() : null;
+          return {
+            text: title.textContent,
+            lines: range.getClientRects().length,
+            hasIcon: icon !== null,
+            iconSize: i ? Math.min(i.width, i.height) : 0,
+            // 飛行機と「もどる」が重ならないこと。
+            gapFromBack: b && i ? i.left - b.right : null,
+            overflow: title.scrollWidth > title.clientWidth + 1,
+          };
+        });
+        check(heading.text === '旅するあなたを選ぼう', `${label}: 見出しが「${heading.text}」になっている`);
+        check(heading.lines === 1, `${label}: 見出しが${heading.lines}行になっている`);
+        check(heading.hasIcon, `${label}: 見出しの飛行機の記号が出ていない`);
+        check(heading.iconSize >= 15, `${label}: 見出しの記号が小さい（${heading.iconSize.toFixed(1)}px）`);
+        check(!heading.overflow, `${label}: 見出しが横にあふれている`);
+        check(
+          heading.gapFromBack === null || heading.gapFromBack > 0,
+          `${label}: 見出しの記号と「もどる」が重なっている（${heading.gapFromBack?.toFixed(1)}px）`,
+        );
+
+        // --- 一覧：完全に見える人数と、全員への到達 ---
+        const before = await page.evaluate(fullyVisibleAvatars);
+        check(before.cards === 16, `${label}: 一覧が16人になっていない（${before.cards}）`);
+        check(
+          before.full >= vp.minFull,
+          `${label}: 顔・名前・カード下端まで完全に見える人数が ${before.full}人（${vp.minFull}人以上を期待）`,
+        );
+        check(
+          before.faceSize >= 50,
+          `${label}: 一覧の顔が小さい（${before.faceSize.toFixed(1)}px・50px以上を期待）`,
+        );
+        const reach = await page.evaluate(reachableAvatars);
+        check(
+          reach.reached === 16,
+          `${label}: スクロールしても16人に到達できない（${reach.reached}人）`,
+        );
+
+        // --- 選択の色は青。チェック印は顔に隠れず前面に出る ---
+        await page.locator('.avatar-card').nth(5).click();
+        await page.waitForTimeout(200);
+        const selected = await page.evaluate(() => {
+          const card = document.querySelector('.avatar-card[aria-selected="true"]');
+          const check = card.querySelector('.avatar-card__check');
+          const cs = getComputedStyle(card);
+          const chk = getComputedStyle(check);
+          const rgb = (v) => (v.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+          const r = check.getBoundingClientRect();
+          /*
+           * 顔の円に覆われていないか。
+           *
+           * 中心1点だけでは足りない。顔は円なので、チェック印の中心が
+           * 円の外に出ていても、中心からずれた点は円の中に入りうる。
+           * 丸の内側の5点すべてでチェック印が返ることを求める。
+           */
+          const cx = (r.left + r.right) / 2;
+          const cy = (r.top + r.bottom) / 2;
+          const d = Math.min(r.width, r.height) / 2 - 4.5;
+          const probes = [
+            [cx, cy],
+            [cx - d, cy],
+            [cx + d, cy],
+            [cx, cy - d],
+            [cx, cy + d],
+          ];
+          const covered = probes.filter(([x, y]) => {
+            const hit = document.elementFromPoint(x, y);
+            return !(check === hit || check.contains(hit));
+          }).length;
+          return {
+            border: rgb(cs.borderTopColor),
+            checkBg: rgb(chk.backgroundColor),
+            checkColor: rgb(chk.color),
+            checkVisible: chk.visibility === 'visible',
+            checkOnTop: covered === 0,
+            coveredProbes: covered,
+            checkRect: { l: r.left, r: r.right, t: r.top, b: r.bottom },
+            checkBox: { w: r.width, h: r.height },
+          };
+        });
+        const blueness = selected.border[2] - selected.border[0];
+        check(
+          blueness >= 120,
+          `${label}: 選択の縁が青くない rgb(${selected.border.join(',')}) 青−赤=${blueness}`,
+        );
+        check(selected.checkVisible, `${label}: 選択中のチェック印が出ていない`);
+        check(
+          selected.checkBg[2] - selected.checkBg[0] >= 120,
+          `${label}: チェック印の丸が青くない rgb(${selected.checkBg.join(',')})`,
+        );
+        check(
+          selected.checkOnTop,
+          `${label}: チェック印が顔の円に隠れている（5点中${selected.coveredProbes}点が覆われている）`,
+        );
+
+        // --- 文字の読みやすさ（実際に描かれた画素で測る） ---
+        const boxes = await page.evaluate(() => {
+          const r = (sel) => {
+            const n = document.querySelector(sel);
+            if (n === null) return null;
+            const b = n.getBoundingClientRect();
+            return { l: b.left, r: b.right, t: b.top, b: b.bottom };
+          };
+          return {
+            見出しの白文字: r('.screen__title-text'),
+            選択中の年代タブ: r('.avatar-tab[aria-selected="true"]'),
+            選んだ人の名前: r('.avatar-card[aria-selected="true"] .avatar-thumb__name'),
+            '旅するあなた': r('.avatar-select__chosen-label'),
+            姓名: r('.avatar-select__chosen-name'),
+          };
+        });
+        const img = decodePng(await page.screenshot());
+
+        // チェック印の丸が欠けていないか。箱に占める青い画素の割合で見る。
+        // 完全な丸なら約 78%。半分が顔に覆われると 40% 台まで落ちる。
+        {
+          const r = selected.checkRect;
+          let blue = 0;
+          let total = 0;
+          for (let y = Math.round(r.t * 2); y < Math.round(r.b * 2); y += 1) {
+            for (let x = Math.round(r.l * 2); x < Math.round(r.r * 2); x += 1) {
+              const [pr, , pb] = pixelAt(img, x, y);
+              total += 1;
+              if (pb - pr >= 90) blue += 1;
+            }
+          }
+          const share = total === 0 ? 0 : blue / total;
+          check(
+            share >= 0.6,
+            `${label}: チェック印の青い丸が欠けている（箱に占める青 ${(share * 100).toFixed(0)}%・60%以上を期待）`,
+          );
+        }
+
+        const ratios = [];
+        for (const [name, box] of Object.entries(boxes)) {
+          check(box !== null, `${label}: ${name} が見つからない`);
+          if (box === null) continue;
+          const m = textContrast(img, box, 2);
+          ratios.push(`${name} ${m.ratio.toFixed(1)}`);
+          check(
+            m.ratio >= 4.5,
+            `${label}: ${name} のコントラストが ${m.ratio.toFixed(2)}:1（4.5:1 以上を期待）` +
+              ` 文字 rgb(${m.ink.join(',')}) 地 rgb(${m.paper.join(',')})`,
+          );
+        }
+
+        // --- 下の帯は一覧の外。選んだ人が見えなくなっても使える ---
+        const bar = await page.evaluate(() => {
+          const grid = document.querySelector('.avatar-grid');
+          const list = document.querySelector('.avatar-list');
+          const barNode = document.querySelector('.avatar-select__confirm');
+          return {
+            // スクロールするのは一覧の中だけ。下の帯はその外にある。
+            barInsideGrid: grid.contains(barNode) || list.contains(barNode),
+            name: document.querySelector('.avatar-select__chosen-name')?.textContent ?? null,
+            label: document.querySelector('.avatar-select__chosen-label')?.textContent ?? null,
+          };
+        });
+        check(!bar.barInsideGrid, `${label}: 決定バーがスクロールする一覧の中に入っている`);
+        check(bar.label === '旅するあなた', `${label}: 呼び名が「${bar.label}」になっている`);
+        check(
+          bar.name !== null && bar.name.length >= 2,
+          `${label}: 選んだ人の姓名が出ていない（${bar.name}）`,
+        );
+
+        const m = await page.evaluate(overflowMetrics);
+        check(!m.hScroll, `${label}: 横スクロールが発生している`);
+        check(m.small.length === 0, `${label}: タップ領域44px未満 ${m.small.join(', ')}`);
+
+        return (
+          ` 完全に見える${before.full}/16人・${before.columns}列・顔${before.faceSize.toFixed(0)}px` +
+          `／到達${reach.reached}人／コントラスト ${ratios.join(' ')}`
+        );
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  /*
+   * ---- 12. 選んだ人が一覧から完全に見えなくなっても、下の帯は使える ----
+   *
+   * 320x568 では一覧が1行ぶんしかスクロールしないので、選んだ人を
+   * 完全に画面外へ送れない。送れる短い画面で、その状態を作って確かめる。
+   */
+  {
+    await runCase('選んだ人が一覧から消えても決定できる', async () => {
+      const context = await browser.newContext({ viewport: { width: 320, height: 480 } });
+      try {
+        const page = await context.newPage();
+        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: '旅をはじめる' }).click();
+        await page.waitForSelector('.avatar-grid');
+        await page.locator('.avatar-card').first().click();
+        await page.waitForTimeout(150);
+
+        const out = await page.evaluate(() => {
+          const grid = document.querySelector('.avatar-grid');
+          grid.scrollTop = grid.scrollHeight;
+          const g = grid.getBoundingClientRect();
+          const top = Math.max(g.top, 0);
+          const bottom = Math.min(g.bottom, window.innerHeight);
+          const sel = document.querySelector('.avatar-card[aria-selected="true"]');
+          const r = sel.getBoundingClientRect();
+          const seen = (n) => {
+            const b = n.getBoundingClientRect();
+            return (
+              b.width > 0 &&
+              b.height > 0 &&
+              b.top >= -0.5 &&
+              b.bottom <= window.innerHeight + 0.5 &&
+              b.left >= -0.5 &&
+              b.right <= window.innerWidth + 0.5
+            );
+          };
+          const btn = [...document.querySelectorAll('button')].find(
+            (b) => b.textContent.trim() === 'この人を選ぶ',
+          );
+          return {
+            scrollRange: grid.scrollHeight - grid.clientHeight,
+            selectedVisiblePx: Math.max(0, Math.min(r.bottom, bottom) - Math.max(r.top, top)),
+            faceSeen: seen(document.querySelector('.avatar-select__chosen .avatar-thumb__face')),
+            nameSeen: seen(document.querySelector('.avatar-select__chosen-name')),
+            name: document.querySelector('.avatar-select__chosen-name').textContent,
+            buttonSeen: seen(btn),
+            buttonEnabled: !btn.disabled,
+            buttonHeight: btn.getBoundingClientRect().height,
+          };
+        });
+        check(
+          out.selectedVisiblePx === 0,
+          `選んだ人がまだ ${out.selectedVisiblePx.toFixed(1)}px 見えている（この検査が成り立たない）`,
+        );
+        check(out.faceSeen, '選んだ人が見えなくなると、下の帯の顔も消える');
+        check(out.nameSeen, '選んだ人が見えなくなると、下の帯の姓名も消える');
+        check(out.buttonEnabled && out.buttonSeen, '選んだ人が見えなくなると決定ボタンが使えない');
+        check(out.buttonHeight >= 44, `決定ボタンが44px未満（${out.buttonHeight.toFixed(1)}）`);
+
+        // 実際に押して、確認画面まで進めること。
+        await page.getByRole('button', { name: 'この人を選ぶ' }).click();
+        check(
+          (await page.locator('.screen--avatar-confirm').count()) === 1,
+          '一覧から見えない人を選んだまま確認画面へ進めない',
+        );
+        return ` 送れる量${out.scrollRange.toFixed(0)}px・選んだ人の見えている高さ0px・姓名「${out.name}」のまま決定できた`;
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  /*
+   * ---- 13. キーボードだけで選べる ----
+   */
+  {
+    await runCase('キーボードで選べる', async () => {
+      const context = await browser.newContext({ viewport: { width: 393, height: 852 } });
+      try {
+        const page = await context.newPage();
+        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: '旅をはじめる' }).click();
+        await page.waitForSelector('.avatar-grid');
+        let hops = 0;
+        let onCard = false;
+        for (; hops < 40; hops += 1) {
+          await page.keyboard.press('Tab');
+          onCard = await page.evaluate(
+            () => document.activeElement?.classList.contains('avatar-card') ?? false,
+          );
+          if (onCard) break;
+        }
+        check(onCard, `Tab を ${hops + 1} 回押しても一覧のカードに移らない`);
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(150);
+        const after = await page.evaluate(() => ({
+          selected: document.querySelectorAll('.avatar-card[aria-selected="true"]').length,
+          name: document.querySelector('.avatar-select__chosen-name')?.textContent ?? null,
+        }));
+        check(after.selected === 1, `Enter で選べない（選択中 ${after.selected} 人）`);
+        check(after.name !== null, 'Enter で選んでも下の帯に姓名が出ない');
+        return ` Tab ${hops + 1}回でカードへ・Enterで「${after.name}」を選べた`;
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  // ---- 14. prefers-reduced-motion でも会話が読める ----
   {
     await runCase('prefers-reduced-motion', async () => {
       const context = await browser.newContext({

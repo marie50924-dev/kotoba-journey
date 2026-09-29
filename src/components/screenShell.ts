@@ -10,6 +10,13 @@ export interface ShellOptions {
   fixedHeight?: boolean;
   /** 追加のクラス名。 */
   variant?: string;
+  /**
+   * 見出しに添える絵記号。
+   *
+   * 渡された画面だけ、見出しが「記号＋文字」の2要素になる。
+   * 渡さない画面の見出しは今までどおり文字だけで、構造は変わらない。
+   */
+  titleIcon?: Node;
 }
 
 /** 全画面共通の外枠。safe-area とスクロール方針をここで一元管理する。 */
@@ -20,7 +27,15 @@ export function screenShell(options: ShellOptions, body: (HTMLElement | null)[])
 
   const header = el('header', { class: 'screen__header' }, [
     options.onBack ? button(UI.actions.back, options.onBack, { class: 'btn btn--ghost btn--back' }) : null,
-    options.title ? el('h1', { class: 'screen__title', text: options.title }) : null,
+    options.title
+      ? el(
+          'h1',
+          { class: 'screen__title' },
+          options.titleIcon
+            ? [options.titleIcon, el('span', { class: 'screen__title-text', text: options.title })]
+            : [options.title],
+        )
+      : null,
     el('span', { class: 'screen__header-spacer' }),
   ]);
 

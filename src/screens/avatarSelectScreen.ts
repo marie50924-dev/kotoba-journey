@@ -12,17 +12,26 @@ import {
   type AvatarPresentation,
 } from '../data/avatars';
 import { avatarThumb } from '../components/avatarThumb';
+import { planeIcon } from '../components/titleIcons';
 import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
 type PresentationFilter = 'all' | AvatarPresentation;
 
 /**
- * 旅するキャラクターの選択。
+ * 旅する主人公の選択。
  *
  * 年代タブと表示フィルターは「80人から人をさがす」ための道具であり、
  * 利用者本人の年齢や性別を尋ねるものではない。
- * キャラクターの年代と学習コースは完全に独立している。
+ * 主人公の年代と学習コースは完全に独立している。
+ *
+ * 画面の作り
+ *   見出し   … 表紙と同じ青い帯に、飛行機の記号を添える（screenShell の titleIcon）。
+ *   一覧の枠 … .avatar-list が窓のような枠になり、その中だけが縦スクロールする。
+ *              枠の中で何人が「顔・名前・カードの下端まで」完全に見えるかは
+ *              実ブラウザテストで画面ごとに測っている。
+ *   下の帯   … スクロールの外に置く。選んだ人が一覧から見えなくなっても、
+ *              顔・姓名・決定ボタンはいつでも使える。
  */
 export function avatarSelectScreen(ctx: AppContext): HTMLElement {
   let activeAge: AvatarAgeGroup = findAvatar(ctx.records.get().selectedAvatarId)?.ageGroup
@@ -134,7 +143,11 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
       ...(avatar
         ? [
             avatarThumb(avatar, { size: 'sm', label: '' }),
-            el('span', { text: `${UI.avatar.chosen}: ${fullName(avatar)}` }),
+            // 呼び名と姓名は別の行に積む。320px でも姓名（最長5文字）が省略されない。
+            el('span', { class: 'avatar-select__chosen-text' }, [
+              el('span', { class: 'avatar-select__chosen-label', text: UI.avatar.chosen }),
+              el('span', { class: 'avatar-select__chosen-name', text: fullName(avatar) }),
+            ]),
           ]
         : [el('span', { class: 'note', text: UI.avatar.notChosen })]),
     );
@@ -155,6 +168,7 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
   return screenShell(
     {
       title: UI.avatar.selectHeading,
+      titleIcon: planeIcon(),
       lead: UI.avatar.selectLead,
       onBack: ctx.canGoBack() ? () => ctx.back() : undefined,
       fixedHeight: true,
@@ -163,8 +177,8 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
     [
       el('div', { class: 'avatar-tabs', role: 'tablist', 'aria-label': UI.avatar.tabsLabel }, tabs),
       el('div', { class: 'avatar-filter', 'aria-label': UI.avatar.filterLabel }, filterButtons),
-      el('p', { class: 'avatar-select__note', text: UI.avatar.filterNote }),
-      grid,
+      // 一覧は枠の中に入れる。縦スクロールするのは枠の中だけ。
+      el('div', { class: 'avatar-list' }, [grid]),
       el('p', { class: 'avatar-select__note', text: UI.avatar.selectNote }),
       el('div', { class: 'avatar-select__confirm' }, [chosenLine, confirmButton]),
     ],
