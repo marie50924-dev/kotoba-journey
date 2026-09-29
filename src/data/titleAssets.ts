@@ -74,8 +74,28 @@ export const TITLE_COVER_BUTTON_BOX = {
  *
  * ボタンは画像に描かれていない。操作はすべて本物の <button> で出す。
  */
+/**
+ * 背景の候補。
+ *
+ * v1 … 最初に受け取った背景。いま画面に出ているのはこちら。
+ * v2 … 「強い光を二人のあいだから足元へ」「地球儀を大きく」の指示で
+ *       作り直された候補（kotoba-title-background-v2）。
+ *
+ * v2 は地球儀が大きく、画像の上から 10.8% の高さまで来る。
+ * そのぶんロゴを置ける空が狭く、iPhone 15 Pro の比率では
+ * ロゴが成立しない（詳しくは TITLE_BACKGROUND_V2 の注記）。
+ * 採用の可否がユーザーの確認待ちなので、
+ * ここは v1 のままにし、v2 は測り直した値とともに置いてある。
+ */
+export const TITLE_BACKGROUND_VARIANT: 'v1' | 'v2' = 'v1';
+
+export const TITLE_BACKGROUNDS = {
+  v1: assetUrl('assets/title/layered-v1/background.webp'),
+  v2: assetUrl('assets/title/background-v2/background-large-globe-center-light.webp'),
+} as const;
+
 export const TITLE_LAYERS = {
-  background: assetUrl('assets/title/layered-v1/background.webp'),
+  background: TITLE_BACKGROUNDS[TITLE_BACKGROUND_VARIANT],
   logo: assetUrl('assets/title/layered-v1/logo.webp'),
   characters: assetUrl('assets/title/layered-v1/characters.webp'),
 } as const;
@@ -141,3 +161,42 @@ export const TITLE_LOGO_ART = {
  * ロゴはこの値より上に収める。CSS では 19dvh として使う。
  */
 export const TITLE_GLOBE_TOP_MIN = 0.19;
+
+/**
+ * 候補の背景 v2（background-large-globe-center-light.png）の実測値。
+ *
+ * v1 の数値は流用できないので、目盛りを重ねて測り直した。
+ *   地球儀   横 25.3%〜73.0%、縦 10.8%〜33.7%
+ *   富士山   山頂は横 17.0% / 縦 34.6%。山体は横 4%〜40%、縦 34.5%〜42%
+ *   強い光   いちばん明るいところは 横 50.0% / 縦 43.0%
+ *            （地球儀からではなく、街路の奥＝二人が立つあたりから出ている）
+ * 枠はどれも実測の外側へ少し広げて持つ。
+ *
+ * この地球儀は v1 より大きく、上へ伸びている（v1 は上端 20.5%）。
+ * 参考として受け取った当初画像では地球儀の上端は 19.5% で、
+ * その上の 9.5%〜18.0% にロゴが置かれていた。
+ * v2 では上端が 10.8% なので、ロゴを地球儀より上へ収めると
+ * 置ける高さがほとんど残らない。
+ */
+export const TITLE_BACKGROUND_V2 = {
+  size: { width: 852, height: 1846 },
+  landmarks: {
+    globe: { left: 0.24, top: 0.10, right: 0.74, bottom: 0.345 },
+    fuji: { left: 0.04, top: 0.34, right: 0.40, bottom: 0.42 },
+  },
+  /** 強い光の中心（画像に対する比率）。 */
+  lightCenter: { x: 0.5, y: 0.43 },
+} as const;
+
+/**
+ * 参考として受け取った当初画像（original-light-reference.jpeg）の実測値。
+ *
+ * 1179x2556（縦横比 0.4613）で、iPhone 15 Pro とほぼ同じ比率。
+ * この配置が成り立っているのは、地球儀の上に十分な空があるため。
+ */
+export const TITLE_REFERENCE_LAYOUT = {
+  logo: { top: 0.095, bottom: 0.18, left: 0.14, right: 0.79 },
+  globe: { top: 0.195, bottom: 0.344, left: 0.212, right: 0.711 },
+  /** 男性の髪の上端。参考画像では人物の頭が地球儀の下部に重なっている。 */
+  castTop: 0.284,
+} as const;

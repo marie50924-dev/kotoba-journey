@@ -4,6 +4,10 @@ import titleScreenSource from '../screens/titleScreen.ts?raw';
 import titleIconsSource from '../components/titleIcons.ts?raw';
 import {
   TITLE_ASSETS,
+  TITLE_BACKGROUNDS,
+  TITLE_BACKGROUND_V2,
+  TITLE_BACKGROUND_VARIANT,
+  TITLE_REFERENCE_LAYOUT,
   TITLE_GLOBE_TOP_MIN,
   TITLE_LOGO_ART,
   TITLE_BACKGROUND_LANDMARKS,
@@ -46,6 +50,8 @@ const iconSource = asText(titleIconsSource, 'titleIcons.ts');
 const LAYER_WEBP = import.meta.glob('../../public/assets/title/layered-v1/*.webp');
 const LAYER_SOURCE = import.meta.glob('../../assets-source/title/layered-v1/*');
 const TITLE_WEBP = import.meta.glob('../../public/assets/title/*.webp');
+const BG2_WEBP = import.meta.glob('../../public/assets/title/background-v2/*.webp');
+const BG2_SOURCE = import.meta.glob('../../assets-source/title/background-v2/*');
 
 function baseNames(map: Record<string, unknown>): string[] {
   return Object.keys(map)
@@ -318,5 +324,75 @@ describe('表紙の CSS', () => {
 
   it('ロゴが読めないときの文字だけの代替が用意されている', () => {
     expect(titleCss).toContain('.screen--title.is-logo-missing .t-logo-fallback');
+  });
+});
+
+/*
+ * 候補の背景 v2（地球儀を大きくし、強い光を二人のあいだへ移したもの）。
+ *
+ * まだ採用は決まっていない。ここでは「受領したものがそのまま置いてあるか」と
+ * 「測り直した値が、旧背景の値の流用になっていないか」を見る。
+ */
+describe('候補の背景 v2', () => {
+  it('受領した3点が名前のまま置いてある', () => {
+    expect(baseNames(BG2_SOURCE)).toEqual([
+      'README.md',
+      'background-large-globe-center-light.png',
+      'original-light-reference.jpeg',
+    ]);
+    expect(baseNames(BG2_WEBP)).toEqual(['background-large-globe-center-light.webp']);
+  });
+
+  it('配信用の URL がその素材を指している', () => {
+    expect(TITLE_BACKGROUNDS.v2).toContain('background-v2/background-large-globe-center-light.webp');
+    expect(TITLE_BACKGROUNDS.v1).not.toBe(TITLE_BACKGROUNDS.v2);
+  });
+
+  it('いま画面に出しているのは v1（v2 はユーザーの確認待ち）', () => {
+    expect(TITLE_BACKGROUND_VARIANT).toBe('v1');
+  });
+
+  it('v2 の目印は、旧背景の値の流用ではない', () => {
+    const v1 = TITLE_BACKGROUND_LANDMARKS.globe;
+    const v2 = TITLE_BACKGROUND_V2.landmarks.globe;
+    // 地球儀は大きくなり、上へも左右へも広がっている。
+    expect(v2.top).toBeLessThan(v1.top);
+    expect(v2.left).toBeLessThan(v1.left);
+    expect(v2.right).toBeGreaterThan(v1.right);
+    expect(v2.bottom).toBeGreaterThan(v1.bottom);
+    const v1Height = v1.bottom - v1.top;
+    const v2Height = v2.bottom - v2.top;
+    expect(v2Height).toBeGreaterThan(v1Height);
+  });
+
+  it('v2 の枠と光の位置が 0〜1 に収まり、順序も正しい', () => {
+    for (const [name, box] of Object.entries(TITLE_BACKGROUND_V2.landmarks)) {
+      for (const [side, value] of Object.entries(box)) {
+        expect(value, `${name}.${side}`).toBeGreaterThanOrEqual(0);
+        expect(value, `${name}.${side}`).toBeLessThanOrEqual(1);
+      }
+      expect(box.left, `${name} の左右`).toBeLessThan(box.right);
+      expect(box.top, `${name} の上下`).toBeLessThan(box.bottom);
+    }
+    // 強い光は地球儀から出ているのではなく、その下の街路の中央にある。
+    const light = TITLE_BACKGROUND_V2.lightCenter;
+    expect(light.y).toBeGreaterThan(TITLE_BACKGROUND_V2.landmarks.globe.bottom);
+    expect(Math.abs(light.x - 0.5)).toBeLessThan(0.1);
+  });
+
+  it('v2 の画素数は受領時のまま', () => {
+    expect(TITLE_BACKGROUND_V2.size).toEqual({ width: 852, height: 1846 });
+  });
+
+  /*
+   * 基準として示された当初画像では、ロゴの下端（18.0%）より下に
+   * 地球儀の上端（19.5%）が来ている。この順序が、ロゴを置ける空を作っている。
+   * v2 は地球儀の上端が 10.0% なので、この順序が崩れている。
+   */
+  it('当初画像ではロゴの下に地球儀が来ており、v2 ではその余地が無い', () => {
+    expect(TITLE_REFERENCE_LAYOUT.logo.bottom).toBeLessThan(TITLE_REFERENCE_LAYOUT.globe.top);
+    expect(TITLE_BACKGROUND_V2.landmarks.globe.top).toBeLessThan(
+      TITLE_REFERENCE_LAYOUT.logo.bottom,
+    );
   });
 });
