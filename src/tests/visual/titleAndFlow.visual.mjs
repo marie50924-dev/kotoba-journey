@@ -417,23 +417,48 @@ async function checkButtonPixels(page, m, label, check) {
       `${label}: 「${b.text.trim()}」の画素を測れていない`,
     );
     if (through.length > 20 && through.length === raw.length) {
+      /*
+       * 透け具合は「明暗の模様がどれだけ通っているか」で測る。
+       * 色ごとのばらつきで測ると、色を変えるガラス（青いガラス）が
+       * 不当に低く出る。石畳の目地や光の模様が見えるかどうかは
+       * 明るさのばらつきで決まるので、そちらを見る。
+       */
+      const rawLum = stdev(raw.map(lum));
+      const seeThrough = rawLum < 1 ? 1 : stdev(through.map(lum)) / rawLum;
       const ratios = [0, 1, 2].map((c) => {
         const sr = stdev(raw.map((p) => p[c]));
         return sr < 1 ? 1 : stdev(through.map((p) => p[c])) / sr;
       });
-      const seeThrough = (ratios[0] + ratios[1] + ratios[2]) / 3;
       check(
         seeThrough >= 0.45,
         `${label}: 「${b.text.trim()}」が塗りつぶされていて背景が透けない` +
-          `（透け具合 ${seeThrough.toFixed(2)} / R ${ratios[0].toFixed(2)} G ${ratios[1].toFixed(2)} B ${ratios[2].toFixed(2)}）`,
+          `（透け具合（明暗）${seeThrough.toFixed(2)} / 色ごと R ${ratios[0].toFixed(2)} G ${ratios[1].toFixed(2)} B ${ratios[2].toFixed(2)}）`,
       );
-      // 背後の暖かさが、ガラスを通しても残っている。
-      const warm = (v) => v.reduce((t, p) => t + (p[0] - p[2]), 0) / v.length;
-      check(
-        warm(through) >= warm(raw) - 40,
-        `${label}: 「${b.text.trim()}」が背後の暖色を殺している` +
-          `（背後 ${warm(raw).toFixed(0)} → ボタン越し ${warm(through).toFixed(0)}）`,
-      );
+      /*
+       * ボタンの面が「青いガラス」に見えること。
+       *
+       * 背後の石畳は暖色なので、そのまま透かすと茶色が前に出る。
+       * 完成見本の副ボタンの面を画素で測ると
+       *   マイパスポート rgb(55,70,130)（青−赤 +75）
+       *   設定          rgb(53,70,141)（青−赤 +88）
+       * で、はっきり青い。茶色や灰色に戻ったら落とす。
+       * （ボタンの外の石畳が暖色のままであることは、下の「画面の下端」で見る。）
+       */
+      const blueness = (v) => v.reduce((t, p) => t + (p[2] - p[0]), 0) / v.length;
+      const face = pixelsIn(img, vw, {
+        x: b.x + 8,
+        y: b.y + 5,
+        width: b.width - 16,
+        height: b.height - 10,
+      }).filter((p) => lum(p) <= 160);
+      check(face.length > 40, `${label}: 「${b.text.trim()}」の面を測れていない`);
+      if (face.length > 40) {
+        check(
+          blueness(face) >= 45,
+          `${label}: 「${b.text.trim()}」の面が青いガラスに見えない` +
+            `（青−赤 ${blueness(face).toFixed(0)} / 見本は +75〜+88）`,
+        );
+      }
       // 透けていても文字は読める。明るいほう（上から10%）で見る。
       // 見本を同じやり方で測ると 5.28 と 5.58。
       const inkArea = pixelsIn(img, vw, {
@@ -448,6 +473,50 @@ async function checkButtonPixels(page, m, label, check) {
         ratio >= 3.5,
         `${label}: 「${b.text.trim()}」の白文字の明暗比が足りない（${ratio.toFixed(2)} / 明るいほうの背後 rgb(${bright})）`,
       );
+      /*
+       * 絵記号が、見本と同じくらいの大きさで描かれていること。
+       * 見本は パスポート 16.6x21.6 / 歯車 20.5x20.0 CSSpx。
+       * 枠を小さく戻すと 12.5〜14.5 までしか出ない。
+       */
+      {
+        const sc = img.width / vw;
+        const ix0 = Math.round((b.x + 6) * sc);
+        const ix1 = Math.round((b.x + b.width * 0.45) * sc);
+        const iy0 = Math.round((b.y + 4) * sc);
+        const iy1 = Math.round((b.y + b.height - 4) * sc);
+        const cols = [];
+        for (let x = ix0; x < ix1; x += 1) {
+          let hit = false;
+          for (let y = iy0; y < iy1 && !hit; y += 1) {
+            const i = (y * img.width + x) * img.channels;
+            if (Math.min(img.data[i], img.data[i + 1], img.data[i + 2]) > 225) hit = true;
+          }
+          cols.push(hit);
+        }
+        const first = cols.indexOf(true);
+        let last = first;
+        for (let k = first; k < cols.length; k += 1) {
+          if (cols[k]) last = k;
+          else if (k - last > 2 * sc) break;
+        }
+        let top = iy1;
+        let bottom = iy0;
+        for (let x = ix0 + first; x <= ix0 + last; x += 1) {
+          for (let y = iy0; y < iy1; y += 1) {
+            const i = (y * img.width + x) * img.channels;
+            if (Math.min(img.data[i], img.data[i + 1], img.data[i + 2]) > 225) {
+              if (y < top) top = y;
+              if (y > bottom) bottom = y;
+            }
+          }
+        }
+        const ih = (bottom - top) / sc;
+        check(
+          first >= 0 && ih >= 17,
+          `${label}: 「${b.text.trim()}」の絵記号が小さい（高さ ${ih.toFixed(1)}px / 見本は 20.0〜21.6）`,
+        );
+      }
+
       // 文字のすぐ外側（影を含む）での明暗比。こちらが実際の読みにくさに近い。
       const ring = aroundInk(img, vw, b);
       check(ring.length > 40, `${label}: 「${b.text.trim()}」の文字の縁を測れていない`);
@@ -762,6 +831,15 @@ function titleMetrics() {
       const b = el.getBoundingClientRect();
       return { x: b.x, y: b.y, width: b.width, height: b.height, text: el.textContent ?? '' };
     }),
+    /*
+     * ボタンの中身が幅からあふれていないか。
+     * white-space: nowrap を付けてあるので、あふれると文字が切れて
+     * 「マイパスポ…」のように見える。折り返しの検査では捕まえられない。
+     */
+    buttonOverflow: [...document.querySelectorAll('.screen--title button')].map((el) => ({
+      text: (el.textContent ?? '').trim(),
+      over: el.scrollWidth - el.clientWidth,
+    })),
     buttons,
     // 画面が背景へ付けた縦の見せ方。データと食い違っていないかを見る。
     bgObjectPosition: bg ? bg.style.objectPosition : '',
@@ -1096,6 +1174,14 @@ try {
           check(
             m.ground.y <= highest + 1 && m.ground.y + m.ground.height >= lowest - 1,
             `${label}: 接地影が靴底の高さに無い（影 ${m.ground.y.toFixed(1)}〜${(m.ground.y + m.ground.height).toFixed(1)} / 靴底 ${highest.toFixed(1)}〜${lowest.toFixed(1)}）`,
+          );
+        }
+
+        // ボタンの中身が幅からあふれて、文字が切れていない。
+        for (const o of m.buttonOverflow) {
+          check(
+            o.over <= 0.5,
+            `${label}: 「${o.text}」の中身が幅からあふれて切れている（${o.over.toFixed(1)}px）`,
           );
         }
 

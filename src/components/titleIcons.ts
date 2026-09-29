@@ -12,11 +12,20 @@
 /** 24x24 の枠に収めた線画を作る。太さと色はボタンの文字色に合わせる。 */
 function icon(
   paths: readonly string[],
-  options: { fill?: boolean; rotate?: number } = {},
+  options: {
+    fill?: boolean;
+    rotate?: number;
+    /** 枠。既定は 0 0 24 24。絵が枠いっぱいに出るよう狭めることがある。 */
+    viewBox?: string;
+    /** 塗りで穴を抜くとき。 */
+    evenOdd?: boolean;
+    /** 線の太さ。細かい絵は細くする。 */
+    strokeWidth?: number;
+  } = {},
 ): SVGSVGElement {
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('viewBox', options.viewBox ?? '0 0 24 24');
   svg.setAttribute('width', '20');
   svg.setAttribute('height', '20');
   svg.setAttribute('aria-hidden', 'true');
@@ -32,10 +41,11 @@ function icon(
     path.setAttribute('d', d);
     if (options.fill) {
       path.setAttribute('fill', 'currentColor');
+      if (options.evenOdd) path.setAttribute('fill-rule', 'evenodd');
     } else {
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke', 'currentColor');
-      path.setAttribute('stroke-width', '1.8');
+      path.setAttribute('stroke-width', String(options.strokeWidth ?? 1.8));
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
     }
@@ -57,30 +67,63 @@ export function planeIcon(): SVGSVGElement {
     [
       'M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z',
     ],
-    { fill: true, rotate: 45 },
+    // 45度回すと絵が斜めになり、0 0 24 24 の枠では周りに空きができる。
+    // 回したあとの外接範囲（x 2.10〜18.72 / y 4.58〜21.19）に枠を合わせて、
+    // 見本と同じ 24.4 CSSpx の大きさで出す。
+    { fill: true, rotate: 45, viewBox: '1.44 3.91 17.95 17.95' },
   );
 }
 
-/** 右向きの山形。主ボタンの右に置く。 */
+/**
+ * 右向きの山形。主ボタンの右に置く。
+ * 見本では 幅 5.5 / 高さ 10.0 CSSpx。枠いっぱいに描いて、小さな枠でも同じ大きさにする。
+ */
 export function chevronIcon(): SVGSVGElement {
-  return icon(['M9 5.5 15.5 12 9 18.5']);
+  return icon(['M8.5 3 17 12 8.5 21']);
 }
 
-/** パスポート。手帳に地球の輪。 */
+/*
+ * パスポート。表紙に大きな地球儀、右に小口（ページの束）。
+ *
+ * 完成見本（IMG_5246.jpeg）の副ボタンを拡大すると、
+ * 表紙のまるい四角の中に「経線・緯線のある地球儀」がはっきり入っている。
+ * 以前は地球儀が枠の 3.4/24 しかなく、小さな画面では点にしか見えなかった。
+ * 地球儀を 5.2/24 まで大きくし、経線を左右1本ずつ、緯線を2本にして、
+ * 17px 程度の小さな枠でも地球儀と分かるようにしている。
+ */
 export function passportIcon(): SVGSVGElement {
-  return icon([
-    'M6 3.2h10.4a1.6 1.6 0 0 1 1.6 1.6v14.4a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6V4.8A1.6 1.6 0 0 1 6 3.2z',
-    'M11.2 7.4a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z',
-    'M11.2 7.4c-1.1 1-1.7 2.2-1.7 3.4s.6 2.4 1.7 3.4',
-    'M11.2 7.4c1.1 1 1.7 2.2 1.7 3.4s-.6 2.4-1.7 3.4',
-    'M8 17.4h6.4',
-  ]);
+  return icon(
+    [
+      // 表紙
+      'M4.6 1.8h10a2.2 2.2 0 0 1 2.2 2.2v16a2.2 2.2 0 0 1-2.2 2.2h-10a2.2 2.2 0 0 1-2.2-2.2V4a2.2 2.2 0 0 1 2.2-2.2z',
+      // 地球儀の輪
+      'M9.6 7.3a4.7 4.7 0 1 0 0 9.4 4.7 4.7 0 0 0 0-9.4z',
+      // 経線（左右）
+      'M9.6 7.3c-1.5 1.3-2.3 2.9-2.3 4.7s.8 3.4 2.3 4.7',
+      'M9.6 7.3c1.5 1.3 2.3 2.9 2.3 4.7s-.8 3.4-2.3 4.7',
+      // 緯線
+      'M4.9 12h9.4',
+      'M5.9 9.1h7.4',
+      'M5.9 14.9h7.4',
+      // 小口
+      'M18.8 4.4v15.2',
+    ],
+    { strokeWidth: 1.4 },
+  );
 }
 
-/** 歯車。 */
+/*
+ * 歯車。
+ *
+ * 完成見本の歯車は線ではなく「塗りつぶし」で、中心に穴がある。
+ * 線で描くと、同じ大きさでもパスポートより弱く見える。
+ * 8枚歯・外側 11.4/24・中心の穴 3.9/24 で、枠いっぱいに描く。
+ */
 export function gearIcon(): SVGSVGElement {
-  return icon([
-    'M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z',
-    'M19.4 12c0-.6-.1-1.1-.2-1.6l2-1.5-1.9-3.3-2.3 1a7.5 7.5 0 0 0-2.8-1.6L13.9 2h-3.8l-.3 2.9a7.5 7.5 0 0 0-2.8 1.7l-2.3-1L2.8 8.9l2 1.5c-.1.5-.2 1-.2 1.6s.1 1.1.2 1.6l-2 1.5 1.9 3.3 2.3-1a7.5 7.5 0 0 0 2.8 1.7l.3 2.9h3.8l.3-2.9a7.5 7.5 0 0 0 2.8-1.7l2.3 1 1.9-3.3-2-1.5c.1-.5.2-1 .2-1.6z',
-  ]);
+  return icon(
+    [
+      'M23.25 10.13 L23.25 13.87 L20.38 13.94 L19.30 16.55 L21.28 18.63 L18.63 21.28 L16.55 19.30 L13.94 20.38 L13.87 23.25 L10.13 23.25 L10.06 20.38 L7.45 19.30 L5.37 21.28 L2.72 18.63 L4.70 16.55 L3.62 13.94 L0.75 13.87 L0.75 10.13 L3.62 10.06 L4.70 7.45 L2.72 5.37 L5.37 2.72 L7.45 4.70 L10.06 3.62 L10.13 0.75 L13.87 0.75 L13.94 3.62 L16.55 4.70 L18.63 2.72 L21.28 5.37 L19.30 7.45 L20.38 10.06 Z M15.90 12.00 C15.90 9.85 14.15 8.10 12.00 8.10 C9.85 8.10 8.10 9.85 8.10 12.00 C8.10 14.15 9.85 15.90 12.00 15.90 C14.15 15.90 15.90 14.15 15.90 12.00 Z',
+    ],
+    { fill: true, evenOdd: true },
+  );
 }

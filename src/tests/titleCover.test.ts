@@ -409,14 +409,29 @@ describe('表紙の CSS', () => {
       expect(dark, '副ボタンの直下の影が薄すぎる').toBe(true);
     });
 
-    it('副ボタンは背景を取り込んで曇らせる（backdrop-filter）', () => {
+    it('副ボタンは背景を取り込んで青いガラスにする（塗りつぶさない）', () => {
       const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/)![0];
       expect(sub, 'backdrop-filter が無い').toContain('backdrop-filter:');
       expect(sub, '-webkit- の指定が無い').toContain('-webkit-backdrop-filter:');
-      // 背景を塗りつぶさないよう、明るさの下げ幅に下限を置く。
+      /*
+       * 背後の絵がどれだけ通ってくるかは
+       *   明るさの倍率 × （1 − いちばん濃い塗りの不透明度）
+       * でおおよそ決まる。明るさの値だけを見ると、
+       * 「明るいけれど濃い青で塗りつぶす」作りを見逃す。
+       * 実際に描かれた画素での透け具合は、実ブラウザ検査が測っている。
+       */
       const brightness = Number(sub.match(/brightness\(([\d.]+)\)/)?.[1]);
       expect(Number.isFinite(brightness), 'brightness の指定が無い').toBe(true);
-      expect(brightness, '背景を暗く落としすぎて風景が見えない').toBeGreaterThanOrEqual(0.7);
+      const bg = sub.match(/background:[\s\S]*?;/)?.[0] ?? '';
+      const alphas = [...bg.matchAll(/rgba\([^)]*?,\s*([\d.]+)\)/g)].map((m) => Number(m[1]));
+      expect(alphas.length, '副ボタンの塗りの色が読めない').toBeGreaterThan(0);
+      const through = brightness * (1 - Math.max(...alphas));
+      expect(
+        through,
+        `背後の絵がほとんど通らない（明るさ ${brightness} × 塗りの残り ${(1 - Math.max(...alphas)).toFixed(2)} = ${through.toFixed(2)}）`,
+      ).toBeGreaterThanOrEqual(0.45);
+      // 色を変えるだけで、絵そのものを消さない。
+      expect(sub, '色を青へ変える指定が無い').toMatch(/hue-rotate\(|rgba\(\s*\d+\s*,\s*\d+\s*,\s*[12]\d\d/);
     });
   });
 
@@ -441,6 +456,66 @@ describe('表紙の CSS', () => {
       expect(iconSource, `${name} が無い`).toContain(`export function ${name}(`);
       expect(screenSource, `${name} を表紙で使っていない`).toContain(`${name}()`);
     }
+  });
+
+  it('ボタンの文字は、見本に合わせた大きさと太さで指定してある', () => {
+    /*
+     * 完成見本（target-cover-reference.jpeg / IMG_5246.jpeg）を画素で測ると
+     *   主ボタン「旅をはじめる」 1文字の字面 18.3〜21.6 CSSpx
+     *   副ボタン カナ 8.9〜11.6 / 漢字 12.2〜12.7 CSSpx
+     * 小さく細いまま（以前は主 17px / 副 13px・太さ700）に戻したら落とす。
+     */
+    const start = titleCss.match(/\.t-start\s*\{[^}]*\}/)![0];
+    const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/)![0];
+    const px = (css: string) => Number(css.match(/font-size:\s*(?:min\(\s*)?([\d.]+)px/)?.[1]);
+    const weight = (css: string) => Number(css.match(/font-weight:\s*(\d+)/)?.[1]);
+    expect(px(start), '主ボタンの文字が小さい').toBeGreaterThanOrEqual(22);
+    expect(weight(start), '主ボタンの文字が細い').toBeGreaterThanOrEqual(800);
+    expect(px(sub), '副ボタンの文字が小さい').toBeGreaterThanOrEqual(15);
+    expect(weight(sub), '副ボタンの文字が細い').toBeGreaterThanOrEqual(800);
+    // 副ボタン2つは同じ大きさ・同じ太さ（片方だけ変えない）。
+    const only = titleCss.match(/\.t-sub-btn:(?:first|last)-child\s*\{[^}]*\}/g) ?? [];
+    for (const block of only) {
+      expect(block, '副ボタンの片方だけ文字の大きさを変えている').not.toMatch(/font-size:/);
+      expect(block, '副ボタンの片方だけ文字の太さを変えている').not.toMatch(/font-weight:/);
+    }
+  });
+
+  it('ボタンの絵記号は、見本に合わせた大きさで指定してある', () => {
+    /*
+     * 見本の絵記号（393px幅に換算）
+     *   飛行機 24.4 / パスポート 16.6x21.6 / 歯車 20.5x20.0 / 山形 5.5x10.0
+     * 副ボタンの枠を 17px に戻すと、絵は 12.5〜14.5 までしか出ない。
+     */
+    const box = (sel: string) => {
+      const m = titleCss.match(new RegExp(`${sel}\\s*\\{[^}]*\\}`));
+      expect(m, `${sel} の指定が無い`).not.toBeNull();
+      return Number(m![0].match(/width:\s*(?:(?:min|clamp)\(\s*)?([\d.]+)px/)?.[1]);
+    };
+    expect(box('\\.t-start \\.t-icon'), '主ボタンの飛行機の枠が小さい').toBeGreaterThanOrEqual(26);
+    expect(box('\\.t-sub-btn \\.t-icon'), '副ボタンの絵記号の枠が小さい').toBeGreaterThanOrEqual(21);
+  });
+
+  it('歯車は塗りつぶし、パスポートの地球儀は大きく描いてある', () => {
+    /*
+     * 見本の歯車は線ではなく塗りつぶし。線で描くと、同じ大きさでも
+     * パスポートより弱く見える（副ボタン2つの強さがそろわない）。
+     * パスポートの地球儀は、以前は枠24に対して半径3.4しかなく、
+     * 小さな画面では点にしか見えなかった。
+     */
+    const gear = iconSource.match(/export function gearIcon\(\)[\s\S]*?\n}/);
+    expect(gear, 'gearIcon が無い').not.toBeNull();
+    expect(gear![0], '歯車が塗りつぶしでない').toMatch(/fill:\s*true/);
+
+    const passport = iconSource.match(/export function passportIcon\(\)[\s\S]*?\n}/);
+    expect(passport, 'passportIcon が無い').not.toBeNull();
+    // 地球儀の輪は a<r> <r> の円弧で描いてある。その半径を見る。
+    const radii = [...passport![0].matchAll(/a([\d.]+) \1 0/g)].map((m) => Number(m[1]));
+    expect(radii.length, 'パスポートの地球儀の輪が無い').toBeGreaterThan(0);
+    expect(Math.max(...radii), 'パスポートの地球儀が小さい').toBeGreaterThanOrEqual(4);
+    // 経線と緯線があること（ただの丸にしない）。
+    expect(passport![0].split('\n').filter((l) => l.includes("'M")).length, '地球儀の線が足りない')
+      .toBeGreaterThanOrEqual(6);
   });
 
   it('主ボタンの飛行機は、機首を右上へ向けた飛行機の形である', () => {

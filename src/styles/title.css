@@ -264,15 +264,16 @@
    *   飛行機と文字のすきま 12.8 / 文字と山形のすきま 12.7
    * 画面が狭いときは折り返さないよう、幅にも合わせて小さくする。
    */
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 0;
   border-radius: 999px;
-  font-size: min(21px, 5.45vw);
+  font-size: min(22px, 5.7vw);
+  font-weight: 800;
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: min(11px, 2.8vw);
+  gap: min(13px, 3.3vw);
   color: #fff;
   /*
    * 7枚目の完成見本のボタンを、縁からの距離ごとに画素で測った値に合わせている。
@@ -361,12 +362,12 @@
   flex: 0 1 auto;
   min-width: 0;
   min-height: var(--sub-h);
-  padding: 8px 14px;
+  padding: 8px 11px;
   /* 縁は細く柔らかい白。硬い白枠にしない。 */
   border: 1px solid rgba(255, 255, 255, 0.86);
   border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   color: #fff;
   /*
    * 見本の副ボタンは、背後の石畳と花が見える青紫のガラス。
@@ -375,11 +376,22 @@
    */
   background: linear-gradient(
     180deg,
-    rgba(66, 52, 146, 0.2) 0%,
-    rgba(46, 38, 136, 0.25) 100%
+    rgba(20, 44, 178, 0.14) 0%,
+    rgba(14, 32, 166, 0.2) 100%
   );
-  backdrop-filter: blur(1.2px) saturate(1.4) brightness(0.8);
-  -webkit-backdrop-filter: blur(1.2px) saturate(1.4) brightness(0.8);
+  /*
+   * 背後の石畳は暖色なので、そのまま透かすと茶色が前に出てしまう。
+   * 青を厚く重ねて隠すと、今度は石畳の模様が消える。
+   * そこで「重ねる」のではなく「背後の色そのものを青へ変換」する。
+   *   sepia(1)      … 色みを1色にそろえる（明暗の模様はそのまま残る）
+   *   hue-rotate    … その1色を茶から青へ回す
+   *   saturate(2.6) … 青を濃くする（模様の差も一緒に強まる）
+   *   brightness    … 白い文字が読める明るさまで落とす
+   * 不透明な塗りを足していないので、石畳の目地や光の模様は通ったまま残る。
+   */
+  backdrop-filter: blur(0.4px) sepia(1) hue-rotate(186deg) saturate(2.9) brightness(0.63);
+  -webkit-backdrop-filter: blur(0.4px) sepia(1) hue-rotate(186deg) saturate(2.9)
+    brightness(0.63);
   /* 読みやすさは、塗りの濃さではなく文字の影とボタン直下の暗さで確保する。 */
   text-shadow:
     0 1px 2px rgba(2, 8, 26, 0.96),
@@ -396,7 +408,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   white-space: nowrap;
 }
 
@@ -404,14 +416,18 @@
 .t-sub-btn:active {
   background: linear-gradient(
     180deg,
-    rgba(66, 52, 146, 0.48) 0%,
-    rgba(46, 38, 136, 0.53) 100%
+    rgba(24, 52, 170, 0.3) 0%,
+    rgba(16, 38, 158, 0.36) 100%
   );
 }
 
-/* 「マイパスポート」は文字数が多いので、ひろく取る。 */
+/*
+ * 「マイパスポート」は文字数が多いので、ひろく取る。
+ * 文字を大きくしたぶん、1.35 では 375x667 で文字が切れた（余裕 1.4px）。
+ * 1.5 にして、どの画面でも 18px 以上の余裕を残す。
+ */
 .t-sub-btn:first-child {
-  flex: 1.35 1 0;
+  flex: 1.5 1 0;
 }
 
 .t-sub-btn:last-child {
@@ -424,26 +440,29 @@
 }
 
 /*
- * 飛行機は 45 度傾けてあるので、枠 24px のままだと絵の幅が 16.5px にしかならない。
- * 見本の 24.4px に合わせるため、枠を 35px まで広げる。
+ * 飛行機は枠（viewBox）を回したあとの外接範囲に合わせてあるので、
+ * 枠の大きさがほぼそのまま絵の大きさになる。見本は 24.4 CSSpx。
  */
 .t-start .t-icon {
   flex: 0 0 auto;
-  width: min(33px, 8.4vw);
-  height: min(33px, 8.4vw);
+  width: min(26px, 6.6vw);
+  height: min(26px, 6.6vw);
 }
 /*
  * 右端の山形は、見本では飛行機よりずっと小さい（幅 5.5 / 高さ 10 CSSpx）。
  * 飛行機と同じ大きさにすると、文字が2行に折り返す。
  */
 .t-start .t-icon:last-child {
-  width: min(17px, 4.3vw);
-  height: min(17px, 4.3vw);
+  width: min(14px, 3.6vw);
+  height: min(14px, 3.6vw);
 }
 
+/* 見本の副ボタンの絵記号は パスポート 21.6 / 歯車 20.0 CSSpx。 */
 .t-sub-btn .t-icon {
-  width: 17px;
-  height: 17px;
+  flex: 0 0 auto;
+  /* 狭い画面でも地球儀が分かるよう、下限を 21px にする。 */
+  width: clamp(21px, 6.4vw, 24px);
+  height: clamp(21px, 6.4vw, 24px);
 }
 
 .t-label {
