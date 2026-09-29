@@ -10,7 +10,10 @@
  */
 
 /** 24x24 の枠に収めた線画を作る。太さと色はボタンの文字色に合わせる。 */
-function icon(paths: readonly string[], options: { fill?: boolean } = {}): SVGSVGElement {
+function icon(
+  paths: readonly string[],
+  options: { fill?: boolean; rotate?: number } = {},
+): SVGSVGElement {
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
@@ -19,6 +22,11 @@ function icon(paths: readonly string[], options: { fill?: boolean } = {}): SVGSV
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
   svg.setAttribute('class', 't-icon');
+  // 傾けるときは、枠の中心（12,12）を軸にまとめて回す。
+  const group = document.createElementNS(NS, 'g');
+  if (options.rotate !== undefined) {
+    group.setAttribute('transform', `rotate(${options.rotate} 12 12)`);
+  }
   for (const d of paths) {
     const path = document.createElementNS(NS, 'path');
     path.setAttribute('d', d);
@@ -31,16 +39,26 @@ function icon(paths: readonly string[], options: { fill?: boolean } = {}): SVGSV
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
     }
-    svg.append(path);
+    group.append(path);
   }
+  svg.append(group);
   return svg;
 }
 
-/** 飛行機。主ボタンの左に置く。 */
+/*
+ * 飛行機。主ボタンの左に置く。
+ *
+ * 完成見本（IMG_5246.jpeg）のボタンを画素で測ると、
+ * 機首を右上へ向けた白い飛行機が 24x24 CSSpx で入っている。
+ * 以前の紙飛行機のような形から、胴・主翼・尾翼を持つ形へ改めた。
+ */
 export function planeIcon(): SVGSVGElement {
-  return icon(['M2.6 13.4 21.4 5.2a1 1 0 0 1 1.3 1.3l-8.2 18.8h-2l-1.6-7.4-7.4-1.6v-2z'], {
-    fill: true,
-  });
+  return icon(
+    [
+      'M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z',
+    ],
+    { fill: true, rotate: 45 },
+  );
 }
 
 /** 右向きの山形。主ボタンの右に置く。 */

@@ -260,8 +260,11 @@ describe('表紙の CSS', () => {
     expect(sub, '.t-sub-btn の指定が無い').not.toBeNull();
 
     // 高さも文字も、主ボタンのほうが大きいことを数で見る。
-    const startFont = Number(start![0].match(/font-size:\s*(\d+)px/)?.[1]);
-    const subFont = Number(sub![0].match(/font-size:\s*(\d+)px/)?.[1]);
+    // 主ボタンは画面幅にも合わせるので min(21px, 5.45vw) のように書いてある。
+    // その「上限の px」を取り出して比べる。
+    const fontPx = (css: string) => Number(css.match(/font-size:\s*(?:min\(\s*)?([\d.]+)px/)?.[1]);
+    const startFont = fontPx(start![0]);
+    const subFont = fontPx(sub![0]);
     expect(Number.isFinite(startFont), '主ボタンの文字の大きさが px で書かれていない').toBe(true);
     expect(Number.isFinite(subFont), '副ボタンの文字の大きさが px で書かれていない').toBe(true);
     expect(startFont).toBeGreaterThan(subFont);
@@ -440,6 +443,28 @@ describe('表紙の CSS', () => {
     }
   });
 
+  it('主ボタンの飛行機は、機首を右上へ向けた飛行機の形である', () => {
+    /*
+     * 完成見本（IMG_5246.jpeg）の主ボタンには、機首を右上へ向けた
+     * 白い飛行機が 24.4 x 24.4 CSSpx で入っている。
+     * 以前の「紙飛行機のような三角形」に戻ったら落とす。
+     */
+    const plane = iconSource.match(/export function planeIcon\(\)[\s\S]*?\n}/);
+    expect(plane, 'planeIcon が無い').not.toBeNull();
+    // 傾けてあること。
+    expect(plane![0], '飛行機が傾いていない').toMatch(/rotate:\s*45/);
+    // 胴・主翼・尾翼を持つ形。三角形1枚（頂点3つ）ではない。
+    const d = plane![0].match(/'(M[^']+)'/)?.[1] ?? '';
+    expect(d, '飛行機の形が無い').not.toBe('');
+    const segments = d.match(/[a-zA-Z]/g) ?? [];
+    expect(segments.length, `飛行機の形が単純すぎる（${segments.length}区切り）`).toBeGreaterThanOrEqual(
+      14,
+    );
+    // 枠のほぼ全体を使う（小さく描いて見本と違う大きさにしない）。
+    const nums = (d.match(/-?[\d.]+/g) ?? []).map(Number);
+    expect(Math.max(...nums), '飛行機が枠より小さい').toBeGreaterThanOrEqual(20);
+  });
+
   it('ロゴの大きさと位置が、目標の構図に合わせてある', () => {
     const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
     expect(logo, '.t-logo の指定が無い').not.toBeNull();
@@ -492,19 +517,52 @@ describe('表紙の CSS', () => {
     expect(logo![0]).toMatch(/drop-shadow\(0 0 \d+px rgba\(/);
   });
 
-  it('下の幕は、人物の足元ではなく操作の高さに合わせてある', () => {
-    // 画面の割合で一律に暗くすると、背景の光（石畳の足元まで続く）を消してしまう。
-    const screen = titleCss.match(/\.screen--title\s*\{[^}]*\}/g) ?? [];
-    const joined = screen.join('\n');
-    expect(joined).toMatch(/--scrim-strong:\s*calc\(var\(--safe-bottom\)/);
-    expect(joined).toMatch(/--scrim-end:\s*calc\(var\(--scrim-strong\)/);
+  it('下の幕は、画面の下端まで届く帯ではなく、副ボタンの行だけを落とす楕円である', () => {
+    /*
+     * 以前は画面の下端まで届く帯だったため、石畳と花が灰青色に沈んでいた。
+     * 完成見本（IMG_5246.jpeg）を画素で測ると、画面の下のほうは
+     *   縦96% 明るさ117 暖かさ(R-B)+78 / 縦99.5% 明るさ124 +60
+     * と暖かい光が下端まで残る。背景素材そのものにもこの光はある。
+     * 幕は副ボタンの行だけに限り、下端には届かせない。
+     */
+    const screen = (titleCss.match(/\.screen--title\s*\{[^}]*\}/g) ?? []).join('\n');
+    // 中心は副ボタンの高さの真ん中。人物の足元や画面の割合で切らない。
+    expect(screen, '幕の中心が副ボタンに結びついていない').toMatch(
+      /--scrim-y:\s*calc\(\s*var\(--safe-bottom\)\s*\+\s*var\(--btn-bottom\)\s*\+\s*var\(--sub-h\)\s*\/\s*2\s*\)/,
+    );
+    // 広がりは副ボタンの高さに縛り、さらに「中心から下端までの距離」でも抑える。
+    const r = screen.match(/--scrim-r:\s*min\([^;]*\);/)?.[0] ?? '';
+    expect(r, '幕の広がりに上限が無い').not.toBe('');
+    const bySub = Number(r.match(/var\(--sub-h\)\s*\*\s*([\d.]+)/)?.[1]);
+    expect(Number.isFinite(bySub), '幕の広がりが --sub-h に縛られていない').toBe(true);
+    expect(bySub, '幕が広がりすぎる').toBeLessThanOrEqual(2);
+    const byBottom = Number(r.match(/var\(--scrim-y\)\s*\*\s*([\d.]+)/)?.[1]);
+    expect(Number.isFinite(byBottom), '幕が画面の下端へ届かない保証が無い').toBe(true);
+    expect(byBottom, '幕が画面の下端まで届く').toBeLessThan(1);
 
     const scrim = titleCss.match(/\.t-scrim\s*\{[^}]*\}/);
     expect(scrim, '.t-scrim の指定が無い').not.toBeNull();
-    expect(scrim![0]).toContain('var(--scrim-strong)');
-    expect(scrim![0]).toContain('var(--scrim-end)');
-    // 画面の割合で幕を切る書き方へ戻っていないこと。
-    expect(scrim![0]).not.toMatch(/\)\s*\d+%/);
+    // 楕円で、下からの距離で中心を置く。
+    expect(scrim![0], '幕が楕円になっていない').toContain('radial-gradient(');
+    expect(scrim![0], '幕の中心が --scrim-y に結びついていない').toContain(
+      'calc(100% - var(--scrim-y))',
+    );
+    expect(scrim![0]).toContain('var(--scrim-r)');
+    // 画面の下端まで届く帯へ戻っていないこと。
+    expect(scrim![0], '画面全体を覆う帯に戻っている').not.toContain('linear-gradient');
+
+    const colors = [
+      ...scrim![0].matchAll(/rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/g),
+    ].map((m) => [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])] as const);
+    expect(colors.length, '幕の色が読めない').toBeGreaterThanOrEqual(2);
+    for (const [cr, cg, cb] of colors) {
+      // 冷たい紺で落とすと石畳が灰青色になる。暖かい焦げ茶で落とす。
+      expect(cr, `幕の色 rgb(${cr},${cg},${cb}) が冷たい（赤より青が強い）`).toBeGreaterThan(cb);
+    }
+    // いちばん外は透明。端で急に切れないこと。
+    expect(Math.min(...colors.map((c) => c[3])), '幕の外側が透明で終わっていない').toBe(0);
+    // 濃さの上限。これを超えると風景が沈む。
+    expect(Math.max(...colors.map((c) => c[3])), '幕が濃すぎる').toBeLessThanOrEqual(0.45);
   });
 
   it('ロゴが読めないときの文字だけの代替が用意されている', () => {

@@ -191,8 +191,77 @@ const stdev = (v) => {
  * 見本の値そのものではなく、「見本と同じ性質があるか」を見る。
  * 背景の明るさが画面サイズで変わるため、絶対値ではなく関係で判定する。
  */
+
+/** 見た目の明るさ（0〜255）。 */
+const lum8 = ([r, g, b]) => 0.213 * r + 0.715 * g + 0.072 * b;
+
+/*
+ * 白い文字の「すぐ外側」の色を集める。
+ *
+ * ボタンの中でいちばん明るい場所と比べるやり方は、文字の無い所を見てしまう。
+ * 実際に読みにくさが出るのは文字の縁なので、文字の画素から数画素だけ
+ * 外へ広げた輪の色を見る。影もこの輪に入る。
+ */
+function aroundInk(img, viewportWidth, rect, inkLum = 150, near = 2, far = 4) {
+  const s = img.width / viewportWidth;
+  const x0 = Math.max(0, Math.round(rect.x * s));
+  const x1 = Math.min(img.width, Math.round((rect.x + rect.width) * s));
+  const y0 = Math.max(0, Math.round(rect.y * s));
+  const y1 = Math.min(img.height, Math.round((rect.y + rect.height) * s));
+  const w = x1 - x0;
+  const h = y1 - y0;
+  if (w <= 0 || h <= 0) return [];
+  const at = (x, y) => {
+    const i = ((y0 + y) * img.width + (x0 + x)) * img.channels;
+    return [img.data[i], img.data[i + 1], img.data[i + 2]];
+  };
+  const ink = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      if (lum8(at(x, y)) > inkLum) ink[y * w + x] = 1;
+    }
+  }
+  // 文字の半端な明るさの画素を拾わないよう、near 画素ぶん離れた所から見る。
+  const gn = Math.max(1, Math.round(near * s));
+  const gf = Math.max(gn + 1, Math.round(far * s));
+  const dist = (x, y, g) => {
+    for (let dy = -g; dy <= g; dy += 1) {
+      for (let dx = -g; dx <= g; dx += 1) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        if (ink[ny * w + nx]) return true;
+      }
+    }
+    return false;
+  };
+  const out = [];
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      if (ink[y * w + x]) continue;
+      if (dist(x, y, gn)) continue;
+      if (dist(x, y, gf)) out.push(at(x, y));
+    }
+  }
+  return out;
+}
+
+/** 一時的に CSS を足した状態で1枚撮る。撮ったら元へ戻す。 */
+async function shotWith(page, css) {
+  const tag = await page.addStyleTag({ content: css });
+  const png = await page.screenshot();
+  await tag.evaluate((node) => node.remove());
+  return decodePng(png);
+}
+
 async function checkButtonPixels(page, m, label, check) {
   const img = decodePng(await page.screenshot());
+  // 副ボタンを消した画面。ボタンの背後に実際に何があるかを、そのまま測れる。
+  const behind = await shotWith(page, '.t-sub-btn{visibility:hidden!important}');
+  // 幕を外した画面。幕が何をどれだけ暗くしているかを、そのまま測れる。
+  const noScrim = await shotWith(page, '.t-scrim{display:none!important}');
+  // 3つのボタンを消した画面。ボタンの光が周りへどれだけ及んでいるかを測れる。
+  const noButtons = await shotWith(page, '.t-start,.t-sub-btn{visibility:hidden!important}');
   const vw = m.viewport.width;
   const S = m.start;
 
@@ -209,7 +278,7 @@ async function checkButtonPixels(page, m, label, check) {
   // --- 主ボタンの下を暗くしていない ---
   // 見本は下端の中央が rgb(2,106,253) と鮮やかなまま。
   // 修正前のように下端を rgb(6,68,200) 系へ沈めると、青が 215 前後まで落ちる。
-  const lum = ([r, g, b]) => 0.213 * r + 0.715 * g + 0.072 * b;
+  const lum = lum8;
   const bottom = pixelAt(img, vw, S.x + S.width * 0.5, S.y + S.height * 0.93);
   check(
     bottom[2] >= 235 && bottom[0] <= 45,
@@ -235,6 +304,72 @@ async function checkButtonPixels(page, m, label, check) {
     );
   }
 
+  /*
+   * --- ボタンの光が、周りの石畳の暖色を飛ばしていないこと ---
+   *
+   * 完成見本（IMG_5246.jpeg）の主ボタンの外側を画素で測ると
+   *   縁から 2〜6px は青い光、8〜10px でほぼ消え、14px 先は
+   *   rgb(246,206,155)（暖かさ +91）の石畳に戻る。
+   * 光を広げすぎると、この暖色が白く飛ぶ。ボタンを消した画面と見比べる。
+   */
+  {
+    const band = (im, y0, h) => pixelsIn(im, vw, { x: S.x, y: y0, width: S.width, height: h }, 2);
+    const avg = (v, f) => v.reduce((t, p) => t + f(p), 0) / v.length;
+    const warm = (p) => p[0] - p[2];
+    const top = Math.max(0, S.y - 22);
+    const withBtn = band(img, top, 10);
+    const without = band(noButtons, top, 10);
+    check(withBtn.length > 20, `${label}: ボタンの外側を測れていない`);
+    if (withBtn.length > 20) {
+      const loss = avg(without, warm) - avg(withBtn, warm);
+      check(
+        loss <= 45,
+        `${label}: 主ボタンの光が広がりすぎて周りの暖色を飛ばしている` +
+          `（ボタンの12〜22px上で 暖かさ ${avg(without, warm).toFixed(0)} → ${avg(withBtn, warm).toFixed(0)}）`,
+      );
+    }
+  }
+
+  /*
+   * --- 主ボタンの飛行機と文字が、見本と同じ大きさで描けていること ---
+   *
+   * 完成見本（IMG_5246.jpeg）の主ボタンの中身（ボタンの左端からの CSSpx）
+   *   飛行機 24.4 x 24.4 / 文字 1字の字面 18.3〜21.6 高 / 山形 5.5 x 10.0
+   * 小さいまま（以前は 17.5 x 16.5）だと見本の印象にならない。
+   */
+  if (m.viewport.width >= 375) {
+    const s = img.width / vw;
+    const x0 = Math.round(S.x * s);
+    const y0 = Math.round(S.y * s);
+    const w = Math.round(S.width * s);
+    const h = Math.round(S.height * s);
+    const white = [];
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const i = ((y0 + y) * img.width + (x0 + x)) * img.channels;
+        if (Math.min(img.data[i], img.data[i + 1], img.data[i + 2]) > 235) white.push([x, y]);
+      }
+    }
+    check(white.length > 100, `${label}: 主ボタンの白い中身が見つからない`);
+    if (white.length > 100) {
+      // いちばん左のかたまり＝飛行機。
+      const xs = [...new Set(white.map((p) => p[0]))].sort((a, b) => a - b);
+      let end = xs[0];
+      for (const x of xs) {
+        if (x - end > 2 * s) break;
+        end = x;
+      }
+      const plane = white.filter((p) => p[0] <= end);
+      const pw = (end - xs[0]) / s;
+      const ph =
+        (Math.max(...plane.map((p) => p[1])) - Math.min(...plane.map((p) => p[1]))) / s;
+      check(
+        pw >= 19 && ph >= 19,
+        `${label}: 主ボタンの飛行機が小さい（${pw.toFixed(1)}x${ph.toFixed(1)}px / 見本は 24.4x24.4）`,
+      );
+    }
+  }
+
   // --- 主ボタンの文字が読める ---
   // 白い文字と塗りの明暗比。文字の縁の1画素ではなく、塗りの分布で見る。
   // 塗りの明るいほう（上から10%）を、文字にとっていちばん不利な塗りとする。
@@ -251,39 +386,53 @@ async function checkButtonPixels(page, m, label, check) {
       `${label}: 主ボタンの白文字の明暗比が足りない（${ratio.toFixed(2)} / 明るいほうの塗り rgb(${bright})・見本は 2.79）`,
     );
   }
+  // 文字のすぐ外側（影を含む）での明暗比。読みにくさが実際に出る場所。
+  {
+    const ring = aroundInk(img, vw, S);
+    check(ring.length > 40, `${label}: 主ボタンの文字の縁を測れていない`);
+    if (ring.length > 40) {
+      const near = [0, 1, 2].map((c) => percentile(ring.map((p) => p[c]), 0.9));
+      const r = contrast([255, 255, 255], near);
+      check(
+        r >= 3.5,
+        `${label}: 主ボタンの文字の縁での明暗比が足りない（${r.toFixed(2)} / 縁 rgb(${near})）`,
+      );
+    }
+  }
 
   // --- 副ボタン：背景が透けている ---
+  /*
+   * 近くの背景と比べるのではなく、「副ボタンを消した画面」の同じ場所と比べる。
+   * ボタンの背後に実際にある絵が、どれだけ通ってきているかをそのまま測れる。
+   *   透け具合 = ボタン越しの色のばらつき ÷ 背後そのものの色のばらつき
+   * 文字と縁は数えない（文字のない上下の帯だけを見る）。
+   */
   for (const b of m.subButtons ?? []) {
-    /*
-     * 中は「文字のない上下の帯」だけを測る。
-     * 白い文字の縁（半端な明るさの画素）が入ると、塗りつぶしていても
-     * ばらつきが出てしまい、透けているように見えてしまう。
-     * 帯だけで測ると、不透明な塗り 0.23 / 今の透けた塗り 0.54 と分かれる。
-     */
-    const strip = (top) => pixelsIn(img, vw, { x: b.x + 10, y: top, width: b.width - 20, height: 7 }, 1);
-    const inn = [...strip(b.y + 4), ...strip(b.y + b.height - 11)];
-    // 比べる「外」は背景だけ。主ボタンが近いときは、その下からにする。
-    const above = { top: Math.max(b.y - b.height * 0.7, S.y + S.height + 2), bottom: b.y - b.height * 0.2 };
-    const below = { top: b.y + b.height * 1.2, bottom: Math.min(m.viewport.height, b.y + b.height * 1.7) };
-    const out = [
-      ...(above.bottom - above.top >= 4
-        ? pixelsIn(img, vw, { x: b.x, y: above.top, width: b.width, height: above.bottom - above.top })
-        : []),
-      ...(below.bottom - below.top >= 4
-        ? pixelsIn(img, vw, { x: b.x, y: below.top, width: b.width, height: below.bottom - below.top })
-        : []),
-    ];
-    check(inn.length > 20 && out.length > 20, `${label}: 「${b.text.trim()}」の画素を測れていない`);
-    if (inn.length > 20 && out.length > 20) {
+    const strip = (im, top) =>
+      pixelsIn(im, vw, { x: b.x + 10, y: top, width: b.width - 20, height: 7 }, 1);
+    const through = [...strip(img, b.y + 4), ...strip(img, b.y + b.height - 11)];
+    const raw = [...strip(behind, b.y + 4), ...strip(behind, b.y + b.height - 11)];
+    check(
+      through.length > 20 && through.length === raw.length,
+      `${label}: 「${b.text.trim()}」の画素を測れていない`,
+    );
+    if (through.length > 20 && through.length === raw.length) {
       const ratios = [0, 1, 2].map((c) => {
-        const so = stdev(out.map((p) => p[c]));
-        return so === 0 ? 0 : stdev(inn.map((p) => p[c])) / so;
+        const sr = stdev(raw.map((p) => p[c]));
+        return sr < 1 ? 1 : stdev(through.map((p) => p[c])) / sr;
       });
       const seeThrough = (ratios[0] + ratios[1] + ratios[2]) / 3;
       check(
-        seeThrough >= 0.38,
+        seeThrough >= 0.45,
         `${label}: 「${b.text.trim()}」が塗りつぶされていて背景が透けない` +
-          `（透け具合 ${seeThrough.toFixed(2)} / 見本は 0.52〜0.56。R ${ratios[0].toFixed(2)} G ${ratios[1].toFixed(2)} B ${ratios[2].toFixed(2)}）`,
+          `（透け具合 ${seeThrough.toFixed(2)} / R ${ratios[0].toFixed(2)} G ${ratios[1].toFixed(2)} B ${ratios[2].toFixed(2)}）`,
+      );
+      // 背後の暖かさが、ガラスを通しても残っている。
+      const warm = (v) => v.reduce((t, p) => t + (p[0] - p[2]), 0) / v.length;
+      check(
+        warm(through) >= warm(raw) - 40,
+        `${label}: 「${b.text.trim()}」が背後の暖色を殺している` +
+          `（背後 ${warm(raw).toFixed(0)} → ボタン越し ${warm(through).toFixed(0)}）`,
       );
       // 透けていても文字は読める。明るいほう（上から10%）で見る。
       // 見本を同じやり方で測ると 5.28 と 5.58。
@@ -299,7 +448,77 @@ async function checkButtonPixels(page, m, label, check) {
         ratio >= 3.5,
         `${label}: 「${b.text.trim()}」の白文字の明暗比が足りない（${ratio.toFixed(2)} / 明るいほうの背後 rgb(${bright})）`,
       );
+      // 文字のすぐ外側（影を含む）での明暗比。こちらが実際の読みにくさに近い。
+      const ring = aroundInk(img, vw, b);
+      check(ring.length > 40, `${label}: 「${b.text.trim()}」の文字の縁を測れていない`);
+      if (ring.length > 40) {
+        const near = [0, 1, 2].map((c) => percentile(ring.map((p) => p[c]), 0.9));
+        const r2 = contrast([255, 255, 255], near);
+        check(
+          r2 >= 4.5,
+          `${label}: 「${b.text.trim()}」の文字の縁での明暗比が足りない（${r2.toFixed(2)} / 縁 rgb(${near})）`,
+        );
+      }
     }
+  }
+
+  /*
+   * --- 幕が、風景を沈めていないこと ---
+   *
+   * 幕を外した画面と見比べて、幕がどこをどれだけ暗くしているかを直接測る。
+   * 完成見本（IMG_5246.jpeg）を画素で測ると、画面の下のほうは
+   *   縦96% 明るさ117 暖かさ(R-B)+78 / 縦99.5% 明るさ124 +60
+   * と暖かい光が下端まで残る。以前の実装は 72/-3 と 70/+6 まで沈んでいた。
+   */
+  {
+    const band = (im, y0, y1) =>
+      pixelsIn(
+        im,
+        vw,
+        { x: 0, y: m.viewport.height * y0, width: vw, height: m.viewport.height * (y1 - y0) },
+        3,
+      );
+    const mean = (v, f) => v.reduce((t, p) => t + f(p), 0) / v.length;
+    // 人物の足元。幕が届いていないこと。
+    const feetY = (m.cast.y + m.cast.height) / m.viewport.height;
+    const y0 = Math.max(0, feetY - 0.02);
+    const y1 = Math.min(1, feetY + 0.01);
+    const drop = 1 - mean(band(img, y0, y1), lum) / mean(band(noScrim, y0, y1), lum);
+    check(
+      drop <= 0.03,
+      `${label}: 人物の足元まで幕が暗くしている（明るさが ${(drop * 100).toFixed(1)}% 落ちている）`,
+    );
+    // 画面のいちばん下。風景の明るさと暖色が残っていること。
+    const bottom = band(img, 0.955, 0.999);
+    const bl = mean(bottom, lum);
+    const bw = mean(bottom, (p) => p[0] - p[2]);
+    check(
+      bl >= 100,
+      `${label}: 画面の下端が暗く沈んでいる（明るさ ${bl.toFixed(0)} / 見本は 117〜124）`,
+    );
+    check(
+      bw >= 20,
+      `${label}: 画面の下端から暖色が失われている（暖かさ ${bw.toFixed(0)} / 見本は +60〜+78）`,
+    );
+    const bottomDrop = 1 - bl / mean(band(noScrim, 0.955, 0.999), lum);
+    check(
+      bottomDrop <= 0.08,
+      `${label}: 幕が画面の下端まで届いている（明るさが ${(bottomDrop * 100).toFixed(1)}% 落ちている）`,
+    );
+    /*
+     * 幕そのものが、石畳の暖色を灰青色へ振っていないこと。
+     * 冷たい紺で落とすと、明るさは同じでも色みが失われる。
+     * 副ボタンの行（幕がいちばん濃い高さ）で、幕あり・なしを見比べる。
+     */
+    const warmth = (v) => mean(v, (p) => p[0] - p[2]);
+    const rowTop = (m.sub.y + m.sub.height * 0.1) / m.viewport.height;
+    const rowBottom = (m.sub.y + m.sub.height * 0.9) / m.viewport.height;
+    const scrimWarmLoss =
+      warmth(band(noScrim, rowTop, rowBottom)) - warmth(band(img, rowTop, rowBottom));
+    check(
+      scrimWarmLoss <= 20,
+      `${label}: 幕が石畳の暖色を灰青色へ振っている（暖かさが ${scrimWarmLoss.toFixed(0)} 落ちている）`,
+    );
   }
 }
 
@@ -895,19 +1114,11 @@ try {
           `${label}: 人物が小さい（絵の高さが画面の ${(castHeightRatio * 100).toFixed(1)}%）`,
         );
 
-        // 背景の光を、下の幕で沈めていない。
-        // 人物の靴（＝石畳の明るいところ）で幕がほぼ効いていないことを見る。
-        const feetAlpha = scrimAlphaAt(m, castArt.y + castArt.height);
-        check(
-          feetAlpha !== null && feetAlpha <= 0.08,
-          `${label}: 人物の足元まで幕が暗くしている（濃さ ${feetAlpha === null ? '不明' : feetAlpha.toFixed(3)}）`,
-        );
-        // 副ボタンの高さでは、逆に幕が残っていて文字が読める。
-        const subAlpha = scrimAlphaAt(m, m.sub.y + m.sub.height / 2);
-        check(
-          subAlpha !== null && subAlpha >= 0.4,
-          `${label}: 副ボタンの背後で幕が薄すぎる（濃さ ${subAlpha === null ? '不明' : subAlpha.toFixed(3)}）`,
-        );
+        /*
+         * 幕が風景を沈めていないこと、副ボタンの文字が読めることは、
+         * checkButtonPixels が画素で測っている（幕を外した画面との比較）。
+         * CSS の文字列から濃さを読む検査は、楕円の幕では測れないためやめた。
+         */
 
         // 人物の靴が主ボタンより上にある。
         check(
@@ -1110,17 +1321,6 @@ try {
             `${label}: 人物が小さい（絵の高さが画面の ${(castHeightRatio * 100).toFixed(1)}%）`,
           );
 
-          // 幕が足元の光を沈めていない／副ボタンの背後には残っている。
-          const feetAlpha = scrimAlphaAt(m, castArt.y + castArt.height);
-          check(
-            feetAlpha !== null && feetAlpha <= 0.08,
-            `${label}: 人物の足元まで幕が暗くしている（濃さ ${feetAlpha === null ? '不明' : feetAlpha.toFixed(3)}）`,
-          );
-          const subAlpha = scrimAlphaAt(m, m.sub.y + m.sub.height / 2);
-          check(
-            subAlpha !== null && subAlpha >= 0.4,
-            `${label}: 副ボタンの背後で幕が薄すぎる（濃さ ${subAlpha === null ? '不明' : subAlpha.toFixed(3)}）`,
-          );
 
           // 人物が主ボタンに重なっていない。
           check(
