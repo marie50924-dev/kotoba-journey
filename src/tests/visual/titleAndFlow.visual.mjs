@@ -76,7 +76,7 @@ const BG_NATURAL = { width: 852, height: 1846 };
 const BG_POSITION_Y = 0.27;
 /** 背景の中の位置（比率）。 */
 const LANDMARKS = {
-  globe: { left: 0.36, top: 0.21, right: 0.58, bottom: 0.33 },
+  globe: { left: 0.36, top: 0.205, right: 0.6, bottom: 0.33 },
   fuji: { left: 0.05, top: 0.33, right: 0.3, bottom: 0.41 },
 };
 /** 透過素材の、絵柄が入っている範囲（原寸比）。透明な余白を除くために使う。 */
@@ -156,6 +156,11 @@ function titleMetrics() {
     subFontSize: Number.parseFloat(
       getComputedStyle(document.querySelector('.t-sub-btn')).fontSize,
     ),
+    // 明度調整の幕の指定。どの高さをどれだけ暗くしているかを取り出す。
+    scrimGradient: (() => {
+      const node = document.querySelector('.t-scrim');
+      return node ? getComputedStyle(node).backgroundImage : '';
+    })(),
     logoAlt: logo?.getAttribute('alt') ?? '',
     castAriaHidden: cast?.getAttribute('aria-hidden') ?? '',
     // 一枚絵の名残（焼き込まれたロゴ・ボタン）が残っていないこと。
@@ -166,6 +171,83 @@ function titleMetrics() {
     lowestBottom: bottoms.length > 0 ? Math.max(...bottoms) : 0,
     viewport: { width: window.innerWidth, height: window.innerHeight },
   };
+}
+
+/**
+ * 明度調整の幕が、ある高さをどれだけ暗くしているかを求める。
+ *
+ * 幕は linear-gradient(0deg, ...) なので、0 が画面のいちばん下。
+ * 画面の座標 y を「下から何割の位置か」に直し、前後の段から補間する。
+ * 返すのは 0〜1 の濃さ（0 なら、そこは幕で暗くしていない）。
+ *
+ * 段の位置は書かなくてもよい（最初は 0、最後は 100%、途中は等間隔）。
+ * ブラウザが読み返す文字列では最初の 0 が省かれるので、
+ * 位置の省略をきちんと補わないと、先頭の段を取りこぼして
+ * 実際より薄い値を返してしまう。
+ */
+function parseGradientStops(text, viewportHeight) {
+  const inside = text.slice(text.indexOf('(') + 1, text.lastIndexOf(')'));
+  // かっこの深さを見ながら、いちばん外側のカンマだけで区切る。
+  const parts = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of inside) {
+    if (ch === '(') depth += 1;
+    if (ch === ')') depth -= 1;
+    if (ch === ',' && depth === 0) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim() !== '') parts.push(current.trim());
+
+  const stops = [];
+  for (const part of parts) {
+    const color = part.match(/rgba?\(([^)]*)\)/);
+    // 先頭の向き（0deg, to top など）には色が無いので飛ばす。
+    if (!color) continue;
+    const values = color[1].split(',').map((v) => Number.parseFloat(v));
+    const rest = part.slice(color.index + color[0].length).trim();
+    const position = rest.match(/^(-?[\d.]+)(%|px)?$/);
+    let at = null;
+    if (position) {
+      const value = Number.parseFloat(position[1]);
+      at = position[2] === '%' ? value / 100 : value / viewportHeight;
+    }
+    stops.push({ alpha: values.length > 3 ? values[3] : 1, at });
+  }
+  if (stops.length === 0) return [];
+
+  // 省かれた位置を補う。最初は 0、最後は 1、途中は前後の段の等間隔。
+  if (stops[0].at === null) stops[0].at = 0;
+  if (stops[stops.length - 1].at === null) stops[stops.length - 1].at = 1;
+  for (let i = 0; i < stops.length; i += 1) {
+    if (stops[i].at !== null) continue;
+    let next = i;
+    while (stops[next].at === null) next += 1;
+    const from = stops[i - 1].at;
+    const step = (stops[next].at - from) / (next - i + 1);
+    for (let k = i; k < next; k += 1) stops[k].at = from + step * (k - i + 1);
+  }
+  return stops;
+}
+
+function scrimAlphaAt(m, y) {
+  const stops = parseGradientStops(m.scrimGradient, m.viewport.height);
+  if (stops.length === 0) return null;
+  const fromBottom = (m.viewport.height - y) / m.viewport.height;
+  if (fromBottom <= stops[0].at) return stops[0].alpha;
+  for (let i = 1; i < stops.length; i += 1) {
+    const a = stops[i - 1];
+    const b = stops[i];
+    if (fromBottom <= b.at) {
+      const t = b.at === a.at ? 0 : (fromBottom - a.at) / (b.at - a.at);
+      return a.alpha + (b.alpha - a.alpha) * t;
+    }
+  }
+  return stops[stops.length - 1].alpha;
 }
 
 /** 背景の中の比率を、画面の座標へ直す。 */
@@ -317,7 +399,12 @@ try {
         }
         // 透過素材は縦横比のまま出す（引き伸ばさない）。
         // 箱ではなく、実際に塗られる範囲の比で見る。
-        check(m.logo.fit === 'contain', `${label}: ロゴの敷き方が contain ではない（${m.logo.fit}）`);
+        // ロゴは高さだけを指定し、幅は原寸比に任せている。
+        // そのため箱がそのまま絵の範囲になり、object-fit は働かない（fill）。
+        check(
+          m.logo.fit === 'fill',
+          `${label}: ロゴの敷き方が変わっている（${m.logo.fit}）。幅は原寸比に任せる`,
+        );
         check(m.cast.fit === 'contain', `${label}: 人物の敷き方が contain ではない（${m.cast.fit}）`);
         check(
           Math.abs(m.logo.width / m.logo.height - 1997 / 788) / (1997 / 788) < 0.01,
@@ -326,6 +413,29 @@ try {
         check(
           Math.abs(m.cast.width / m.cast.height - 1024 / 1536) / (1024 / 1536) < 0.01,
           `${label}: 人物の縦横比が原寸と違う（${(m.cast.width / m.cast.height).toFixed(4)}）`,
+        );
+
+        // ロゴが小さくなりすぎていない。
+        // 採用見本のロゴは画面幅の約71%。安全領域が無いときは
+        // 幅の上限（78vw）まで使えるので、実測 76% 以上になる。
+        const logoWidthRatio = logoArt.width / m.viewport.width;
+        check(
+          logoWidthRatio >= 0.7,
+          `${label}: ロゴが小さい（画面幅の ${(logoWidthRatio * 100).toFixed(1)}%）`,
+        );
+
+        // 背景の光を、下の幕で沈めていない。
+        // 人物の靴（＝石畳の明るいところ）で幕がほぼ効いていないことを見る。
+        const feetAlpha = scrimAlphaAt(m, castArt.y + castArt.height);
+        check(
+          feetAlpha !== null && feetAlpha <= 0.08,
+          `${label}: 人物の足元まで幕が暗くしている（濃さ ${feetAlpha === null ? '不明' : feetAlpha.toFixed(3)}）`,
+        );
+        // 副ボタンの高さでは、逆に幕が残っていて文字が読める。
+        const subAlpha = scrimAlphaAt(m, m.sub.y + m.sub.height / 2);
+        check(
+          subAlpha !== null && subAlpha >= 0.4,
+          `${label}: 副ボタンの背後で幕が薄すぎる（濃さ ${subAlpha === null ? '不明' : subAlpha.toFixed(3)}）`,
         );
 
         // 人物の靴が主ボタンより上にある。
@@ -490,6 +600,30 @@ try {
               `${label}: ${name}が画面からはみ出している`,
             );
           }
+
+          /*
+           * 切り欠きがあると、ロゴは「安全領域から地球儀まで」の帯に
+           * 押し込まれるので、切り欠きが無いときより小さくなる。
+           * それでも小さくなりすぎないことを見る。
+           * （帯をいちばん使えない 393x700＋59px でも 45% 以上ある。）
+           */
+          const logoWidthRatio = logoArt.width / m.viewport.width;
+          check(
+            logoWidthRatio >= 0.4,
+            `${label}: ロゴが小さい（画面幅の ${(logoWidthRatio * 100).toFixed(1)}%）`,
+          );
+
+          // 幕が足元の光を沈めていない／副ボタンの背後には残っている。
+          const feetAlpha = scrimAlphaAt(m, castArt.y + castArt.height);
+          check(
+            feetAlpha !== null && feetAlpha <= 0.08,
+            `${label}: 人物の足元まで幕が暗くしている（濃さ ${feetAlpha === null ? '不明' : feetAlpha.toFixed(3)}）`,
+          );
+          const subAlpha = scrimAlphaAt(m, m.sub.y + m.sub.height / 2);
+          check(
+            subAlpha !== null && subAlpha >= 0.4,
+            `${label}: 副ボタンの背後で幕が薄すぎる（濃さ ${subAlpha === null ? '不明' : subAlpha.toFixed(3)}）`,
+          );
 
           // 人物が主ボタンに重なっていない。
           check(

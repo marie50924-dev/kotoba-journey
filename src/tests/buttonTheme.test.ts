@@ -319,6 +319,73 @@ describe('副ボタン .btn--ghost の正式配色', () => {
       }
     });
 
+    /*
+     * 表紙の主ボタンは、採用見本に合わせて上から下へ
+     * 明るい空色 → 鮮やかな青 → 濃い青の層になっている。
+     *
+     * いちばん上の明るい層は「ガラスの照り」で、文字が乗る高さには来ない。
+     * 文字は縦の中央に来るので、上から 25% より下の段だけを見て
+     * 白い文字が 4.5:1 以上になることを確かめる。
+     * 明るい層が 25% より下まで伸びていないことも一緒に見る。
+     */
+    it('表紙の主ボタンは白い文字で、文字が乗る高さでは 4.5:1 以上', () => {
+      const start = block(titleCss, '.t-start');
+      expect(prop(start, 'color')).toBe('#fff');
+
+      const image = prop(start, 'background-image');
+      const stops: Array<{ color: Rgba; at: number }> = [];
+      const pattern = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)\s*([\d.]+)%/g;
+      for (let m = pattern.exec(image); m !== null; m = pattern.exec(image)) {
+        stops.push({
+          color: {
+            r: Number(m[1]),
+            g: Number(m[2]),
+            b: Number(m[3]),
+            a: m[4] === undefined ? 1 : Number(m[4]),
+          },
+          at: Number(m[5]) / 100,
+        });
+      }
+      expect(stops.length, '主ボタンの層が読めない').toBeGreaterThanOrEqual(3);
+
+      // 文字が乗る高さ（上から25%より下）の段は、すべて読める濃さ。
+      const textBand = stops.filter((stop) => stop.at >= 0.25);
+      expect(textBand.length, '文字の高さに当たる段が無い').toBeGreaterThanOrEqual(2);
+      for (const stop of textBand) {
+        const value = contrast(stop.color, WHITE);
+        expect(
+          value,
+          `上から ${(stop.at * 100).toFixed(0)}% の色が ${value.toFixed(2)}:1`,
+        ).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+      }
+
+      // 明るい照りの層は、文字の高さまで下りてきていない。
+      const bright = stops.filter((stop) => contrast(stop.color, WHITE) < MIN_TEXT_CONTRAST);
+      for (const stop of bright) {
+        expect(
+          stop.at,
+          `明るい層が上から ${(stop.at * 100).toFixed(0)}% まで下りている`,
+        ).toBeLessThan(0.25);
+      }
+
+      // 「鮮やかな青」であること（不透明の灰色や橙へ戻っていない）。
+      for (const stop of stops) {
+        expect(isBlueish(stop.color), `rgb(${stop.color.r},${stop.color.g},${stop.color.b}) が青系でない`).toBe(true);
+      }
+    });
+
+    it('表紙の主ボタンには、まわりへ広がる水色の光がある', () => {
+      const start = block(titleCss, '.t-start');
+      const shadow = prop(start, 'box-shadow');
+      // 外側へ広がる光を3段以上重ねている。
+      const blurs = shadow.match(/0 0 \d+px/g) ?? [];
+      expect(blurs.length, '外へ広がる光が足りない').toBeGreaterThanOrEqual(3);
+      // いちばん外は白い細い輪。
+      expect(shadow).toMatch(/0 0 0 [\d.]+px rgba\(255, 255, 255/);
+      // 内側の上に明るい線（ガラスの厚み）。
+      expect(shadow).toContain('inset');
+    });
+
     it('表紙以外の副ボタンは、濃い青の文字のまま', () => {
       // .btn--ghost の文字色は表紙の外では変えていない。
       expect(textColor).toBe('var(--c-sky)');

@@ -31,6 +31,26 @@
 }
 
 /* ---- レイヤー1：明度調整（下だけ） ---- */
+/*
+ * ボタンの文字を読めるようにするための幕。
+ *
+ * 以前は画面の下 34% までを一律に暗くしていたため、背景素材にある
+ * 「地球儀の下から人物のあいだを通って石畳の足元へ続く光」まで
+ * 沈めてしまっていた。
+ *
+ * そこで、幕の広がりを画面の割合ではなく「操作の位置」に合わせる。
+ *   ・副ボタンの上端（安全領域 + 56px）より少し上までは濃いまま
+ *   ・そこから 48px のあいだで消える
+ * ホームバーがある端末では操作全体が上へ動くので、幕も一緒に上へ動く。
+ *
+ * 人物の靴は、どの対象サイズでも幕が消える高さより 31px 以上うえにある
+ * （実ブラウザテストで毎回測っている）。
+ */
+.screen--title {
+  --scrim-strong: calc(var(--safe-bottom) + 60px);
+  --scrim-end: calc(var(--safe-bottom) + 108px);
+}
+
 .t-scrim {
   position: absolute;
   inset: 0;
@@ -38,33 +58,61 @@
   pointer-events: none;
   background: linear-gradient(
     0deg,
-    rgba(10, 30, 54, 0.5) 0%,
-    rgba(10, 30, 54, 0.2) 16%,
-    rgba(10, 30, 54, 0) 34%
+    rgba(8, 24, 52, 0.58) 0,
+    rgba(8, 24, 52, 0.5) var(--scrim-strong),
+    rgba(8, 24, 52, 0.18) calc(var(--scrim-strong) + 24px),
+    rgba(8, 24, 52, 0) var(--scrim-end)
   );
 }
 
 /* ---- レイヤー2：ロゴ ---- */
 /*
- * 地球儀（背景の 21%〜33%）より上に収める大きさにしてある。
- * 透過素材なので、絵柄の外の透明な余白ぶんだけ実際の文字は内側に出る。
+ * 大きさと位置は「上の安全領域から地球儀の上端まで」の帯に合わせて決める。
+ *
+ *   帯の上端 = 安全領域 + 1.4dvh
+ *   帯の下端 = 19dvh - 5px（地球儀の上端は、6サイズのどれでも 19.07dvh より下）
+ *
+ * logo.png は透過で、文字のまわりに淡い光の余白がある。
+ * 実際に絵があるのは画像の高さの 13.58%〜93.78%（＝ 80.2%）なので、
+ * 箱の高さではなく、この「絵の高さ」で帯に合わせる。
+ *
+ * 幅は画面の 78% までとし、height だけを指定して width: auto に任せる。
+ * こうすると縦横比が崩れず、幅が画面を越えることもない。
  */
 .t-logo {
+  /* 素材の中で絵が始まる高さ・絵の高さ（画像の高さに対する比）。 */
+  --art-top: 0.1358;
+  --art-span: 0.802;
+  /* 縦横比（1997 / 788）。幅の上限から高さの上限を出すのに使う。 */
+  --logo-ratio: 2.534;
+  /*
+   * 上の空き。切り欠きが無い画面では 3dvh 空け、
+   * 切り欠きがある画面ではその高さで足りるので 12px だけ足す。
+   */
+  --band-top: calc(var(--safe-top) + max(12px, 3dvh - var(--safe-top)));
+  --band-bottom: calc(19dvh - 5px);
+  --logo-h: min(
+    calc((var(--band-bottom) - var(--band-top)) / var(--art-span)),
+    calc(78vw / var(--logo-ratio))
+  );
+
   position: absolute;
-  top: calc(var(--safe-top) + 2.5dvh);
+  /* 絵の上端が帯の上端へ来るよう、透明な余白のぶんだけ持ち上げる。 */
+  top: calc(var(--band-top) - var(--logo-h) * var(--art-top));
   left: 50%;
   transform: translateX(-50%);
-  width: min(78vw, 400px);
-  height: auto;
-  /*
-   * 地球儀の上端は画面の約21%に来る。ロゴの下端がそこへ届かないよう、
-   * 高さに上限を置く。切り欠き（safe-top）があるとロゴは下へ動くので、
-   * そのぶん上限も小さくなり、地球儀に重ならない。
-   */
-  max-height: max(40px, calc(16.5dvh - var(--safe-top)));
-  object-fit: contain;
+  height: var(--logo-h);
+  width: auto;
   z-index: 2;
-  filter: drop-shadow(0 4px 12px rgba(10, 30, 60, 0.42));
+  /*
+   * 採用見本のロゴは、まわりへ水色の光が広がって背景へ溶けている。
+   * 影を重ねて同じ見え方にする。素材そのものには手を加えない。
+   */
+  filter:
+    drop-shadow(0 0 8px rgba(150, 214, 255, 0.85))
+    drop-shadow(0 0 22px rgba(86, 176, 255, 0.6))
+    drop-shadow(0 0 48px rgba(52, 140, 240, 0.4))
+    drop-shadow(0 4px 12px rgba(10, 30, 60, 0.4));
 }
 
 /* ロゴが読めなかったときの文字だけの代替。 */
@@ -145,12 +193,19 @@
   gap: 10px;
 }
 
-/* 主操作。採用見本では画面幅の約60%の小ぶりなピル型。 */
+/*
+ * 主操作。採用見本の「鮮やかな青・内側が明るい・まわりへ水色の光」を作る。
+ *
+ * 色は上から下へ、明るい空色→鮮やかな青→濃い青。
+ * 上の明るい帯は 12% までで終わらせ、文字が乗る高さ（25%以降）では
+ * 白い文字が 4.5:1 以上になる濃さにしてある（単体テストで計算して確かめる）。
+ */
 .t-start {
   width: min(70%, 300px);
   min-width: 200px;
   min-height: 52px;
   padding: 8px 18px;
+  border: 0;
   border-radius: 999px;
   font-size: 17px;
   letter-spacing: 0.04em;
@@ -158,17 +213,30 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  color: #fff;
+  background-color: rgb(42, 115, 216);
+  background-image: linear-gradient(
+    180deg,
+    rgb(168, 222, 255) 0%,
+    rgb(96, 174, 252) 12%,
+    rgb(42, 115, 216) 30%,
+    rgb(29, 89, 180) 68%,
+    rgb(20, 66, 143) 100%
+  );
+  text-shadow: 0 1px 3px rgba(6, 28, 64, 0.5);
   /*
-   * 採用見本の主ボタンは、白い細い縁取りの外へ青い光が広がっている。
-   * 影を重ねて同じ見え方にする。画像は使わない。
+   * いちばん外は白い細い輪、その外へ水色の光が3段階で広がる。
+   * 内側の上には明るい線を入れて、ガラスのような厚みを出す。
    */
   box-shadow:
-    0 0 0 1.5px rgba(255, 255, 255, 0.82),
-    0 0 10px rgba(120, 196, 255, 0.85),
-    0 0 26px rgba(70, 156, 255, 0.7),
-    0 0 46px rgba(48, 128, 232, 0.45),
-    0 8px 22px rgba(18, 78, 145, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    0 0 0 2px rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(190, 236, 255, 0.95),
+    0 0 26px rgba(110, 196, 255, 0.8),
+    0 0 48px rgba(72, 164, 255, 0.55),
+    0 0 82px rgba(56, 140, 245, 0.32),
+    0 10px 26px rgba(10, 44, 96, 0.38),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.62),
+    inset 0 -3px 8px rgba(8, 32, 78, 0.3);
 }
 
 /* 副操作。主ボタンより小さく、控えめに。 */
@@ -180,26 +248,32 @@
 }
 
 /*
- * 採用見本の副ボタンは、白い輪郭だけの透けたピル型で、文字は白い。
- * 背景の絵が透けて見えるぶん文字が読みにくくなるので、
- * ほんの少し暗い下地を敷き、文字に薄い影を付けて読めるようにする。
- * （下側には .t-scrim が掛かっているので、ここは軽い下地で足りる。）
+ * 採用見本の副ボタンは、背景が透ける青紫のガラスに、
+ * 白く淡く光る輪郭が付いている。文字は白。
+ *
+ * 下地は半透明なので背景の絵が透けるが、いちばん明るい写真が
+ * 背後に来た場合でも白い文字が 4.5:1 以上になる濃さにしてある
+ * （幕のいちばん薄い段で計算。単体テストで確かめる）。
  */
 .t-sub-btn {
   flex: 0 1 auto;
   min-width: 0;
   min-height: var(--tap-min);
   padding: 8px 14px;
-  border: 1.5px solid rgba(255, 255, 255, 0.86);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: rgba(10, 30, 54, 0.55);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgba(44, 32, 86, 0.56);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   text-shadow: 0 1px 3px rgba(6, 22, 42, 0.75);
-  box-shadow: 0 4px 14px rgba(10, 32, 56, 0.28);
+  box-shadow:
+    0 0 10px rgba(170, 198, 255, 0.5),
+    0 0 22px rgba(120, 160, 255, 0.26),
+    0 4px 14px rgba(10, 32, 56, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -209,7 +283,7 @@
 
 /* 押している間だけ、少し明るくして手応えを出す。 */
 .t-sub-btn:active {
-  background: rgba(10, 30, 54, 0.72);
+  background: rgba(44, 32, 86, 0.74);
 }
 
 /* 「マイパスポート」は文字数が多いので、ひろく取る。 */

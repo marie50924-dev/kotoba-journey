@@ -4,6 +4,8 @@ import titleScreenSource from '../screens/titleScreen.ts?raw';
 import titleIconsSource from '../components/titleIcons.ts?raw';
 import {
   TITLE_ASSETS,
+  TITLE_GLOBE_TOP_MIN,
+  TITLE_LOGO_ART,
   TITLE_BACKGROUND_LANDMARKS,
   TITLE_BACKGROUND_POSITION_Y,
   TITLE_LAYERS,
@@ -265,14 +267,53 @@ describe('表紙の CSS', () => {
     }
   });
 
-  it('ロゴの高さに上限があり、切り欠きのぶん小さくなる', () => {
+  it('ロゴの大きさが「安全領域から地球儀まで」の帯から決まる', () => {
     const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
     expect(logo, '.t-logo の指定が無い').not.toBeNull();
-    // 切り欠きでロゴが下がると地球儀に重なるので、上限も safe-top で縮める。
-    expect(logo![0]).toMatch(/max-height:\s*max\(/);
+
+    // 帯の上端は安全領域から、下端は地球儀の上端から決める。
     expect(logo![0]).toContain('--safe-top');
-    // 上限で押さえるとき、縦横が崩れないようにする。
-    expect(logo![0]).toContain('object-fit: contain');
+    expect(logo![0]).toMatch(/--band-bottom:\s*calc\(\s*19dvh/);
+    // 高さは「帯の高さ」と「幅の上限」の小さいほうを採る。
+    expect(logo![0]).toMatch(/--logo-h:\s*min\(/);
+    expect(logo![0]).toContain('vw');
+    // 幅は原寸比に任せるので、縦横比が崩れない。
+    expect(logo![0]).toContain('width: auto');
+    expect(logo![0]).toMatch(/height:\s*var\(--logo-h\)/);
+
+    // 素材の透明な余白の値は、データ側の実測値と一致していること。
+    expect(logo![0]).toContain(`--art-top: ${TITLE_LOGO_ART.top}`);
+    const span = Number((TITLE_LOGO_ART.bottom - TITLE_LOGO_ART.top).toFixed(4));
+    expect(logo![0]).toContain(`--art-span: ${span}`);
+  });
+
+  it('ロゴの上限は、地球儀がいちばん高く来る位置より上に置かれている', () => {
+    // CSS は 19dvh を使う。データ側の実測値より下であってはならない。
+    expect(TITLE_GLOBE_TOP_MIN).toBeLessThanOrEqual(0.19);
+    expect(TITLE_GLOBE_TOP_MIN).toBeGreaterThan(0.15);
+  });
+
+  it('ロゴには背景へ溶ける光が付いている', () => {
+    const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
+    // 採用見本のロゴはまわりへ水色の光が広がっている。影を重ねて作る。
+    const glows = logo![0].match(/drop-shadow\(/g) ?? [];
+    expect(glows.length, '光の影が足りない').toBeGreaterThanOrEqual(3);
+    expect(logo![0]).toMatch(/drop-shadow\(0 0 \d+px rgba\(/);
+  });
+
+  it('下の幕は、人物の足元ではなく操作の高さに合わせてある', () => {
+    // 画面の割合で一律に暗くすると、背景の光（石畳の足元まで続く）を消してしまう。
+    const screen = titleCss.match(/\.screen--title\s*\{[^}]*\}/g) ?? [];
+    const joined = screen.join('\n');
+    expect(joined).toMatch(/--scrim-strong:\s*calc\(var\(--safe-bottom\)/);
+    expect(joined).toMatch(/--scrim-end:\s*calc\(var\(--safe-bottom\)/);
+
+    const scrim = titleCss.match(/\.t-scrim\s*\{[^}]*\}/);
+    expect(scrim, '.t-scrim の指定が無い').not.toBeNull();
+    expect(scrim![0]).toContain('var(--scrim-strong)');
+    expect(scrim![0]).toContain('var(--scrim-end)');
+    // 画面の割合で幕を切る書き方へ戻っていないこと。
+    expect(scrim![0]).not.toMatch(/\)\s*\d+%/);
   });
 
   it('ロゴが読めないときの文字だけの代替が用意されている', () => {
