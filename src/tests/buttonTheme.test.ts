@@ -296,10 +296,14 @@ describe('副ボタン .btn--ghost の正式配色', () => {
       const sub = block(titleCss, '.t-sub-btn');
       expect(prop(sub, 'color')).toBe('#fff');
 
+      // 下地は1色でもグラデーションでもよいが、どの色も透けていること。
+      // 計算には、いちばん薄い段（＝文字にとっていちばん不利な段）を使う。
       const fillList = rgbaList(prop(sub, 'background'));
-      expect(fillList.length, '副ボタンの下地が rgba で書かれていない').toBe(1);
-      const subFill = fillList[0];
-      expect(subFill.a, '下地が不透明になっている（透けなくなっている）').toBeLessThan(1);
+      expect(fillList.length, '副ボタンの下地の色が読めない').toBeGreaterThanOrEqual(1);
+      for (const c of fillList) {
+        expect(c.a, `下地 rgba(${c.r},${c.g},${c.b},${c.a}) が不透明で、背景が透けない`).toBeLessThan(1);
+      }
+      const subFill = fillList.reduce((a, b) => (a.a <= b.a ? a : b));
 
       const scrimAlphas = rgbaList(block(titleCss, '.t-scrim'))
         .map((c) => c.a)
@@ -308,9 +312,19 @@ describe('副ボタン .btn--ghost の正式配色', () => {
       const scrimColor = rgbaList(block(titleCss, '.t-scrim'))[0];
       const weakestScrim = { ...scrimColor, a: Math.min(...scrimAlphas) };
 
+      /*
+       * 下地を透かしたぶん、読みやすさは文字の影が受け持つ。
+       * 影はぼけるので、文字の縁では指定どおりの濃さは出ない。
+       * いちばん濃い影の半分だけが効く、という辛い見方で計算する。
+       */
+      const shadowList = rgbaList(prop(sub, 'text-shadow'));
+      expect(shadowList.length, '副ボタンの文字に影が無い').toBeGreaterThanOrEqual(1);
+      const strongest = shadowList.reduce((a, b) => (a.a >= b.a ? a : b));
+      const halo = { ...strongest, a: strongest.a / 2 };
+
       for (const backdrop of BACKDROPS) {
         const behind = composite(weakestScrim, backdrop.color);
-        const effective = composite(subFill, behind);
+        const effective = composite(halo, composite(subFill, behind));
         const value = contrast(effective, WHITE);
         expect(
           value,
@@ -332,10 +346,18 @@ describe('副ボタン .btn--ghost の正式配色', () => {
       const start = block(titleCss, '.t-start');
       expect(prop(start, 'color')).toBe('#fff');
 
+      /*
+       * 塗りは複数の層を重ねている。ここで見るのは、いちばん下の
+       * 「地」の縦のグラデーション（180deg）だけ。上に重なる半透明の層まで
+       * 合わせた実際の見え方は、実ブラウザ検査が画素で測っている
+       * （checkButtonPixels の「白文字の明暗比」）。
+       */
       const image = prop(start, 'background-image');
+      const base = image.match(/linear-gradient\(\s*180deg,[\s\S]*?\)(?=\s*;|\s*$)/)?.[0] ?? '';
+      expect(base, '主ボタンの地のグラデーション（180deg）が無い').not.toBe('');
       const stops: Array<{ color: Rgba; at: number }> = [];
       const pattern = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)\s*([\d.]+)%/g;
-      for (let m = pattern.exec(image); m !== null; m = pattern.exec(image)) {
+      for (let m = pattern.exec(base); m !== null; m = pattern.exec(base)) {
         stops.push({
           color: {
             r: Number(m[1]),
@@ -372,16 +394,32 @@ describe('副ボタン .btn--ghost の正式配色', () => {
       for (const stop of stops) {
         expect(isBlueish(stop.color), `rgb(${stop.color.r},${stop.color.g},${stop.color.b}) が青系でない`).toBe(true);
       }
+
+      // 地の上に重ねる層は半透明。ここを不透明にして塗りつぶせないようにする。
+      // 注記（/* ... */）の中に書いた実測値の色は数えない。
+      const overlays = image.replace(base, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const c of rgbaList(overlays)) {
+        expect(c.a, `重ねる層 rgba(${c.r},${c.g},${c.b},${c.a}) が濃すぎる`).toBeLessThanOrEqual(0.95);
+      }
     });
 
     it('表紙の主ボタンには、まわりへ広がる水色の光がある', () => {
       const start = block(titleCss, '.t-start');
       const shadow = prop(start, 'box-shadow');
       // 外側へ広がる光を3段以上重ねている。
-      const blurs = shadow.match(/0 0 \d+px/g) ?? [];
+      const blurs = shadow.match(/0 0 \d+px(?: \d+px)?/g) ?? [];
       expect(blurs.length, '外へ広がる光が足りない').toBeGreaterThanOrEqual(3);
-      // いちばん外は白い細い輪。
-      expect(shadow).toMatch(/0 0 0 [\d.]+px rgba\(255, 255, 255/);
+      /*
+       * いちばん外は細い輪。7枚目の完成見本を画素で測ると rgb(177,255,255) の
+       * 水色で、硬い白枠ではない。白 rgb(255,255,255) に戻したら落とす。
+       */
+      const ring = shadow.match(/0 0 0 ([\d.]+)px rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      expect(ring, 'いちばん外の細い輪が無い').not.toBeNull();
+      expect(Number(ring![1]), '輪が太すぎて硬い枠に見える').toBeLessThanOrEqual(1.5);
+      const ringR = Number(ring![2]);
+      const ringB = Number(ring![4]);
+      expect(ringB, `輪 rgb(${ringR},${ring![3]},${ringB}) が水色でない`).toBeGreaterThanOrEqual(240);
+      expect(ringB - ringR, `輪 rgb(${ringR},${ring![3]},${ringB}) が白すぎる`).toBeGreaterThanOrEqual(40);
       // 内側の上に明るい線（ガラスの厚み）。
       expect(shadow).toContain('inset');
     });

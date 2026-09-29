@@ -285,9 +285,136 @@ describe('表紙の CSS', () => {
     // 中は透けて背景の絵が見える。白い輪郭と白い文字。
     expect(sub![0]).toMatch(/border:\s*[\d.]+px solid rgba\(255, 255, 255/);
     expect(sub![0]).toContain('color: #fff');
-    expect(sub![0]).toMatch(/background:\s*rgba\([^)]*0\.\d+\)/);
+    // 塗りの色はどれも半透明。不透明な色を1つでも置いたら落ちる。
+    const bg = sub![0].match(/background:[\s\S]*?;/)?.[0] ?? '';
+    const bgAlphas = [...bg.matchAll(/rgba\([^)]*?,\s*([\d.]+)\)/g)].map((m) => Number(m[1]));
+    expect(bgAlphas.length, '副ボタンの塗りに色が無い').toBeGreaterThan(0);
+    expect(Math.max(...bgAlphas), '副ボタンの塗りが濃すぎて背景が透けない').toBeLessThanOrEqual(0.4);
     // 絵の上でも読めるよう、文字に影を付ける。
     expect(sub![0]).toContain('text-shadow');
+  });
+
+  /*
+   * 7枚目の完成見本のボタンを画素で測った結果に、CSSの指定を縛る。
+   * 見本の実測（393px幅に換算した、縁からの距離ごとの色）
+   *   縁の外 -8px rgb(82,98,173) / -4px rgb(20,100,240) / -1px rgb(35,129,225)
+   *   縁      rgb(177,255,255)
+   *   縁の内 +2px rgb(1,131,251) / +8px rgb(2,106,253)
+   *   塗りの横断面 rgb(1〜7, 106〜153, 251〜255)
+   * 赤がほとんど無い澄んだ青で、外へ広がるのは白い靄ではなく青い光。
+   */
+  describe('ボタンの見え方（7枚目の完成見本の実測に合わせる）', () => {
+    const start = () => {
+      const m = titleCss.match(/\.t-start\s*\{[^}]*\}/);
+      expect(m, '.t-start の指定が無い').not.toBeNull();
+      return m![0];
+    };
+    /** 括弧の中のコンマを避けて、いちばん外側のコンマだけで分ける。 */
+    const splitTop = (css: string) => {
+      const out: string[] = [];
+      let depth = 0;
+      let cur = '';
+      for (const ch of css) {
+        if (ch === '(') depth += 1;
+        if (ch === ')') depth -= 1;
+        if (ch === ',' && depth === 0) {
+          out.push(cur.trim());
+          cur = '';
+        } else cur += ch;
+      }
+      if (cur.trim()) out.push(cur.trim());
+      return out;
+    };
+    /** rgb() / rgba() を拾って [r,g,b,a] にする。 */
+    const colors = (css: string) =>
+      [...css.matchAll(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/g)].map(
+        (m) => [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])] as const,
+      );
+
+    it('主ボタンの塗りは、赤がほとんど無い澄んだ青である', () => {
+      const bg = start().match(/background-color:[\s\S]*?;\s*background-image:[\s\S]*?;/)?.[0];
+      expect(bg, '主ボタンの塗りの指定が無い').toBeTruthy();
+      // 不透明に近い色（a >= 0.5）だけを見る。淡い雲や水色の差し色は対象外。
+      // 地の色だけを見る（淡い雲や差し色の半透明は対象外）。
+      const solid = colors(bg!).filter((c) => c[3] >= 0.9);
+      expect(solid.length, '主ボタンの塗りに色が無い').toBeGreaterThan(0);
+      for (const [r, g, b] of solid) {
+        expect(b, `主ボタンの塗り rgb(${r},${g},${b}) が青くない`).toBeGreaterThan(200);
+        expect(r, `主ボタンの塗り rgb(${r},${g},${b}) は赤が強すぎる`).toBeLessThanOrEqual(80);
+        expect(b - r, `主ボタンの塗り rgb(${r},${g},${b}) の青みが足りない`).toBeGreaterThanOrEqual(150);
+      }
+    });
+
+    it('主ボタンの下端を暗くしていない（見本は下も鮮やかなまま）', () => {
+      // 地の色の縦のグラデーション。最後の色が真ん中の色より暗ければ落とす。
+      const base = start().match(/linear-gradient\(\s*180deg,([\s\S]*?)\)\s*;/)?.[1];
+      expect(base, '主ボタンの地のグラデーションが無い').toBeTruthy();
+      const stops = colors(base!);
+      expect(stops.length, '地の色が少なすぎる').toBeGreaterThanOrEqual(3);
+      const lum = ([r, g, b]: readonly number[]) => 0.213 * r + 0.715 * g + 0.072 * b;
+      const middle = Math.min(...stops.slice(1, -1).map(lum));
+      expect(
+        lum(stops[stops.length - 1]),
+        `下端 rgb(${stops[stops.length - 1].slice(0, 3)}) が途中より暗い`,
+      ).toBeGreaterThan(middle);
+    });
+
+    it('主ボタンの縁は硬い白枠ではなく、水色の細い線である', () => {
+      const ring = start().match(/box-shadow:[\s\S]*?;/)?.[0].match(/0 0 0 ([\d.]+)px (rgba?\([^)]*\))/);
+      expect(ring, '主ボタンのいちばん外の輪が無い').not.toBeNull();
+      expect(Number(ring![1]), '輪が太すぎて硬い枠に見える').toBeLessThanOrEqual(1.5);
+      const [r, g, b] = colors(ring![2])[0];
+      // 白 rgb(255,255,255) ではなく、青に寄った水色。
+      expect(b, `縁 rgb(${r},${g},${b}) が水色でない`).toBeGreaterThanOrEqual(240);
+      expect(b - r, `縁 rgb(${r},${g},${b}) が白すぎる`).toBeGreaterThanOrEqual(40);
+    });
+
+    it('主ボタンの外へ広がる光は、白い靄ではなく青い光である', () => {
+      const shadow = start().match(/box-shadow:[\s\S]*?;/)?.[0] ?? '';
+      // inset を除いた、外へ広がる影のうち、ぼかしが 4px 以上のもの。
+      const outer = splitTop(shadow.replace(/^box-shadow:/, '').replace(/;$/, ''))
+        .map((t) => t.replace(/\s+/g, ' ').trim())
+        .filter((t) => !t.startsWith('inset') && /^0 0 [\d.]+px/.test(t));
+      const glows = outer.filter((t) => Number(t.match(/^0 0 ([\d.]+)px/)![1]) >= 4);
+      expect(glows.length, '外へ広がる光が無い').toBeGreaterThanOrEqual(3);
+      for (const g of glows) {
+        const [r, gg, b] = colors(g)[0];
+        expect(b - r, `外の光 rgb(${r},${gg},${b}) が青くない（白い靄になっている）`).toBeGreaterThanOrEqual(
+          120,
+        );
+      }
+    });
+
+    it('読みやすさは、塗りの濃さではなく文字の影とボタン直下の暗さで確保している', () => {
+      expect(start()).toContain('text-shadow');
+      const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/)![0];
+      expect(sub).toContain('text-shadow');
+      // 副ボタンの直下だけを暗くする影（縦のずれがあって、色が暗い）。
+      const down = splitTop(
+        sub
+          .match(/box-shadow:[\s\S]*?;/)![0]
+          .replace(/^box-shadow:/, '')
+          .replace(/;$/, ''),
+      )
+        .map((t) => t.replace(/\s+/g, ' ').trim())
+        .filter((t) => /^0 [\d.]+px [\d.]+px/.test(t) && !t.startsWith('inset'));
+      expect(down.length, '副ボタンの直下を暗くする影が無い').toBeGreaterThan(0);
+      const dark = down.some((t) => {
+        const c = colors(t)[0];
+        return c && 0.213 * c[0] + 0.715 * c[1] + 0.072 * c[2] < 60 && c[3] >= 0.3;
+      });
+      expect(dark, '副ボタンの直下の影が薄すぎる').toBe(true);
+    });
+
+    it('副ボタンは背景を取り込んで曇らせる（backdrop-filter）', () => {
+      const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/)![0];
+      expect(sub, 'backdrop-filter が無い').toContain('backdrop-filter:');
+      expect(sub, '-webkit- の指定が無い').toContain('-webkit-backdrop-filter:');
+      // 背景を塗りつぶさないよう、明るさの下げ幅に下限を置く。
+      const brightness = Number(sub.match(/brightness\(([\d.]+)\)/)?.[1]);
+      expect(Number.isFinite(brightness), 'brightness の指定が無い').toBe(true);
+      expect(brightness, '背景を暗く落としすぎて風景が見えない').toBeGreaterThanOrEqual(0.7);
+    });
   });
 
   it('ボタンはどれも丸い（ピル型）で、採用見本と同じ形にしている', () => {

@@ -256,30 +256,62 @@
   justify-content: center;
   gap: 10px;
   color: #fff;
-  background-color: rgb(18, 104, 240);
-  background-image: linear-gradient(
-    180deg,
-    rgb(176, 226, 255) 0%,
-    rgb(88, 170, 252) 12%,
-    rgb(18, 104, 240) 30%,
-    rgb(10, 84, 222) 70%,
-    rgb(6, 68, 200) 100%
-  );
-  text-shadow: 0 1px 3px rgba(4, 24, 60, 0.45);
   /*
-   * いちばん外は白い細い輪、その外へ水色の光が4段階で広がる。
-   * 内側の上には明るい線を入れて、ガラスのような厚みを出す。
+   * 7枚目の完成見本のボタンを、縁からの距離ごとに画素で測った値に合わせている。
+   * （393px幅に換算した位置 → 見本の色）
+   *   縁の外 -8px rgb(82,98,173) / -4px rgb(20,100,240) / -1px rgb(35,129,225)
+   *     → 外の光は白い靄ではなく、濃い青。
+   *   縁      rgb(177,255,255)  → 細い水色白の線。硬い白枠にしない。
+   *   縁の内 +2px rgb(1,131,251) / +8px rgb(2,106,253)
+   *   塗りの横断面（上から12%） rgb(1〜7, 106〜153, 251〜255)
+   *     → 赤がほとんど無い、澄んだ青。白を混ぜない。
+   *   塗りの左下・右下 rgb(110,182,254) 前後の淡い雲が残る。
+   */
+  background-color: rgb(2, 96, 250);
+  background-image:
+    /* 内側の下寄りに残る、淡い雲のような明るみ（左・右） */
+    radial-gradient(44% 52% at 14% 72%, rgba(150, 222, 255, 0.72) 0%, rgba(150, 222, 255, 0) 72%),
+    radial-gradient(38% 46% at 86% 76%, rgba(140, 214, 255, 0.6) 0%, rgba(140, 214, 255, 0) 72%),
+    /* 中央がわずかに明るい */
+    radial-gradient(52% 130% at 50% 50%, rgba(6, 122, 254, 0.42) 0%, rgba(6, 122, 254, 0) 72%),
+    /* 左右のふち寄りを濃い青にする（見本の内側左右 rgb(1,62,231)） */
+    linear-gradient(
+      90deg,
+      rgba(0, 54, 228, 0.55) 0%,
+      rgba(0, 54, 228, 0) 18%,
+      rgba(0, 54, 228, 0) 82%,
+      rgba(0, 54, 228, 0.55) 100%
+    ),
+    /* 地の色。下端を暗くせず、見本どおり鮮やかなまま終わらせる。 */
+    linear-gradient(
+      180deg,
+      rgb(2, 118, 252) 0%,
+      rgb(1, 96, 250) 26%,
+      rgb(1, 80, 246) 58%,
+      rgb(2, 104, 252) 100%
+    );
+  /* 塗りを濃くする代わりに、文字の影で読みやすさを保つ。 */
+  text-shadow:
+    0 1px 2px rgba(3, 22, 62, 0.6),
+    0 0 12px rgba(3, 26, 72, 0.4);
+  /*
+   * いちばん外は細い水色白の線。その外へは「青い光」が広がる。
+   * 内側にも水色を回して、ガラスのような厚みと明るさを出す。
    */
   box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.95),
-    0 0 12px rgba(205, 243, 255, 0.98),
-    0 0 26px rgba(120, 206, 255, 0.85),
-    0 0 50px rgba(74, 168, 255, 0.6),
-    0 0 86px rgba(56, 142, 248, 0.36),
-    0 10px 26px rgba(10, 44, 96, 0.36),
-    inset 0 2px 0 rgba(255, 255, 255, 0.68),
-    inset 0 -3px 8px rgba(6, 30, 76, 0.32);
+    0 0 0 1px rgba(174, 240, 255, 0.92),
+    0 0 5px 2px rgba(18, 118, 255, 0.95),
+    0 0 14px 3px rgba(10, 96, 250, 0.72),
+    0 0 30px 5px rgba(18, 100, 242, 0.48),
+    0 0 58px 8px rgba(28, 110, 236, 0.28),
+    0 0 100px 12px rgba(38, 120, 230, 0.16),
+    0 10px 26px rgba(8, 36, 84, 0.38),
+    inset 0 0 0 2.5px rgba(80, 206, 255, 0.34),
+    inset 0 0 14px rgba(20, 168, 255, 0.4),
+    inset 0 2px 0 rgba(190, 250, 255, 0.9),
+    inset 0 -2px 0 rgba(150, 240, 255, 0.75);
 }
+
 
 /* 副操作。主ボタンより小さく、控えめに。 */
 .t-sub {
@@ -302,20 +334,36 @@
   min-width: 0;
   min-height: var(--sub-h);
   padding: 8px 14px;
-  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  /* 縁は細く柔らかい白。硬い白枠にしない。 */
+  border: 1px solid rgba(255, 255, 255, 0.86);
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: rgba(28, 62, 178, 0.7);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  text-shadow: 0 1px 3px rgba(6, 22, 42, 0.75);
+  /*
+   * 見本の副ボタンは、背後の石畳と花が見える青紫のガラス。
+   * 画素で測ると、背景のばらつきが中でも R 0.48 / G 0.66 / B 0.50 残る。
+   * 塗りつぶさず、薄い青紫を重ねて明るさだけ落とす。
+   */
+  background: linear-gradient(
+    180deg,
+    rgba(74, 58, 250, 0.21) 0%,
+    rgba(48, 44, 238, 0.26) 100%
+  );
+  backdrop-filter: blur(1.2px) saturate(1.7) hue-rotate(-6deg) brightness(0.88);
+  -webkit-backdrop-filter: blur(1.2px) saturate(1.7) hue-rotate(-6deg) brightness(0.88);
+  /* 読みやすさは、塗りの濃さではなく文字の影とボタン直下の暗さで確保する。 */
+  text-shadow:
+    0 1px 2px rgba(2, 10, 30, 0.95),
+    0 0 6px rgba(2, 10, 30, 0.85),
+    0 0 13px rgba(2, 10, 30, 0.6);
   box-shadow:
-    0 0 10px rgba(178, 214, 255, 0.55),
-    0 0 24px rgba(120, 170, 255, 0.28),
-    0 4px 14px rgba(10, 32, 56, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.36);
+    0 0 8px rgba(222, 240, 255, 0.72),
+    0 0 20px rgba(158, 202, 255, 0.46),
+    0 0 40px rgba(112, 164, 255, 0.22),
+    /* ボタンの直下だけを局所的に暗くして、背景から浮き上がらせる。 */ 0 6px 18px
+      rgba(6, 20, 44, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -325,7 +373,11 @@
 
 /* 押している間だけ、少し明るくして手応えを出す。 */
 .t-sub-btn:active {
-  background: rgba(28, 62, 178, 0.84);
+  background: linear-gradient(
+    180deg,
+    rgba(68, 62, 226, 0.55) 0%,
+    rgba(44, 50, 214, 0.61) 100%
+  );
 }
 
 /* 「マイパスポート」は文字数が多いので、ひろく取る。 */

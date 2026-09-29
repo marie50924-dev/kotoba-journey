@@ -10,6 +10,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { inflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { createSuite } from './visualCaseReporter.mjs';
 
@@ -72,6 +73,236 @@ function rectsOverlap(a, b) {
  * 画面側は background の object-position としてこの比率を出しているので、
  * 食い違っていないことは下の検査で突き合わせる。
  */
+
+/*
+ * ボタンの見え方は、DOM の値ではなく「実際に描かれた画素」で確かめる。
+ * Playwright のスクリーンショット（PNG）を、依存を増やさずに自前でほどく。
+ * 非インターレースの 8bit RGB / RGBA だけを扱う。
+ */
+function decodePng(buffer) {
+  let pos = 8; // シグネチャ
+  let width = 0;
+  let height = 0;
+  let channels = 0;
+  const idat = [];
+  while (pos < buffer.length) {
+    const len = buffer.readUInt32BE(pos);
+    const type = buffer.toString('ascii', pos + 4, pos + 8);
+    const body = buffer.subarray(pos + 8, pos + 8 + len);
+    if (type === 'IHDR') {
+      width = body.readUInt32BE(0);
+      height = body.readUInt32BE(4);
+      const depth = body[8];
+      const colorType = body[9];
+      const interlace = body[12];
+      if (depth !== 8 || interlace !== 0 || (colorType !== 2 && colorType !== 6)) {
+        throw new Error(`扱えない PNG（深さ ${depth} / 種類 ${colorType} / 交互 ${interlace}）`);
+      }
+      channels = colorType === 6 ? 4 : 3;
+    } else if (type === 'IDAT') {
+      idat.push(body);
+    } else if (type === 'IEND') break;
+    pos += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = width * channels;
+  const out = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y += 1) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    for (let x = 0; x < stride; x += 1) {
+      const a = x >= channels ? out[y * stride + x - channels] : 0;
+      const b = y > 0 ? out[(y - 1) * stride + x] : 0;
+      const c = x >= channels && y > 0 ? out[(y - 1) * stride + x - channels] : 0;
+      let v = line[x];
+      if (filter === 1) v += a;
+      else if (filter === 2) v += b;
+      else if (filter === 3) v += (a + b) >> 1;
+      else if (filter === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a);
+        const pb = Math.abs(p - b);
+        const pc = Math.abs(p - c);
+        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      }
+      out[y * stride + x] = v & 0xff;
+    }
+  }
+  return { width, height, channels, data: out };
+}
+
+/** 画面の座標（CSSピクセル）で色を読む。dpr は画像の幅から求める。 */
+function pixelAt(img, viewportWidth, x, y) {
+  const s = img.width / viewportWidth;
+  const px = Math.min(img.width - 1, Math.max(0, Math.round(x * s)));
+  const py = Math.min(img.height - 1, Math.max(0, Math.round(y * s)));
+  const i = (py * img.width + px) * img.channels;
+  return [img.data[i], img.data[i + 1], img.data[i + 2]];
+}
+
+/** 矩形の中の画素を集める。step で間引く。 */
+function pixelsIn(img, viewportWidth, rect, step = 2) {
+  const s = img.width / viewportWidth;
+  const out = [];
+  const x0 = Math.max(0, Math.round(rect.x * s));
+  const x1 = Math.min(img.width, Math.round((rect.x + rect.width) * s));
+  const y0 = Math.max(0, Math.round(rect.y * s));
+  const y1 = Math.min(img.height, Math.round((rect.y + rect.height) * s));
+  for (let y = y0; y < y1; y += step) {
+    for (let x = x0; x < x1; x += step) {
+      const i = (y * img.width + x) * img.channels;
+      out.push([img.data[i], img.data[i + 1], img.data[i + 2]]);
+    }
+  }
+  return out;
+}
+
+const relLum = ([r, g, b]) => {
+  const f = (v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+};
+/** WCAG の明暗比。1〜21。 */
+const contrast = (a, b) => {
+  const la = relLum(a);
+  const lb = relLum(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+};
+/** 小さい順に並べた中の、上から p%（0〜1）の値。 */
+const percentile = (v, p) => {
+  const a = [...v].sort((x, y) => x - y);
+  return a[Math.min(a.length - 1, Math.max(0, Math.round((a.length - 1) * p)))];
+};
+const stdev = (v) => {
+  const m = v.reduce((s, x) => s + x, 0) / v.length;
+  return Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length);
+};
+
+
+/*
+ * ボタンの見え方を「実際に描かれた画素」で確かめる。
+ *
+ * 7枚目の完成見本を同じやり方で測った値を目標にしている。
+ *   主ボタンの塗り        rgb(1〜7, 106〜153, 251〜255)  赤がほとんど無い澄んだ青
+ *   主ボタンの外の光      縁の近くほど青が強い（白い靄ではない）
+ *   副ボタンの透け具合    中のばらつき ÷ 外のばらつき の平均 0.52 と 0.56
+ * 見本の値そのものではなく、「見本と同じ性質があるか」を見る。
+ * 背景の明るさが画面サイズで変わるため、絶対値ではなく関係で判定する。
+ */
+async function checkButtonPixels(page, m, label, check) {
+  const img = decodePng(await page.screenshot());
+  const vw = m.viewport.width;
+  const S = m.start;
+
+  // --- 主ボタンの塗り（文字にかからない、上から12%の行） ---
+  const fillY = S.y + S.height * 0.12;
+  const fills = [0.08, 0.16, 0.84, 0.92].map((f) => pixelAt(img, vw, S.x + S.width * f, fillY));
+  for (const [r, g, b] of fills) {
+    check(
+      b >= 200 && r <= 40 && b - r >= 150,
+      `${label}: 主ボタンの塗り rgb(${r},${g},${b}) が澄んだ青でない（見本は rgb(1〜7,106〜153,251〜255)）`,
+    );
+  }
+
+  // --- 主ボタンの下を暗くしていない ---
+  // 見本は下端の中央が rgb(2,106,253) と鮮やかなまま。
+  // 修正前のように下端を rgb(6,68,200) 系へ沈めると、青が 215 前後まで落ちる。
+  const lum = ([r, g, b]) => 0.213 * r + 0.715 * g + 0.072 * b;
+  const bottom = pixelAt(img, vw, S.x + S.width * 0.5, S.y + S.height * 0.93);
+  check(
+    bottom[2] >= 235 && bottom[0] <= 45,
+    `${label}: 主ボタンの下端が沈んでいる（rgb(${bottom}) / 見本は rgb(2,106,253)）`,
+  );
+  const col = S.x + S.width * 0.08;
+  const mid = lum(pixelAt(img, vw, col, S.y + S.height * 0.5));
+  const low = lum(pixelAt(img, vw, col, S.y + S.height * 0.9));
+  check(low >= mid - 6, `${label}: 主ボタンの下端が途中より暗い（${low.toFixed(0)} < ${mid.toFixed(0)}）`);
+
+  // --- 主ボタンの外へ広がる光が青い ---
+  const midY = S.y + S.height / 2;
+  const blueness = ([r, , b]) => b - r;
+  for (const [side, near, far] of [
+    ['左', S.x - 4, S.x - 34],
+    ['右', S.x + S.width + 4, S.x + S.width + 34],
+  ]) {
+    const n = pixelAt(img, vw, near, midY);
+    const f = pixelAt(img, vw, far, midY);
+    check(
+      blueness(n) - blueness(f) >= 25,
+      `${label}: 主ボタンの${side}外に青い光が広がっていない（縁の近く rgb(${n}) / 離れた所 rgb(${f})）`,
+    );
+  }
+
+  // --- 主ボタンの文字が読める ---
+  // 白い文字と塗りの明暗比。文字の縁の1画素ではなく、塗りの分布で見る。
+  // 塗りの明るいほう（上から10%）を、文字にとっていちばん不利な塗りとする。
+  // 7枚目の完成見本を同じやり方で測ると 2.79。下限はそれより高い 2.9 に置き、
+  // 見本より読みにくくならないようにしている。
+  const inside = pixelsIn(img, vw, { x: S.x + 6, y: S.y + 6, width: S.width - 12, height: S.height - 12 });
+  const fill = inside.filter((p) => lum(p) <= 170);
+  check(fill.length > 40, `${label}: 主ボタンの塗りを測れていない（${fill.length}画素）`);
+  if (fill.length > 40) {
+    const bright = [0, 1, 2].map((c) => percentile(fill.map((p) => p[c]), 0.9));
+    const ratio = contrast([255, 255, 255], bright);
+    check(
+      ratio >= 2.9,
+      `${label}: 主ボタンの白文字の明暗比が足りない（${ratio.toFixed(2)} / 明るいほうの塗り rgb(${bright})・見本は 2.79）`,
+    );
+  }
+
+  // --- 副ボタン：背景が透けている ---
+  for (const b of m.subButtons ?? []) {
+    /*
+     * 中は「文字のない上下の帯」だけを測る。
+     * 白い文字の縁（半端な明るさの画素）が入ると、塗りつぶしていても
+     * ばらつきが出てしまい、透けているように見えてしまう。
+     * 帯だけで測ると、不透明な塗り 0.23 / 今の透けた塗り 0.54 と分かれる。
+     */
+    const strip = (top) => pixelsIn(img, vw, { x: b.x + 10, y: top, width: b.width - 20, height: 7 }, 1);
+    const inn = [...strip(b.y + 4), ...strip(b.y + b.height - 11)];
+    // 比べる「外」は背景だけ。主ボタンが近いときは、その下からにする。
+    const above = { top: Math.max(b.y - b.height * 0.7, S.y + S.height + 2), bottom: b.y - b.height * 0.2 };
+    const below = { top: b.y + b.height * 1.2, bottom: Math.min(m.viewport.height, b.y + b.height * 1.7) };
+    const out = [
+      ...(above.bottom - above.top >= 4
+        ? pixelsIn(img, vw, { x: b.x, y: above.top, width: b.width, height: above.bottom - above.top })
+        : []),
+      ...(below.bottom - below.top >= 4
+        ? pixelsIn(img, vw, { x: b.x, y: below.top, width: b.width, height: below.bottom - below.top })
+        : []),
+    ];
+    check(inn.length > 20 && out.length > 20, `${label}: 「${b.text.trim()}」の画素を測れていない`);
+    if (inn.length > 20 && out.length > 20) {
+      const ratios = [0, 1, 2].map((c) => {
+        const so = stdev(out.map((p) => p[c]));
+        return so === 0 ? 0 : stdev(inn.map((p) => p[c])) / so;
+      });
+      const seeThrough = (ratios[0] + ratios[1] + ratios[2]) / 3;
+      check(
+        seeThrough >= 0.38,
+        `${label}: 「${b.text.trim()}」が塗りつぶされていて背景が透けない` +
+          `（透け具合 ${seeThrough.toFixed(2)} / 見本は 0.52〜0.56。R ${ratios[0].toFixed(2)} G ${ratios[1].toFixed(2)} B ${ratios[2].toFixed(2)}）`,
+      );
+      // 透けていても文字は読める。明るいほう（上から10%）で見る。
+      // 見本を同じやり方で測ると 5.28 と 5.58。
+      const inkArea = pixelsIn(img, vw, {
+        x: b.x + 6,
+        y: b.y + 5,
+        width: b.width - 12,
+        height: b.height - 10,
+      }).filter((p) => lum(p) <= 150);
+      const bright = [0, 1, 2].map((c) => percentile(inkArea.map((p) => p[c]), 0.9));
+      const ratio = contrast([255, 255, 255], bright);
+      check(
+        ratio >= 3.5,
+        `${label}: 「${b.text.trim()}」の白文字の明暗比が足りない（${ratio.toFixed(2)} / 明るいほうの背後 rgb(${bright})）`,
+      );
+    }
+  }
+}
+
 const BG_NATURAL = { width: 853, height: 1844 };
 const BG_POSITION_Y = 0.45;
 /** 背景の中の位置（比率）。 */
@@ -308,6 +539,10 @@ function titleMetrics() {
     castBox: rect('.t-cast'),
     start: rect('.t-start'),
     sub: rect('.t-sub'),
+    subButtons: [...document.querySelectorAll('.t-sub-btn')].map((el) => {
+      const b = el.getBoundingClientRect();
+      return { x: b.x, y: b.y, width: b.width, height: b.height, text: el.textContent ?? '' };
+    }),
     buttons,
     // 画面が背景へ付けた縦の見せ方。データと食い違っていないかを見る。
     bgObjectPosition: bg ? bg.style.objectPosition : '',
@@ -490,6 +725,7 @@ try {
           .catch(() => {});
         await page.waitForTimeout(700);
         const m = await page.evaluate(titleMetrics);
+        await checkButtonPixels(page, m, label, check);
 
         check(m.bgLoaded, `${label}: 背景が読み込めていない`);
         check(m.logoLoaded, `${label}: ロゴが読み込めていない`);
@@ -798,6 +1034,7 @@ try {
             .catch(() => {});
           await page.waitForTimeout(450);
           const m = await page.evaluate(titleMetrics);
+          await checkButtonPixels(page, m, label, check);
 
           // 背景の左右に余白が出ていない。
           check(
