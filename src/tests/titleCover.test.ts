@@ -471,6 +471,17 @@ describe('表紙の CSS', () => {
     const weight = (css: string) => Number(css.match(/font-weight:\s*(\d+)/)?.[1]);
     expect(px(start), '主ボタンの文字が小さい').toBeGreaterThanOrEqual(22);
     expect(weight(start), '主ボタンの文字が細い').toBeGreaterThanOrEqual(800);
+    /*
+     * font-weight だけでは太くならない。この画面で使う和文フォント
+     * （Hiragino Sans / Noto Sans JP など）は太さの字形が2種類しかなく、
+     * 700・800・900 はどれも同じ字形になる。実測でも 800 と 900 で
+     * 描かれた画素が1つも変わらなかった。
+     * 主ボタンは輪郭を少し太らせて、見た目の太さを上げている。
+     */
+    const strokeEm = Number(start.match(/-webkit-text-stroke:\s*([\d.]+)em/)?.[1]);
+    expect(Number.isFinite(strokeEm), '主ボタンの文字の輪郭を太らせる指定が無い').toBe(true);
+    expect(strokeEm, '主ボタンの文字の輪郭が細い').toBeGreaterThanOrEqual(0.015);
+    expect(strokeEm, '主ボタンの文字の輪郭が太すぎて字がつぶれる').toBeLessThanOrEqual(0.03);
     expect(px(sub), '副ボタンの文字が小さい').toBeGreaterThanOrEqual(15);
     expect(weight(sub), '副ボタンの文字が細い').toBeGreaterThanOrEqual(800);
     // 副ボタン2つは同じ大きさ・同じ太さ（片方だけ変えない）。

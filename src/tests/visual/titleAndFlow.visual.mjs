@@ -370,6 +370,36 @@ async function checkButtonPixels(page, m, label, check) {
     }
   }
 
+  /*
+   * --- 縁そのものが光って見えること ---
+   *
+   * 完成見本の主ボタンを縁からの距離ごとに画素で測ると
+   *   -2px rgb(3,64,241)（青−赤 +238 / RGBの最小値 3）
+   *   -3px rgb(7,60,238)（青−赤 +231 / 最小値 7）
+   * で、縁のすぐ外は「白っぽい靄」ではなく、緑の低い澄んだ青。
+   * 白を混ぜて広げると、周りの石畳の暖かい色まで薄まる。
+   * 左右の縁の ±2px と ±3px、計4点の平均で見る。
+   */
+  {
+    const yc = S.y + S.height / 2;
+    const pts = [
+      pixelAt(img, vw, S.x - 2, yc),
+      pixelAt(img, vw, S.x - 3, yc),
+      pixelAt(img, vw, S.x + S.width + 2, yc),
+      pixelAt(img, vw, S.x + S.width + 3, yc),
+    ];
+    const blue = pts.reduce((t, p) => t + (p[2] - p[0]), 0) / pts.length;
+    const whiteness = pts.reduce((t, p) => t + Math.min(p[0], p[1], p[2]), 0) / pts.length;
+    check(
+      blue >= 185,
+      `${label}: 縁のすぐ外が青くない（青−赤 ${blue.toFixed(0)} / 見本は +231〜+238）`,
+    );
+    check(
+      whiteness <= 45,
+      `${label}: 縁のすぐ外が白い靄になっている（白っぽさ ${whiteness.toFixed(0)} / 見本は 3〜7）`,
+    );
+  }
+
   // --- 主ボタンの文字が読める ---
   // 白い文字と塗りの明暗比。文字の縁の1画素ではなく、塗りの分布で見る。
   // 塗りの明るいほう（上から10%）を、文字にとっていちばん不利な塗りとする。
