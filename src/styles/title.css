@@ -7,12 +7,32 @@
  * 切り取られるのは背景だけで、ロゴ・人物・ボタンには当たらない。
  * 縦の見せ方は画面コードが実測値から付ける（object-position）。
  *
- * 操作のまとまりが使う高さは .screen--title の --title-controls に書いてある。
+ * 操作のまとまりが使う高さは .screen--title の --controls-h に書いてある。
  */
 
 .screen--title {
-  /* 下余白12 + 主ボタン52 + すきま10 + 副ボタン44 = 118px（＋安全領域） */
-  --title-controls: calc(var(--safe-bottom) + 118px);
+  /*
+   * 操作の寸法は、目標の構図（7枚目）を画面の高さに対する比で読み取った値。
+   *   主ボタン  縦 78.9%〜85.1%（高さ 6.2dvh）
+   *   すきま    3.8dvh
+   *   副ボタン  高さ 4.8dvh
+   *   下の余白  6.4dvh
+   * ホームバーがある端末では下の余白をそのぶん減らし、
+   * 操作全体の位置が変わらないようにする。
+   * 指の当たる大きさ（44px）と読みやすさの下限は必ず残す。
+   */
+  --btn-bottom: max(12px, calc(6.4dvh - var(--safe-bottom)));
+  --sub-h: max(var(--tap-min), 4.8dvh);
+  --btn-gap: max(10px, 3.8dvh);
+  --primary-h: max(48px, 6.1dvh);
+  --controls-h: calc(
+    var(--btn-bottom) + var(--sub-h) + var(--btn-gap) + var(--primary-h)
+  );
+
+  /* 幕は操作の位置に合わせる（中央の光を消さないため。下の .t-scrim 参照）。 */
+  --scrim-strong: calc(var(--safe-bottom) + var(--btn-bottom) + var(--sub-h) + 16px);
+  --scrim-end: calc(var(--scrim-strong) + 48px);
+
   position: relative;
   overflow: hidden;
   /* 背景が読み込めなくても暗い画面にならないよう、下地に空と地面の色を置く。 */
@@ -34,23 +54,11 @@
 /*
  * ボタンの文字を読めるようにするための幕。
  *
- * 以前は画面の下 34% までを一律に暗くしていたため、背景素材にある
- * 「地球儀の下から人物のあいだを通って石畳の足元へ続く光」まで
- * 沈めてしまっていた。
- *
- * そこで、幕の広がりを画面の割合ではなく「操作の位置」に合わせる。
- *   ・副ボタンの上端（安全領域 + 56px）より少し上までは濃いまま
- *   ・そこから 48px のあいだで消える
- * ホームバーがある端末では操作全体が上へ動くので、幕も一緒に上へ動く。
- *
- * 人物の靴は、どの対象サイズでも幕が消える高さより 31px 以上うえにある
- * （実ブラウザテストで毎回測っている）。
+ * 背景には「二人のあいだの奥から足元の石畳へ広がる光」がある。
+ * いちばん明るいところは画面の 75.8% あたりなので、
+ * 幕はそれよりずっと下、副ボタンの少し上までに抑える。
+ * ホームバーがあると操作が上へ動くので、幕も一緒に上へ動く。
  */
-.screen--title {
-  --scrim-strong: calc(var(--safe-bottom) + 60px);
-  --scrim-end: calc(var(--safe-bottom) + 108px);
-}
-
 .t-scrim {
   position: absolute;
   inset: 0;
@@ -60,52 +68,37 @@
     0deg,
     rgba(8, 24, 52, 0.58) 0,
     rgba(8, 24, 52, 0.5) var(--scrim-strong),
-    rgba(8, 24, 52, 0.18) calc(var(--scrim-strong) + 24px),
+    rgba(8, 24, 52, 0.18) calc(var(--scrim-strong) + 22px),
     rgba(8, 24, 52, 0) var(--scrim-end)
   );
 }
 
 /* ---- レイヤー2：ロゴ ---- */
 /*
- * 大きさと位置は「上の安全領域から地球儀の上端まで」の帯に合わせて決める。
+ * 目標の構図では、ロゴの絵が画面の縦 7.9%〜19.0%、幅 74.7% を占める。
+ * 地球儀はその下から始まり、ロゴの光と少し重なって見える。
+ * 重なりを 0 にするためにロゴを縮める調整はしない。
  *
- *   帯の上端 = 安全領域 + 1.4dvh
- *   帯の下端 = 19dvh - 5px（地球儀の上端は、6サイズのどれでも 19.07dvh より下）
- *
- * logo.png は透過で、文字のまわりに淡い光の余白がある。
- * 実際に絵があるのは画像の高さの 13.58%〜93.78%（＝ 80.2%）なので、
- * 箱の高さではなく、この「絵の高さ」で帯に合わせる。
- *
- * 幅は画面の 78% までとし、height だけを指定して width: auto に任せる。
- * こうすると縦横比が崩れず、幅が画面を越えることもない。
+ * 素材は透過で、文字のまわりに淡い光の余白がある。
+ * 絵があるのは画像の高さの 13.58%〜93.78%。
+ * 幅は画面の 76% とし、高さは原寸比に任せる（縦横比が崩れない）。
+ * 上端は、切り欠きがあるときだけその下へ逃がす。
  */
 .t-logo {
-  /* 素材の中で絵が始まる高さ・絵の高さ（画像の高さに対する比）。 */
   --art-top: 0.1358;
   --art-span: 0.802;
-  /* 縦横比（1997 / 788）。幅の上限から高さの上限を出すのに使う。 */
   --logo-ratio: 2.534;
-  /*
-   * 上の空き。切り欠きが無い画面では 3dvh 空け、
-   * 切り欠きがある画面ではその高さで足りるので 12px だけ足す。
-   */
-  --band-top: calc(var(--safe-top) + max(12px, 3dvh - var(--safe-top)));
-  --band-bottom: calc(19dvh - 5px);
-  --logo-h: min(
-    calc((var(--band-bottom) - var(--band-top)) / var(--art-span)),
-    calc(78vw / var(--logo-ratio))
-  );
+  --logo-w: min(76vw, 470px);
 
   position: absolute;
-  /* 絵の上端が帯の上端へ来るよう、透明な余白のぶんだけ持ち上げる。 */
-  top: calc(var(--band-top) - var(--logo-h) * var(--art-top));
+  top: max(calc(var(--safe-top) + 8px), 6dvh);
   left: 50%;
   transform: translateX(-50%);
-  height: var(--logo-h);
-  width: auto;
+  width: var(--logo-w);
+  height: auto;
   z-index: 2;
   /*
-   * 採用見本のロゴは、まわりへ水色の光が広がって背景へ溶けている。
+   * 目標の構図のロゴは、まわりへ水色の光が広がって空へ溶けている。
    * 影を重ねて同じ見え方にする。素材そのものには手を加えない。
    */
   filter:
@@ -151,59 +144,63 @@
 
 /* ---- レイヤー3：人物 ---- */
 /*
- * 高さの決め方は2つの上限のうち小さいほう。
- *   1つめ: 頭が画面の36%より下に来る高さ（地球儀の下端33%を越えない）
- *          画面高 - 36% - 操作の高さ - すきま8  ＝ 64dvh - 操作 - 8
- *   2つめ: 幅が画面の68%を越えない高さ（富士山の山頂側を覆わないため）
- *          68vw x (1536/1024) ＝ 102vw
- * 靴は主ボタンより上に来る（透過素材の下端に4%の余白があるぶん、さらに上）。
- */
-/*
- * 横の中心は 53.5%。採用見本でも人物はわずかに右寄りで、
- * 左に富士山を見せる場所を空けている。
+ * 目標の構図では、人物の絵が画面の縦 28.4%（頭）〜75.6%（靴）に入り、
+ * 大きな地球儀の手前に重なって立っている。重なりは消さない。
+ *
+ * 素材の中で絵があるのは、高さの 1.89%〜95.83%（＝93.94%）。
+ * 靴の位置を先に決め、そこから上へ絵の高さぶん伸ばす。
+ *   靴 … 75dvh か、主ボタンの 8px 上か、低いほう
+ *        （ホームバーで操作が上がったら、人物も一緒に上がる）
+ *   高さ … 絵の高さ 46.6dvh ぶん。画面が横に広いときは幅で頭打ちにする。
  */
 .t-cast {
+  --art-top: 0.0189;
+  --art-bottom: 0.9583;
+  --cast-h: min(49.6dvh, 122vw);
+
   position: absolute;
-  left: 53.5%;
-  bottom: calc(var(--title-controls) + 8px);
+  left: 52%;
+  bottom: calc(
+    max(25dvh, calc(var(--safe-bottom) + var(--controls-h) + 8px)) -
+      var(--cast-h) * 0.0417
+  );
   transform: translateX(-50%);
-  height: min(calc(64vh - var(--title-controls) - 8px), 102vw);
-  height: min(calc(64dvh - var(--title-controls) - 8px), 102vw);
+  height: var(--cast-h);
   width: auto;
   z-index: 2;
-  object-fit: contain;
   filter: drop-shadow(0 8px 18px rgba(10, 30, 60, 0.34));
 }
 
 /* ---- レイヤー4・5：操作 ---- */
 /*
- * 操作。採用見本に合わせて、どれも丸い（ピル型）にする。
- * 主ボタンは小ぶりだが、副ボタンより幅・高さ・文字とも大きい。
+ * 目標の構図の操作。横幅も実測値から決める。
+ *   主ボタン   横 21.6%〜81.3%（幅 59.7vw）
+ *   副ボタンの行 横 9.2%〜90.6%（幅 81.4vw）
  */
 .t-actions {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 12px);
+  bottom: calc(var(--safe-bottom) + var(--btn-bottom));
   transform: translateX(-50%);
-  width: min(calc(100% - 24px), 420px);
+  width: min(81.4vw, 430px);
   z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--btn-gap);
 }
 
 /*
- * 主操作。採用見本の「鮮やかな青・内側が明るい・まわりへ水色の光」を作る。
+ * 主操作。目標の構図は「鮮やかな青・内側が明るい・まわりへ柔らかい水色の光」。
  *
- * 色は上から下へ、明るい空色→鮮やかな青→濃い青。
- * 上の明るい帯は 12% までで終わらせ、文字が乗る高さ（25%以降）では
+ * 色は上から下へ、明るい空色 → 鮮やかな青 → 濃い青。
+ * 上の明るい層は 12% までで終わらせ、文字が乗る高さ（25%以降）では
  * 白い文字が 4.5:1 以上になる濃さにしてある（単体テストで計算して確かめる）。
  */
 .t-start {
-  width: min(70%, 300px);
-  min-width: 200px;
-  min-height: 52px;
+  width: min(73.5%, 320px);
+  min-width: 180px;
+  min-height: var(--primary-h);
   padding: 8px 18px;
   border: 0;
   border-radius: 999px;
@@ -214,29 +211,29 @@
   justify-content: center;
   gap: 10px;
   color: #fff;
-  background-color: rgb(42, 115, 216);
+  background-color: rgb(18, 104, 240);
   background-image: linear-gradient(
     180deg,
-    rgb(168, 222, 255) 0%,
-    rgb(96, 174, 252) 12%,
-    rgb(42, 115, 216) 30%,
-    rgb(29, 89, 180) 68%,
-    rgb(20, 66, 143) 100%
+    rgb(176, 226, 255) 0%,
+    rgb(88, 170, 252) 12%,
+    rgb(18, 104, 240) 30%,
+    rgb(10, 84, 222) 70%,
+    rgb(6, 68, 200) 100%
   );
-  text-shadow: 0 1px 3px rgba(6, 28, 64, 0.5);
+  text-shadow: 0 1px 3px rgba(4, 24, 60, 0.45);
   /*
-   * いちばん外は白い細い輪、その外へ水色の光が3段階で広がる。
+   * いちばん外は白い細い輪、その外へ水色の光が4段階で広がる。
    * 内側の上には明るい線を入れて、ガラスのような厚みを出す。
    */
   box-shadow:
     0 0 0 2px rgba(255, 255, 255, 0.95),
-    0 0 12px rgba(190, 236, 255, 0.95),
-    0 0 26px rgba(110, 196, 255, 0.8),
-    0 0 48px rgba(72, 164, 255, 0.55),
-    0 0 82px rgba(56, 140, 245, 0.32),
-    0 10px 26px rgba(10, 44, 96, 0.38),
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.62),
-    inset 0 -3px 8px rgba(8, 32, 78, 0.3);
+    0 0 12px rgba(205, 243, 255, 0.98),
+    0 0 26px rgba(120, 206, 255, 0.85),
+    0 0 50px rgba(74, 168, 255, 0.6),
+    0 0 86px rgba(56, 142, 248, 0.36),
+    0 10px 26px rgba(10, 44, 96, 0.36),
+    inset 0 2px 0 rgba(255, 255, 255, 0.68),
+    inset 0 -3px 8px rgba(6, 30, 76, 0.32);
 }
 
 /* 副操作。主ボタンより小さく、控えめに。 */
@@ -248,32 +245,32 @@
 }
 
 /*
- * 採用見本の副ボタンは、背景が透ける青紫のガラスに、
- * 白く淡く光る輪郭が付いている。文字は白。
+ * 副操作は、目標の構図と同じ「背景が透ける青紫のガラス」に細い白縁。
  *
- * 下地は半透明なので背景の絵が透けるが、いちばん明るい写真が
- * 背後に来た場合でも白い文字が 4.5:1 以上になる濃さにしてある
- * （幕のいちばん薄い段で計算。単体テストで確かめる）。
+ * 目標の構図の副ボタンの中を読み取ると rgb(76,98,154)〜rgb(112,124,167) で、
+ * 背後の暖色の石畳 rgb(221,146,115) を青紫へ沈めている。
+ * 下の色と濃さは、その見え方に合わせつつ、いちばん明るい写真が背後に
+ * 来た場合でも白い文字が 4.5:1 以上になる値にしてある。
  */
 .t-sub-btn {
   flex: 0 1 auto;
   min-width: 0;
-  min-height: var(--tap-min);
+  min-height: var(--sub-h);
   padding: 8px 14px;
-  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: rgba(44, 32, 86, 0.56);
+  background: rgba(28, 62, 178, 0.7);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   text-shadow: 0 1px 3px rgba(6, 22, 42, 0.75);
   box-shadow:
-    0 0 10px rgba(170, 198, 255, 0.5),
-    0 0 22px rgba(120, 160, 255, 0.26),
+    0 0 10px rgba(178, 214, 255, 0.55),
+    0 0 24px rgba(120, 170, 255, 0.28),
     0 4px 14px rgba(10, 32, 56, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    inset 0 1px 0 rgba(255, 255, 255, 0.36);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -283,12 +280,12 @@
 
 /* 押している間だけ、少し明るくして手応えを出す。 */
 .t-sub-btn:active {
-  background: rgba(44, 32, 86, 0.74);
+  background: rgba(28, 62, 178, 0.84);
 }
 
 /* 「マイパスポート」は文字数が多いので、ひろく取る。 */
 .t-sub-btn:first-child {
-  flex: 1.25 1 0;
+  flex: 1.35 1 0;
 }
 
 .t-sub-btn:last-child {
@@ -322,8 +319,15 @@
     padding: 8px 10px;
   }
 
+  /*
+   * 狭い画面では、主ボタンの文字が2行に折り返してしまう。
+   * 横幅をいっぱいまで使い、絵記号との間も詰める。
+   */
   .t-start {
+    width: 100%;
     min-width: 180px;
     font-size: 16px;
+    gap: 8px;
+    padding: 8px 12px;
   }
 }

@@ -72,16 +72,26 @@ function rectsOverlap(a, b) {
  * 画面側は background の object-position としてこの比率を出しているので、
  * 食い違っていないことは下の検査で突き合わせる。
  */
-const BG_NATURAL = { width: 852, height: 1846 };
+const BG_NATURAL = { width: 709, height: 1536 };
 const BG_POSITION_Y = 0.27;
 /** 背景の中の位置（比率）。 */
 const LANDMARKS = {
-  globe: { left: 0.36, top: 0.205, right: 0.6, bottom: 0.33 },
-  fuji: { left: 0.05, top: 0.33, right: 0.3, bottom: 0.41 },
+  globe: { left: 0.26, top: 0.185, right: 0.775, bottom: 0.395 },
+  fuji: { left: 0.04, top: 0.395, right: 0.45, bottom: 0.47 },
 };
+/** 富士山の山頂。ここは人物にもロゴにも隠させない。 */
+const FUJI_SUMMIT = { x: 0.189, y: 0.399 };
 /** 透過素材の、絵柄が入っている範囲（原寸比）。透明な余白を除くために使う。 */
 const LOGO_ART = { l: 18 / 1997, r: 1, t: 88 / 788, b: 754 / 788 };
-const CAST_ART = { l: 15 / 1024, r: 1021 / 1024, t: 28 / 1536, b: 1474 / 1536 };
+const CAST_ART = { l: 0.0156, r: 0.9951, t: 0.0189, b: 0.9583 };
+
+/*
+ * 地球儀がどれだけ見えているかは、ブラウザの中で素材の透明度を読んで測る
+ * （titleMetrics の globeVisibleRatio）。
+ *
+ * 矩形どうしの重なりでは、透過素材の透明な部分まで「隠している」と
+ * 数えてしまい、実際の見え方とかけ離れる。
+ */
 
 /** 表紙の実測値を集める。 */
 function titleMetrics() {
@@ -125,12 +135,91 @@ function titleMetrics() {
     const r = el.getBoundingClientRect();
     return { text: el.textContent.trim(), x: r.x, y: r.y, width: r.width, height: r.height };
   });
+  /*
+   * 富士山の山頂が、人物やロゴの「絵」に隠されていないかを調べる。
+   *
+   * 矩形どうしの重なりでは、透明な部分まで「隠している」と数えてしまう。
+   * そこで素材を canvas へ描き、その点の透明度を直接読む。
+   * 素材は同じ場所から配っているので canvas は汚れない。
+   */
+  const alphaReader = (node) => {
+    if (!node || !node.naturalWidth) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = node.naturalWidth;
+    canvas.height = node.naturalHeight;
+    const ctx2d = canvas.getContext('2d');
+    ctx2d.drawImage(node, 0, 0);
+    const data = ctx2d.getImageData(0, 0, canvas.width, canvas.height).data;
+    return (point) => {
+      const box = node.getBoundingClientRect();
+      const u = (point.x - box.x) / box.width;
+      const v = (point.y - box.y) / box.height;
+      if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+      const x = Math.round(u * (canvas.width - 1));
+      const y = Math.round(v * (canvas.height - 1));
+      return data[(y * canvas.width + x) * 4 + 3];
+    };
+  };
+  const castAlpha = alphaReader(cast);
+  const logoAlpha = alphaReader(logo);
+  const summitCoveredBy = (reader, point) => (reader ? reader(point) > 80 : null);
+  // 背景の中の比率を画面の座標へ直す（landmarkRect と同じ計算）。
+  const bgPoint = (fx, fy) => {
+    const box = bg.getBoundingClientRect();
+    const scale = Math.max(box.width / bg.naturalWidth, box.height / bg.naturalHeight);
+    const w = bg.naturalWidth * scale;
+    const h = bg.naturalHeight * scale;
+    const posY = Number.parseFloat(getComputedStyle(bg).objectPosition.split(' ')[1]) || 50;
+    return { x: box.x + (box.width - w) / 2 + w * fx, y: box.y + (box.height - h) * (posY / 100) + h * fy };
+  };
+  const summit = bg && bg.naturalWidth ? bgPoint(0.189, 0.399) : null;
+
+  /*
+   * 地球儀の面のうち、ロゴにも人物にも隠されずに見えている割合。
+   *
+   * 目標の構図では、大きな地球儀の手前にロゴと人物が重なる。
+   * 以前の「重なり0px2」は取り下げられたので、代わりに
+   * 「どれだけ見えているか」に下限を置く。
+   * 球は丸いので、四角ではなく楕円の内側だけを数える。
+   * 隠れているかは、透過素材のその点の透明度で判定する。
+   */
+  const globeVisibleRatio = (() => {
+    if (!bg || !bg.naturalWidth) return null;
+    const box = { left: 0.26, top: 0.185, right: 0.775, bottom: 0.395 };
+    const tl = bgPoint(box.left, box.top);
+    const br = bgPoint(box.right, box.bottom);
+    const cx = (tl.x + br.x) / 2;
+    const cy = (tl.y + br.y) / 2;
+    const rx = (br.x - tl.x) / 2;
+    const ry = (br.y - tl.y) / 2;
+    let inside = 0;
+    let visible = 0;
+    const steps = 48;
+    for (let i = 0; i <= steps; i += 1) {
+      for (let j = 0; j <= steps; j += 1) {
+        const x = tl.x + ((br.x - tl.x) * i) / steps;
+        const y = tl.y + ((br.y - tl.y) * j) / steps;
+        if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 > 1) continue;
+        inside += 1;
+        const point = { x, y };
+        const hidden =
+          (castAlpha && castAlpha(point) > 80) || (logoAlpha && logoAlpha(point) > 80);
+        if (!hidden) visible += 1;
+      }
+    }
+    return inside === 0 ? null : visible / inside;
+  })();
+
   // 画面の中でいちばん下にある要素の下端。
   // documentElement.scrollHeight は html { height: 100% } で頭打ちになるため使わない。
   const bottoms = [...document.querySelectorAll('.screen--title *')].map(
     (el) => el.getBoundingClientRect().bottom,
   );
   return {
+    summit,
+    summitCoveredByCast: summit ? summitCoveredBy(castAlpha, summit) : null,
+    summitCoveredByLogo: summit ? summitCoveredBy(logoAlpha, summit) : null,
+    globeVisibleRatio,
     bg: rect('.t-bg'),
     // 欠け・重なりの判定は、要素の矩形ではなく塗られる範囲で行う。
     logo: painted(logo),
@@ -153,6 +242,12 @@ function titleMetrics() {
     startFontSize: Number.parseFloat(
       getComputedStyle(document.querySelector('.t-start')).fontSize,
     ),
+    // ボタンの文字が折り返していないか（1行に収まっているか）。
+    buttonLabels: [...document.querySelectorAll('.screen--title .t-label')].map((el) => {
+      const r = el.getBoundingClientRect();
+      const size = Number.parseFloat(getComputedStyle(el).fontSize);
+      return { text: el.textContent.trim(), height: r.height, fontSize: size };
+    }),
     subFontSize: Number.parseFloat(
       getComputedStyle(document.querySelector('.t-sub-btn')).fontSize,
     ),
@@ -358,7 +453,7 @@ try {
           );
         }
 
-        // 地球儀と富士山が画面の中にあり、ロゴにも人物にも隠されていない。
+        // 地球儀と富士山が画面の中にある。
         const globe = landmarkRect(m, LANDMARKS.globe);
         const fuji = landmarkRect(m, LANDMARKS.fuji);
         const logoArt = artRect(m.logo, LOGO_ART);
@@ -372,19 +467,24 @@ try {
             `${label}: ${name}が画面の外にある（${box.x.toFixed(1)},${box.y.toFixed(1)} ${box.width.toFixed(1)}x${box.height.toFixed(1)}）`,
           );
         }
+        /*
+         * 目標の構図では、大きな地球儀の手前にロゴと人物が重なる。
+         * 以前の「重なり0px2」は取り下げられたので、代わりに
+         * 「球の面がどれだけ見えているか」に下限を置く。
+         */
+        const globeVisible = m.globeVisibleRatio;
         check(
-          overlapArea(globe, logoArt) === 0,
-          `${label}: 地球儀をロゴが隠している（${overlapArea(globe, logoArt).toFixed(0)}px2）`,
+          globeVisible !== null && globeVisible >= 0.45,
+          `${label}: 地球儀が見えなくなっている（見えているのは ${globeVisible === null ? '不明' : (globeVisible * 100).toFixed(0) + '%'}）`,
+        );
+        // 富士山の山頂は隠さない。素材の透明度を直接読んで確かめる。
+        check(
+          m.summitCoveredByCast === false,
+          `${label}: 富士山の山頂を人物が隠している`,
         );
         check(
-          overlapArea(globe, castArt) === 0,
-          `${label}: 地球儀を人物が隠している（${overlapArea(globe, castArt).toFixed(0)}px2）`,
-        );
-        // 富士山は山頂と山体が見えればよい。左半分は人物にかからないこと。
-        const fujiLeftHalf = { x: fuji.x, y: fuji.y, width: fuji.width / 2, height: fuji.height };
-        check(
-          overlapArea(fujiLeftHalf, castArt) === 0,
-          `${label}: 富士山の山頂側を人物が隠している（${overlapArea(fujiLeftHalf, castArt).toFixed(0)}px2）`,
+          m.summitCoveredByLogo === false,
+          `${label}: 富士山の山頂をロゴが隠している`,
         );
 
         // ロゴと人物は切れていない（絵柄の矩形が画面の中に収まっている）。
@@ -405,7 +505,11 @@ try {
           m.logo.fit === 'fill',
           `${label}: ロゴの敷き方が変わっている（${m.logo.fit}）。幅は原寸比に任せる`,
         );
-        check(m.cast.fit === 'contain', `${label}: 人物の敷き方が contain ではない（${m.cast.fit}）`);
+        // 人物も高さだけを指定し、幅は原寸比に任せている（object-fit は働かない）。
+        check(
+          m.cast.fit === 'fill',
+          `${label}: 人物の敷き方が変わっている（${m.cast.fit}）。幅は原寸比に任せる`,
+        );
         check(
           Math.abs(m.logo.width / m.logo.height - 1997 / 788) / (1997 / 788) < 0.01,
           `${label}: ロゴの縦横比が原寸と違う（${(m.logo.width / m.logo.height).toFixed(4)}）`,
@@ -416,12 +520,27 @@ try {
         );
 
         // ロゴが小さくなりすぎていない。
-        // 採用見本のロゴは画面幅の約71%。安全領域が無いときは
-        // 幅の上限（78vw）まで使えるので、実測 76% 以上になる。
+        // 目標の構図のロゴは画面幅の 74.7%。幅の上限（76vw）で決まるので、
+        // どの画面でも 74% 前後になる。
         const logoWidthRatio = logoArt.width / m.viewport.width;
         check(
           logoWidthRatio >= 0.7,
           `${label}: ロゴが小さい（画面幅の ${(logoWidthRatio * 100).toFixed(1)}%）`,
+        );
+
+        // ボタンの文字が2行に折り返していない。
+        for (const lab of m.buttonLabels) {
+          check(
+            lab.height <= lab.fontSize * 1.7,
+            `${label}: ボタンの文字が折り返している（${lab.text} 高さ${lab.height.toFixed(1)}px / 文字${lab.fontSize}px）`,
+          );
+        }
+
+        // 人物が小さくなりすぎていない。目標の構図は絵の高さが画面の 47.2%。
+        const castHeightRatio = castArt.height / m.viewport.height;
+        check(
+          castHeightRatio >= 0.4,
+          `${label}: 人物が小さい（絵の高さが画面の ${(castHeightRatio * 100).toFixed(1)}%）`,
         );
 
         // 背景の光を、下の幕で沈めていない。
@@ -575,19 +694,19 @@ try {
           const fuji = landmarkRect(m, LANDMARKS.fuji);
           const logoArt = artRect(m.logo, LOGO_ART);
           const castArt = artRect(m.cast, CAST_ART);
-          const fujiLeftHalf = { x: fuji.x, y: fuji.y, width: fuji.width / 2, height: fuji.height };
 
+          const globeVisible = m.globeVisibleRatio;
           check(
-            overlapArea(globe, logoArt) === 0,
-            `${label}: 地球儀をロゴが隠している（${overlapArea(globe, logoArt).toFixed(0)}px2）`,
+            globeVisible !== null && globeVisible >= 0.45,
+            `${label}: 地球儀が見えなくなっている（見えているのは ${globeVisible === null ? '不明' : (globeVisible * 100).toFixed(0) + '%'}）`,
           );
           check(
-            overlapArea(globe, castArt) === 0,
-            `${label}: 地球儀を人物が隠している（${overlapArea(globe, castArt).toFixed(0)}px2）`,
+            m.summitCoveredByCast === false,
+            `${label}: 富士山の山頂を人物が隠している`,
           );
           check(
-            overlapArea(fujiLeftHalf, castArt) === 0,
-            `${label}: 富士山の山頂側を人物が隠している（${overlapArea(fujiLeftHalf, castArt).toFixed(0)}px2）`,
+            m.summitCoveredByLogo === false,
+            `${label}: 富士山の山頂をロゴが隠している`,
           );
 
           // ロゴと人物が欠けていない。
@@ -604,13 +723,23 @@ try {
           /*
            * 切り欠きがあると、ロゴは「安全領域から地球儀まで」の帯に
            * 押し込まれるので、切り欠きが無いときより小さくなる。
-           * それでも小さくなりすぎないことを見る。
-           * （帯をいちばん使えない 393x700＋59px でも 45% 以上ある。）
+           * 幅は画面幅の比で決めているので、切り欠きがあっても変わらない。
            */
           const logoWidthRatio = logoArt.width / m.viewport.width;
           check(
-            logoWidthRatio >= 0.4,
+            logoWidthRatio >= 0.7,
             `${label}: ロゴが小さい（画面幅の ${(logoWidthRatio * 100).toFixed(1)}%）`,
+          );
+          for (const lab of m.buttonLabels) {
+            check(
+              lab.height <= lab.fontSize * 1.7,
+              `${label}: ボタンの文字が折り返している（${lab.text}）`,
+            );
+          }
+          const castHeightRatio = castArt.height / m.viewport.height;
+          check(
+            castHeightRatio >= 0.4,
+            `${label}: 人物が小さい（絵の高さが画面の ${(castHeightRatio * 100).toFixed(1)}%）`,
           );
 
           // 幕が足元の光を沈めていない／副ボタンの背後には残っている。
@@ -655,7 +784,7 @@ try {
           }
           check(!m.hScroll, `${label}: 横スクロールが発生している`);
           check(jsErrors.length === 0, `${label}: JavaScript エラー: ${jsErrors.join(' / ')}`);
-          return ` 余白0 / 地球儀の遮蔽0 / 44px充足 / 安全領域内`;
+          return ` 余白0 / 地球儀が見える / 山頂が見える / 44px充足 / 安全領域内`;
         } finally {
           await context.close();
         }

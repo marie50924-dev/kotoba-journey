@@ -5,10 +5,13 @@ import titleIconsSource from '../components/titleIcons.ts?raw';
 import {
   TITLE_ASSETS,
   TITLE_BACKGROUNDS,
+  TITLE_BACKGROUND_RESTORE,
+  TITLE_BACKGROUND_SIZES,
   TITLE_BACKGROUND_V2,
   TITLE_BACKGROUND_VARIANT,
+  TITLE_CAST_ART,
   TITLE_REFERENCE_LAYOUT,
-  TITLE_GLOBE_TOP_MIN,
+  TITLE_TARGET_LAYOUT,
   TITLE_LOGO_ART,
   TITLE_BACKGROUND_LANDMARKS,
   TITLE_BACKGROUND_POSITION_Y,
@@ -52,6 +55,8 @@ const LAYER_SOURCE = import.meta.glob('../../assets-source/title/layered-v1/*');
 const TITLE_WEBP = import.meta.glob('../../public/assets/title/*.webp');
 const BG2_WEBP = import.meta.glob('../../public/assets/title/background-v2/*.webp');
 const BG2_SOURCE = import.meta.glob('../../assets-source/title/background-v2/*');
+const RESTORE_WEBP = import.meta.glob('../../public/assets/title/restore-reference/*.webp');
+const RESTORE_SOURCE = import.meta.glob('../../assets-source/title/restore-reference/*');
 
 function baseNames(map: Record<string, unknown>): string[] {
   return Object.keys(map)
@@ -83,15 +88,25 @@ describe('表紙の分離素材', () => {
   });
 
   it('画像URLが配信先を指していて、3点が別物である', () => {
-    for (const [key, url] of Object.entries(TITLE_LAYERS)) {
-      expect(url).toBe(`${import.meta.env.BASE_URL}assets/title/layered-v1/${key}.webp`);
+    // ロゴと人物は最初の受領物のまま。背景は使っている候補を指す。
+    for (const key of ['logo', 'characters'] as const) {
+      expect(TITLE_LAYERS[key]).toBe(
+        `${import.meta.env.BASE_URL}assets/title/layered-v1/${key}.webp`,
+      );
+    }
+    expect(TITLE_LAYERS.background).toBe(TITLE_BACKGROUNDS[TITLE_BACKGROUND_VARIANT]);
+    for (const url of Object.values(TITLE_LAYERS)) {
       expect(url.match(/\.webp/g)).toHaveLength(1);
     }
     expect(new Set(Object.values(TITLE_LAYERS)).size).toBe(3);
   });
 
   it('原寸の画素数を受領物どおり記録してある', () => {
-    expect(TITLE_LAYER_SIZES.background).toEqual({ width: 852, height: 1846 });
+    expect(TITLE_LAYER_SIZES.background).toEqual(
+      TITLE_BACKGROUND_SIZES[TITLE_BACKGROUND_VARIANT],
+    );
+    expect(TITLE_BACKGROUND_SIZES.v1).toEqual({ width: 852, height: 1846 });
+    expect(TITLE_BACKGROUND_SIZES.restore).toEqual({ width: 709, height: 1536 });
     expect(TITLE_LAYER_SIZES.logo).toEqual({ width: 1997, height: 788 });
     expect(TITLE_LAYER_SIZES.characters).toEqual({ width: 1024, height: 1536 });
   });
@@ -197,20 +212,28 @@ describe('表紙の CSS', () => {
   it('ロゴと人物は切り抜かない（背景だけが切れる）', () => {
     const cast = titleCss.match(/\.t-cast\s*\{[^}]*\}/);
     expect(cast, '.t-cast の指定が無い').not.toBeNull();
-    expect(cast![0]).toContain('object-fit: contain');
+    // 人物は高さだけを指定し、幅は原寸比に任せる（縦横比が崩れない）。
+    expect(cast![0]).toContain('width: auto');
+    expect(cast![0]).toMatch(/height:\s*var\(--cast-h\)/);
     expect(cast![0]).not.toContain('object-fit: cover');
     const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
     expect(logo, '.t-logo の指定が無い').not.toBeNull();
     expect(logo![0]).not.toContain('object-fit: cover');
   });
 
-  it('人物の高さが、操作の高さと画面の高さから決まっている', () => {
+  it('人物の高さと位置が、目標の構図と操作の高さから決まっている', () => {
     const cast = titleCss.match(/\.t-cast\s*\{[^}]*\}/);
-    // 靴が主ボタンより上、頭が地球儀より下に来るようにする計算。
-    expect(cast![0]).toContain('--title-controls');
-    expect(cast![0]).toMatch(/height:\s*min\(/);
+    expect(cast, '.t-cast の指定が無い').not.toBeNull();
+    // 高さは「画面の高さから決まる値」と「幅の上限」の小さいほう。
+    expect(cast![0]).toMatch(/--cast-h:\s*min\(/);
     expect(cast![0]).toContain('dvh');
     expect(cast![0]).toContain('vw');
+    // 靴の位置は、操作の高さから決める（ホームバーで操作が上がれば人物も上がる）。
+    expect(cast![0]).toContain('--controls-h');
+    expect(cast![0]).toContain('--safe-bottom');
+    // 素材の透明な余白の値は、データ側の実測値と一致していること。
+    expect(cast![0]).toContain(`--art-top: ${TITLE_CAST_ART.top}`);
+    expect(cast![0]).toContain(`--art-bottom: ${TITLE_CAST_ART.bottom}`);
   });
 
   it('操作は安全領域の内側に置く', () => {
@@ -226,17 +249,23 @@ describe('表紙の CSS', () => {
     expect(sub, '.t-sub-btn の指定が無い').not.toBeNull();
 
     // 高さも文字も、主ボタンのほうが大きいことを数で見る。
-    const startHeight = Number(start![0].match(/min-height:\s*(\d+)px/)?.[1]);
     const startFont = Number(start![0].match(/font-size:\s*(\d+)px/)?.[1]);
     const subFont = Number(sub![0].match(/font-size:\s*(\d+)px/)?.[1]);
-    expect(Number.isFinite(startHeight), '主ボタンの高さが px で書かれていない').toBe(true);
     expect(Number.isFinite(startFont), '主ボタンの文字の大きさが px で書かれていない').toBe(true);
     expect(Number.isFinite(subFont), '副ボタンの文字の大きさが px で書かれていない').toBe(true);
-
-    // 44px は指の当たる最小。主ボタンはそれ以上で、副ボタンより高い。
-    expect(startHeight).toBeGreaterThanOrEqual(44);
     expect(startFont).toBeGreaterThan(subFont);
-    expect(sub![0]).toContain('min-height: var(--tap-min)');
+
+    // 高さは画面の高さに合わせて伸びる。どちらにも下限を置く。
+    expect(start![0]).toContain('min-height: var(--primary-h)');
+    expect(sub![0]).toContain('min-height: var(--sub-h)');
+    const screen = (titleCss.match(/\.screen--title\s*\{[^}]*\}/g) ?? []).join('\n');
+    const primaryMin = Number(screen.match(/--primary-h:\s*max\((\d+)px/)?.[1]);
+    const subMin = screen.match(/--sub-h:\s*max\(var\(--tap-min\)/);
+    // 44px は指の当たる最小。主ボタンはそれ以上で、副ボタンより高い。
+    expect(Number.isFinite(primaryMin), '主ボタンの高さの下限が無い').toBe(true);
+    expect(primaryMin).toBeGreaterThanOrEqual(44);
+    expect(subMin, '副ボタンの高さの下限が --tap-min ではない').not.toBeNull();
+    expect(primaryMin).toBeGreaterThan(44);
   });
 
   it('副操作は採用見本と同じく、白い輪郭の透けたピル型', () => {
@@ -273,19 +302,22 @@ describe('表紙の CSS', () => {
     }
   });
 
-  it('ロゴの大きさが「安全領域から地球儀まで」の帯から決まる', () => {
+  it('ロゴの大きさと位置が、目標の構図に合わせてある', () => {
     const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
     expect(logo, '.t-logo の指定が無い').not.toBeNull();
 
-    // 帯の上端は安全領域から、下端は地球儀の上端から決める。
-    expect(logo![0]).toContain('--safe-top');
-    expect(logo![0]).toMatch(/--band-bottom:\s*calc\(\s*19dvh/);
-    // 高さは「帯の高さ」と「幅の上限」の小さいほうを採る。
-    expect(logo![0]).toMatch(/--logo-h:\s*min\(/);
-    expect(logo![0]).toContain('vw');
+    // 幅は画面幅の比で持つ。目標は絵の幅が画面の 74.7%。
+    const widthPct = Number(logo![0].match(/--logo-w:\s*min\(([\d.]+)vw/)?.[1]);
+    expect(Number.isFinite(widthPct), 'ロゴの幅が vw で書かれていない').toBe(true);
+    const artWidth = (widthPct / 100) * (TITLE_LOGO_ART.right - TITLE_LOGO_ART.left);
+    expect(Math.abs(artWidth - TITLE_TARGET_LAYOUT.logo.width)).toBeLessThan(0.03);
+
     // 幅は原寸比に任せるので、縦横比が崩れない。
-    expect(logo![0]).toContain('width: auto');
-    expect(logo![0]).toMatch(/height:\s*var\(--logo-h\)/);
+    expect(logo![0]).toMatch(/width:\s*var\(--logo-w\)/);
+    expect(logo![0]).toContain('height: auto');
+    // 上端は、切り欠きがあるときだけその下へ逃がす。
+    expect(logo![0]).toMatch(/top:\s*max\(calc\(var\(--safe-top\)/);
+    expect(logo![0]).toContain('dvh');
 
     // 素材の透明な余白の値は、データ側の実測値と一致していること。
     expect(logo![0]).toContain(`--art-top: ${TITLE_LOGO_ART.top}`);
@@ -293,10 +325,17 @@ describe('表紙の CSS', () => {
     expect(logo![0]).toContain(`--art-span: ${span}`);
   });
 
-  it('ロゴの上限は、地球儀がいちばん高く来る位置より上に置かれている', () => {
-    // CSS は 19dvh を使う。データ側の実測値より下であってはならない。
-    expect(TITLE_GLOBE_TOP_MIN).toBeLessThanOrEqual(0.19);
-    expect(TITLE_GLOBE_TOP_MIN).toBeGreaterThan(0.15);
+  /*
+   * 以前は「地球儀の円周をロゴや人物で隠さない」を絶対条件にしていた。
+   * 復元用の指示で、その条件は目標の構図（大きな地球儀の手前に人物とロゴが
+   * 重なる絵）と矛盾するため取り下げられた。
+   * 重なりを 0 にするためにロゴを縮める書き方へ戻っていないことを見る。
+   */
+  it('重なりを消すためにロゴを縮める書き方へ戻っていない', () => {
+    const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
+    expect(logo![0]).not.toContain('--band-bottom');
+    expect(logo![0]).not.toContain('--logo-h');
+    expect(logo![0]).not.toMatch(/max-height/);
   });
 
   it('ロゴには背景へ溶ける光が付いている', () => {
@@ -312,7 +351,7 @@ describe('表紙の CSS', () => {
     const screen = titleCss.match(/\.screen--title\s*\{[^}]*\}/g) ?? [];
     const joined = screen.join('\n');
     expect(joined).toMatch(/--scrim-strong:\s*calc\(var\(--safe-bottom\)/);
-    expect(joined).toMatch(/--scrim-end:\s*calc\(var\(--safe-bottom\)/);
+    expect(joined).toMatch(/--scrim-end:\s*calc\(var\(--scrim-strong\)/);
 
     const scrim = titleCss.match(/\.t-scrim\s*\{[^}]*\}/);
     expect(scrim, '.t-scrim の指定が無い').not.toBeNull();
@@ -348,12 +387,13 @@ describe('候補の背景 v2', () => {
     expect(TITLE_BACKGROUNDS.v1).not.toBe(TITLE_BACKGROUNDS.v2);
   });
 
-  it('いま画面に出しているのは v1（v2 はユーザーの確認待ち）', () => {
-    expect(TITLE_BACKGROUND_VARIANT).toBe('v1');
+  it('v2 は使っていない（復元用の指示で取り下げ）', () => {
+    expect(TITLE_BACKGROUND_VARIANT).not.toBe('v2');
   });
 
   it('v2 の目印は、旧背景の値の流用ではない', () => {
-    const v1 = TITLE_BACKGROUND_LANDMARKS.globe;
+    // v1 の地球儀の枠（いまは画面に出していないので、ここに書いて比べる）。
+    const v1 = { left: 0.36, top: 0.205, right: 0.6, bottom: 0.33 };
     const v2 = TITLE_BACKGROUND_V2.landmarks.globe;
     // 地球儀は大きくなり、上へも左右へも広がっている。
     expect(v2.top).toBeLessThan(v1.top);
@@ -394,5 +434,90 @@ describe('候補の背景 v2', () => {
     expect(TITLE_BACKGROUND_V2.landmarks.globe.top).toBeLessThan(
       TITLE_REFERENCE_LAYOUT.logo.bottom,
     );
+  });
+});
+
+/*
+ * いま画面に出している背景（復元用の基準・6枚目）と、目標の構図（7枚目）。
+ *
+ * 「地球儀の円周をロゴや人物で隠さない」という以前の条件は、
+ * 目標の構図と矛盾するため取り下げられた。
+ * ここでは代わりに、受領物がそのまま置いてあることと、
+ * 測り直した値が v1 / v2 の流用でないことを見る。
+ * 実際に何が見えているかは実ブラウザテストで測る。
+ */
+describe('復元用の背景と目標の構図', () => {
+  it('受領した5点が名前のまま置いてある', () => {
+    expect(baseNames(RESTORE_SOURCE)).toEqual([
+      'README.md',
+      'background-reference-exact.jpeg',
+      'characters-new-faces.png',
+      'logo-transparent.png',
+      'target-composition-old-faces.jpeg',
+    ]);
+    expect(baseNames(RESTORE_WEBP)).toEqual(['background-reference-exact.webp']);
+  });
+
+  it('いま画面に出しているのは復元用の背景', () => {
+    expect(TITLE_BACKGROUND_VARIANT).toBe('restore');
+    expect(TITLE_LAYERS.background).toContain(
+      'restore-reference/background-reference-exact.webp',
+    );
+  });
+
+  it('目印は復元用の背景の実測値で、v1 の流用ではない', () => {
+    expect(TITLE_BACKGROUND_LANDMARKS).toEqual(TITLE_BACKGROUND_RESTORE.landmarks);
+    const v1Globe = { left: 0.36, top: 0.205, right: 0.6, bottom: 0.33 };
+    const globe = TITLE_BACKGROUND_RESTORE.landmarks.globe;
+    expect(globe).not.toEqual(v1Globe);
+    // 地球儀は v1 より大きい。
+    expect(globe.bottom - globe.top).toBeGreaterThan(v1Globe.bottom - v1Globe.top);
+    expect(globe.right - globe.left).toBeGreaterThan(v1Globe.right - v1Globe.left);
+  });
+
+  it('富士山の山頂の位置が、山体の枠の中にある', () => {
+    const { fujiSummit, landmarks } = TITLE_BACKGROUND_RESTORE;
+    expect(fujiSummit.x).toBeGreaterThan(landmarks.fuji.left);
+    expect(fujiSummit.x).toBeLessThan(landmarks.fuji.right);
+    expect(fujiSummit.y).toBeGreaterThanOrEqual(landmarks.fuji.top);
+    expect(fujiSummit.y).toBeLessThan(landmarks.fuji.bottom);
+  });
+
+  it('強い光は地球儀の縁ではなく、その下の街路にある', () => {
+    const { lightCenter, landmarks } = TITLE_BACKGROUND_RESTORE;
+    expect(lightCenter.y).toBeGreaterThan(landmarks.globe.bottom);
+    expect(Math.abs(lightCenter.x - 0.5)).toBeLessThan(0.1);
+  });
+
+  it('目標の構図の値が 0〜1 に収まり、順序も正しい', () => {
+    const t = TITLE_TARGET_LAYOUT;
+    expect(t.logo.top).toBeLessThan(t.logo.bottom);
+    expect(t.logo.bottom).toBeLessThan(t.cast.headTop);
+    expect(t.cast.headTop).toBeLessThan(t.cast.feetBottom);
+    expect(t.cast.feetBottom).toBeLessThan(t.primary.top);
+    expect(t.primary.bottom).toBeLessThan(t.sub.top);
+    expect(t.sub.bottom).toBeLessThan(1);
+    for (const value of [t.logo.width, t.cast.centerX, t.primary.left, t.sub.right]) {
+      expect(value).toBeGreaterThan(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('人物の絵の範囲が、素材の中に収まっている', () => {
+    for (const value of Object.values(TITLE_CAST_ART)) {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+    expect(TITLE_CAST_ART.left).toBeLessThan(TITLE_CAST_ART.right);
+    expect(TITLE_CAST_ART.top).toBeLessThan(TITLE_CAST_ART.bottom);
+  });
+
+  it('操作の寸法が、目標の構図の実測値から来ている', () => {
+    const screen = (titleCss.match(/\.screen--title\s*\{[^}]*\}/g) ?? []).join('\n');
+    const t = TITLE_TARGET_LAYOUT;
+    const primaryH = Number(screen.match(/--primary-h:\s*max\(\d+px,\s*([\d.]+)dvh/)?.[1]);
+    const subH = Number(screen.match(/--sub-h:\s*max\(var\(--tap-min\),\s*([\d.]+)dvh/)?.[1]);
+    expect(Math.abs(primaryH / 100 - (t.primary.bottom - t.primary.top))).toBeLessThan(0.004);
+    expect(Math.abs(subH / 100 - (t.sub.bottom - t.sub.top))).toBeLessThan(0.004);
   });
 });

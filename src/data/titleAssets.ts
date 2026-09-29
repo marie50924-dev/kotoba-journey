@@ -77,21 +77,17 @@ export const TITLE_COVER_BUTTON_BOX = {
 /**
  * 背景の候補。
  *
- * v1 … 最初に受け取った背景。いま画面に出ているのはこちら。
- * v2 … 「強い光を二人のあいだから足元へ」「地球儀を大きく」の指示で
- *       作り直された候補（kotoba-title-background-v2）。
- *
- * v2 は地球儀が大きく、画像の上から 10.8% の高さまで来る。
- * そのぶんロゴを置ける空が狭く、iPhone 15 Pro の比率では
- * ロゴが成立しない（詳しくは TITLE_BACKGROUND_V2 の注記）。
- * 採用の可否がユーザーの確認待ちなので、
- * ここは v1 のままにし、v2 は測り直した値とともに置いてある。
+ * v1      … 最初に受け取った背景。
+ * v2      … 地球儀を大きくした候補。地球儀が上に寄りすぎてロゴが置けず、使わない。
+ * restore … 復元用に受け取った背景基準（kotoba-title-restore-reference の6枚目）。
+ *           いま画面に出ているのはこれ。
  */
-export const TITLE_BACKGROUND_VARIANT: 'v1' | 'v2' = 'v1';
+export const TITLE_BACKGROUND_VARIANT: 'v1' | 'v2' | 'restore' = 'restore';
 
 export const TITLE_BACKGROUNDS = {
   v1: assetUrl('assets/title/layered-v1/background.webp'),
   v2: assetUrl('assets/title/background-v2/background-large-globe-center-light.webp'),
+  restore: assetUrl('assets/title/restore-reference/background-reference-exact.webp'),
 } as const;
 
 export const TITLE_LAYERS = {
@@ -100,8 +96,15 @@ export const TITLE_LAYERS = {
   characters: assetUrl('assets/title/layered-v1/characters.webp'),
 } as const;
 
+/** 背景ごとの画素数。<img> の width / height に出して、読み込み中のずれを防ぐ。 */
+export const TITLE_BACKGROUND_SIZES = {
+  v1: { width: 852, height: 1846 },
+  v2: { width: 852, height: 1846 },
+  restore: { width: 709, height: 1536 },
+} as const;
+
 export const TITLE_LAYER_SIZES = {
-  background: { width: 852, height: 1846 },
+  background: TITLE_BACKGROUND_SIZES[TITLE_BACKGROUND_VARIANT],
   logo: { width: 1997, height: 788 },
   characters: { width: 1024, height: 1536 },
 } as const;
@@ -110,7 +113,14 @@ export const TITLE_LAYER_SIZES = {
  * 背景の中で、ロゴや人物で隠してはいけないもの。
  * 背景画像の左上を 0、右下を 1 とする比率で、目盛りを重ねて実測した。
  */
-export const TITLE_BACKGROUND_LANDMARKS = {
+const RESTORE_LANDMARKS = {
+  /** 光る地球儀。実測 横 26.3%〜77.2% / 縦 18.6%〜39.1% を外側へ少し広げた。 */
+  globe: { left: 0.26, top: 0.185, right: 0.775, bottom: 0.395 },
+  /** 富士山。実測 横 4%〜45% / 縦 39.5%〜47%。山頂は 横18.9% / 縦39.9%。 */
+  fuji: { left: 0.04, top: 0.395, right: 0.45, bottom: 0.47 },
+} as const;
+
+const LANDMARKS_V1 = {
   /**
    * 光る地球儀。円周を隠さない。
    *
@@ -126,6 +136,13 @@ export const TITLE_BACKGROUND_LANDMARKS = {
    */
   fuji: { left: 0.05, top: 0.33, right: 0.30, bottom: 0.41 },
 } as const;
+
+/**
+ * いま画面に出している背景の目印。
+ * 背景を切り替えたら、目印も一緒に切り替わる（v1 の数値の流用を防ぐ）。
+ */
+export const TITLE_BACKGROUND_LANDMARKS =
+  TITLE_BACKGROUND_VARIANT === 'restore' ? RESTORE_LANDMARKS : LANDMARKS_V1;
 
 /**
  * 背景を cover で敷くときの縦の見せ方（object-position の Y）。
@@ -199,4 +216,62 @@ export const TITLE_REFERENCE_LAYOUT = {
   globe: { top: 0.195, bottom: 0.344, left: 0.212, right: 0.711 },
   /** 男性の髪の上端。参考画像では人物の頭が地球儀の下部に重なっている。 */
   castTop: 0.284,
+} as const;
+
+/**
+ * いま使っている背景（復元用の基準・6枚目）の実測値。
+ *
+ * 目盛りを重ねて読み取った。v1 や v2 の数値は流用していない。
+ *   地球儀   横 26.3%〜77.2%、縦 18.6%〜39.1%
+ *   富士山   山頂は 横 18.9% / 縦 39.9%。山体は 横 4%〜45%、縦 39.5%〜47%
+ *   強い光   いちばん明るいところは 横 48.8% / 縦 75.8%
+ *            （地球儀の縁ではなく、二人が立つ奥から足元の石畳へ広がる）
+ */
+export const TITLE_BACKGROUND_RESTORE = {
+  size: { width: 709, height: 1536 },
+  landmarks: {
+    globe: { left: 0.26, top: 0.185, right: 0.775, bottom: 0.395 },
+    fuji: { left: 0.04, top: 0.395, right: 0.45, bottom: 0.47 },
+  },
+  /** 富士山の山頂。ここは人物にもロゴにも隠させない。 */
+  fujiSummit: { x: 0.189, y: 0.399 },
+  /** 強い光の中心。 */
+  lightCenter: { x: 0.488, y: 0.758 },
+} as const;
+
+/**
+ * 目標の構図（復元用の7枚目 target-composition-old-faces.jpeg）の実測値。
+ *
+ * 709x1536（縦横比 0.4616）で、iPhone 15 Pro とほぼ同じ比率。
+ * 画面の高さ・幅に対する比で持つ。CSS はこの値を目標に組んである。
+ *
+ * ロゴと人物の位置は、素材を実際に重ねていちばん近くなる置き方を
+ * 探して求めた。ボタンは目盛りを重ねて読み取った。
+ *
+ * なお7枚目の背景は6枚目とは別の絵で、富士山や名所の位置が違う
+ * （7枚目の山頂は 横14.8% / 縦35.3%、6枚目は 横18.9% / 縦39.9%）。
+ * そのため「ロゴ・人物・操作の置き方」だけを目標として使う。
+ */
+export const TITLE_TARGET_LAYOUT = {
+  /** ロゴの絵（透明な余白を除いた範囲）。 */
+  logo: { top: 0.079, bottom: 0.19, width: 0.747 },
+  /** 人物の絵。頭の上端・靴の下端・横の中心。 */
+  cast: { headTop: 0.284, feetBottom: 0.756, centerX: 0.52 },
+  /** 主操作。画面の高さ・幅に対する比。 */
+  primary: { top: 0.789, bottom: 0.851, left: 0.216, right: 0.813 },
+  /** 副操作の行。 */
+  sub: { top: 0.888, bottom: 0.936, left: 0.092, right: 0.906 },
+} as const;
+
+/**
+ * 人物素材の中で、実際に絵が描かれている範囲（画像の高さ・幅に対する比）。
+ *
+ * 透明度が 80 を超える画素の範囲。CSS で「靴を主ボタンより上に置く」
+ * 計算をするとき、画像の箱ではなくこの範囲で考える必要がある。
+ */
+export const TITLE_CAST_ART = {
+  left: 0.0156,
+  top: 0.0189,
+  right: 0.9951,
+  bottom: 0.9583,
 } as const;
