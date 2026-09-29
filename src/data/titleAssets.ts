@@ -82,17 +82,54 @@ export const TITLE_COVER_BUTTON_BOX = {
  * restore … 復元用に受け取った背景基準（kotoba-title-restore-reference の6枚目）。
  *           いま画面に出ているのはこれ。
  */
-export const TITLE_BACKGROUND_VARIANT: 'v1' | 'v2' | 'restore' = 'restore';
+export const TITLE_BACKGROUND_VARIANT: 'v1' | 'v2' | 'restore' | 'walkway' = 'walkway';
 
 export const TITLE_BACKGROUNDS = {
   v1: assetUrl('assets/title/layered-v1/background.webp'),
   v2: assetUrl('assets/title/background-v2/background-large-globe-center-light.webp'),
   restore: assetUrl('assets/title/restore-reference/background-reference-exact.webp'),
+  walkway: assetUrl('assets/title/grounding-v1/background-walkway-candidate.webp'),
 } as const;
+
+/**
+ * ロゴの候補。
+ *
+ * v1   … これまで使ってきた透過ロゴ。
+ * glow … 「7枚目の白銀と青い発光に近づけた」候補（kotoba-title-grounding-v1）。
+ *
+ * どちらも正式採用ではない。画面見本で見比べていただくための切り替え。
+ */
+export const TITLE_LOGO_VARIANT: 'v1' | 'glow' = 'v1';
+
+export const TITLE_LOGOS = {
+  v1: assetUrl('assets/title/layered-v1/logo.webp'),
+  glow: assetUrl('assets/title/grounding-v1/logo-glow-candidate.webp'),
+} as const;
+
+export const TITLE_LOGO_SIZES = {
+  v1: { width: 1997, height: 788 },
+  glow: { width: 1997, height: 787 },
+} as const;
+
+/**
+ * ロゴ素材ごとの、絵が描かれている範囲（透明度32超）。
+ * 候補は余白がほとんど無く、同じ幅で出すと絵が大きく見える。
+ */
+export const TITLE_LOGO_ARTS = {
+  v1: { left: 0.018, top: 0.1358, right: 1, bottom: 0.9378 },
+  glow: { left: 0.018, top: 0.0216, right: 0.9965, bottom: 1 },
+} as const;
+
+/**
+ * 目標の構図での、ロゴの絵の幅（画面の幅に対する比）と、絵の上端の高さ。
+ * CSS はこの値を目標に、素材ごとの透明な余白を差し引いて大きさと位置を出す。
+ * こうしておくと、素材を差し替えても絵の見える大きさと位置が変わらない。
+ */
+export const TITLE_LOGO_PLACEMENT = { artWidth: 0.747, artTop: 0.079 } as const;
 
 export const TITLE_LAYERS = {
   background: TITLE_BACKGROUNDS[TITLE_BACKGROUND_VARIANT],
-  logo: assetUrl('assets/title/layered-v1/logo.webp'),
+  logo: TITLE_LOGOS[TITLE_LOGO_VARIANT],
   characters: assetUrl('assets/title/layered-v1/characters.webp'),
 } as const;
 
@@ -101,11 +138,12 @@ export const TITLE_BACKGROUND_SIZES = {
   v1: { width: 852, height: 1846 },
   v2: { width: 852, height: 1846 },
   restore: { width: 709, height: 1536 },
+  walkway: { width: 853, height: 1844 },
 } as const;
 
 export const TITLE_LAYER_SIZES = {
   background: TITLE_BACKGROUND_SIZES[TITLE_BACKGROUND_VARIANT],
-  logo: { width: 1997, height: 788 },
+  logo: TITLE_LOGO_SIZES[TITLE_LOGO_VARIANT],
   characters: { width: 1024, height: 1536 },
 } as const;
 
@@ -113,6 +151,19 @@ export const TITLE_LAYER_SIZES = {
  * 背景の中で、ロゴや人物で隠してはいけないもの。
  * 背景画像の左上を 0、右下を 1 とする比率で、目盛りを重ねて実測した。
  */
+const V2_LANDMARKS = {
+  /** 使っていない候補 v2 の地球儀と富士山。比較のために残してある。 */
+  globe: { left: 0.24, top: 0.1, right: 0.74, bottom: 0.345 },
+  fuji: { left: 0.04, top: 0.34, right: 0.4, bottom: 0.42 },
+} as const;
+
+const WALKWAY_LANDMARKS = {
+  /** 光る地球儀。実測 横 23.9%〜76.8% / 縦 18.2%〜39.6% を外側へ少し広げた。 */
+  globe: { left: 0.235, top: 0.178, right: 0.775, bottom: 0.4 },
+  /** 富士山。実測 横 3%〜43% / 縦 40%〜48%。山頂は 横19.1% / 縦40.1%。 */
+  fuji: { left: 0.03, top: 0.395, right: 0.43, bottom: 0.48 },
+} as const;
+
 const RESTORE_LANDMARKS = {
   /** 光る地球儀。実測 横 26.3%〜77.2% / 縦 18.6%〜39.1% を外側へ少し広げた。 */
   globe: { left: 0.26, top: 0.185, right: 0.775, bottom: 0.395 },
@@ -141,17 +192,30 @@ const LANDMARKS_V1 = {
  * いま画面に出している背景の目印。
  * 背景を切り替えたら、目印も一緒に切り替わる（v1 の数値の流用を防ぐ）。
  */
-export const TITLE_BACKGROUND_LANDMARKS =
-  TITLE_BACKGROUND_VARIANT === 'restore' ? RESTORE_LANDMARKS : LANDMARKS_V1;
+const LANDMARKS_BY_VARIANT = {
+  v1: LANDMARKS_V1,
+  v2: V2_LANDMARKS,
+  restore: RESTORE_LANDMARKS,
+  walkway: WALKWAY_LANDMARKS,
+} as const;
+
+export const TITLE_BACKGROUND_LANDMARKS = LANDMARKS_BY_VARIANT[TITLE_BACKGROUND_VARIANT];
 
 /**
  * 背景を cover で敷くときの縦の見せ方（object-position の Y）。
  *
- * 0.27 にすると、対応する全画面サイズで地球儀の中心が
- * 画面の高さの約26%へ来る。画面ごとに切り取り量が変わっても、
- * 地球儀とロゴ・人物の位置関係が保たれる。
+ * 画面が背景より横長だと、背景は縦に切り取られる。どこを切るかでこの値が効く。
+ *
+ * 人物の靴は画面の 70〜75% に来る。そこに石畳の歩道が来るように決めた。
+ *   0.45 にすると、切り取りが起きる4サイズ（320x568・375x667・393x745・393x700）で
+ *   6つの接地点すべてが歩道の幅のなかに収まる（必要な下限は 0.39〜0.40）。
+ *   これより大きくすると背景が上へ動き、短い画面で地球儀がロゴの裏へ隠れていく。
+ *   iPhone 15 Pro（393x852）と 430x932 は背景とほぼ同じ縦横比で切り取りが
+ *   起きないため、この値は効かない。
+ * 以前の 0.27 では、短い画面で靴が背景の 60〜66% に当たり、
+ * 歩道の外（花壇や欄干）へ出ていた。
  */
-export const TITLE_BACKGROUND_POSITION_Y = 0.27;
+export const TITLE_BACKGROUND_POSITION_Y = 0.45;
 
 /**
  * ロゴ素材の中で、実際に絵が描かれている範囲（画像の高さ・幅に対する比）。
@@ -162,12 +226,7 @@ export const TITLE_BACKGROUND_POSITION_Y = 0.27;
  * だった。CSS で「ロゴの下端を地球儀より上に収める」計算をするとき、
  * 画像の箱ではなくこの範囲で考える必要がある。
  */
-export const TITLE_LOGO_ART = {
-  left: 0.018,
-  top: 0.1358,
-  right: 1,
-  bottom: 0.9378,
-} as const;
+export const TITLE_LOGO_ART = TITLE_LOGO_ARTS[TITLE_LOGO_VARIANT];
 
 /**
  * 画面の高さに対して、地球儀の上端がいちばん高く来る位置。
@@ -275,3 +334,74 @@ export const TITLE_CAST_ART = {
   right: 0.9951,
   bottom: 0.9583,
 } as const;
+
+/**
+ * 候補の背景「歩道つき」（background-walkway-candidate.png）の実測値。
+ *
+ * 目盛りを重ねて読み取った。ほかの背景の数値は流用していない。
+ *   地球儀   横 23.9%〜76.8%、縦 18.2%〜39.6%
+ *   富士山   山頂は 横 19.1% / 縦 40.1%
+ *   強い光   いちばん明るいところは 横 49.7% / 縦 60.4%
+ *   石畳     消失点は 縦 55.5%。そこから手前へ広がる台形。
+ */
+export const TITLE_BACKGROUND_WALKWAY = {
+  size: { width: 853, height: 1844 },
+  landmarks: {
+    globe: { left: 0.235, top: 0.178, right: 0.775, bottom: 0.4 },
+    fuji: { left: 0.03, top: 0.395, right: 0.43, bottom: 0.48 },
+  },
+  fujiSummit: { x: 0.191, y: 0.401 },
+  lightCenter: { x: 0.497, y: 0.604 },
+} as const;
+
+/**
+ * 背景ごとの「石畳の歩道」の範囲。
+ *
+ * 人物の靴の直下に地面があるかを確かめるために使う。
+ * 歩道は遠近法で台形になるので、2つの高さで左右の端を読み取り、
+ * そのあいだを直線でつないで表す（画像に対する比率）。
+ *
+ *   top    … 消失点。これより上に歩道は無い
+ *   near   … 手前側の基準の高さと、そこでの左右の端
+ *   far    … 奥側の基準の高さと、そこでの左右の端
+ */
+export const TITLE_WALKWAYS = {
+  /** 候補「歩道つき」。奥から手前までずっと石畳が続く。 */
+  walkway: {
+    top: 0.555,
+    far: { y: 0.7, left: 0.2, right: 0.786 },
+    near: { y: 0.85, left: 0.045, right: 0.95 },
+  },
+  /**
+   * いま使っている復元用の背景。歩道は 72% あたりから始まり、
+   * その上は川と欄干。人物の靴が 71.8%〜75.0% に来るので、
+   * 靴の直下が川や欄干になり、浮いて見える。
+   */
+  restore: {
+    top: 0.715,
+    far: { y: 0.78, left: 0.345, right: 0.66 },
+    near: { y: 0.92, left: 0.1, right: 0.9 },
+  },
+} as const;
+
+/**
+ * 人物素材の「接地点」。靴底やかばんの脚が地面に着く場所。
+ *
+ * 素材の列ごとの下端を調べ、下端がいちばん深い場所を接地点とした。
+ * 値は素材の幅・高さに対する比率。
+ * 背景の歩道の上に来ているかを、この点で確かめる。
+ */
+export const TITLE_CAST_CONTACTS = [
+  { name: '男性の前の靴', x: 0.235, y: 0.93, edgeMargin: 0 },
+  { name: '男性の後ろの靴', x: 0.29, y: 0.927, edgeMargin: 0 },
+  { name: 'CAの後ろの靴', x: 0.62, y: 0.945, edgeMargin: 0 },
+  { name: 'CAの前の靴', x: 0.685, y: 0.958, edgeMargin: 0 },
+  /*
+   * かばんのキャラクターは宙に浮いている絵で、脚も靴より高い位置にある。
+   * 歩道の端から少しはみ出す画面があるが、そこは花壇（地面）で水面ではない。
+   * はみ出してよい幅を 5%（背景の幅に対する比）として明示しておく。
+   * 「水の上に来ていないか」は、歩道の消失点より下にあることで別に確かめる。
+   */
+  { name: 'かばんの左脚', x: 0.76, y: 0.893, edgeMargin: 0.05 },
+  { name: 'かばんの右脚', x: 0.879, y: 0.904, edgeMargin: 0.05 },
+] as const;

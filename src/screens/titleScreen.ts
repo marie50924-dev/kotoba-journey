@@ -72,6 +72,11 @@ export function titleScreen(ctx: AppContext): HTMLElement {
   });
   characters.addEventListener('error', () => characters.remove());
 
+  // 足元の接地影。飾りなので読み上げからは外す。
+  const ground = el('div', { class: 't-ground', 'aria-hidden': 'true' });
+  // 人物が出ないときは影だけ残らないようにする。
+  characters.addEventListener('error', () => ground.remove());
+
   // 採用見本と同じ絵記号を添える。記号は飾りで、読み上げと押せる範囲は文字が持つ。
   const startButton = button(UI.actions.start, () => ctx.startJourney(), {
     class: 'btn btn--primary t-start',
@@ -103,6 +108,7 @@ export function titleScreen(ctx: AppContext): HTMLElement {
   root.append(
     background,
     el('div', { class: 't-scrim' }),
+    ground,
     logo,
     el('div', { class: 't-logo-fallback' }, [
       el('p', { class: 't-logo-ja', text: UI.app.titleJa }),

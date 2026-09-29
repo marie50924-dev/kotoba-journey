@@ -13,6 +13,12 @@ import {
   TITLE_REFERENCE_LAYOUT,
   TITLE_TARGET_LAYOUT,
   TITLE_LOGO_ART,
+  TITLE_LOGO_PLACEMENT,
+  TITLE_LOGO_VARIANT,
+  TITLE_LOGOS,
+  TITLE_WALKWAYS,
+  TITLE_CAST_CONTACTS,
+  TITLE_BACKGROUND_WALKWAY,
   TITLE_BACKGROUND_LANDMARKS,
   TITLE_BACKGROUND_POSITION_Y,
   TITLE_LAYERS,
@@ -57,6 +63,8 @@ const BG2_WEBP = import.meta.glob('../../public/assets/title/background-v2/*.web
 const BG2_SOURCE = import.meta.glob('../../assets-source/title/background-v2/*');
 const RESTORE_WEBP = import.meta.glob('../../public/assets/title/restore-reference/*.webp');
 const RESTORE_SOURCE = import.meta.glob('../../assets-source/title/restore-reference/*');
+const GROUNDING_WEBP = import.meta.glob('../../public/assets/title/grounding-v1/*.webp');
+const GROUNDING_SOURCE = import.meta.glob('../../assets-source/title/grounding-v1/*');
 
 function baseNames(map: Record<string, unknown>): string[] {
   return Object.keys(map)
@@ -147,7 +155,8 @@ describe('背景の中で隠してはいけないもの', () => {
     const { globe, fuji } = TITLE_BACKGROUND_LANDMARKS;
     // 測り間違い（上下の取りちがえ）に気付けるだけの関係を固定する。
     expect(globe.top).toBeLessThan(0.3);
-    expect(fuji.top).toBeGreaterThanOrEqual(globe.bottom);
+    expect(fuji.top).toBeGreaterThan(globe.top);
+    expect(fuji.bottom).toBeGreaterThan(globe.bottom);
     // 富士山は左寄り、地球儀は中央寄り。
     expect(fuji.left).toBeLessThan(globe.left);
   });
@@ -225,12 +234,14 @@ describe('表紙の CSS', () => {
     const cast = titleCss.match(/\.t-cast\s*\{[^}]*\}/);
     expect(cast, '.t-cast の指定が無い').not.toBeNull();
     // 高さは「画面の高さから決まる値」と「幅の上限」の小さいほう。
-    expect(cast![0]).toMatch(/--cast-h:\s*min\(/);
-    expect(cast![0]).toContain('dvh');
-    expect(cast![0]).toContain('vw');
+    const screen = (titleCss.match(/\.screen--title\s*\{[^}]*\}/g) ?? []).join('\n');
+    expect(screen).toMatch(/--cast-h:\s*min\(/);
+    expect(screen).toContain('dvh');
+    expect(screen).toContain('vw');
     // 靴の位置は、操作の高さから決める（ホームバーで操作が上がれば人物も上がる）。
-    expect(cast![0]).toContain('--controls-h');
-    expect(cast![0]).toContain('--safe-bottom');
+    expect(screen).toContain('--controls-h');
+    expect(screen).toContain('--safe-bottom');
+    expect(cast![0]).toMatch(/bottom:\s*var\(--cast-bottom\)/);
     // 素材の透明な余白の値は、データ側の実測値と一致していること。
     expect(cast![0]).toContain(`--art-top: ${TITLE_CAST_ART.top}`);
     expect(cast![0]).toContain(`--art-bottom: ${TITLE_CAST_ART.bottom}`);
@@ -307,10 +318,16 @@ describe('表紙の CSS', () => {
     expect(logo, '.t-logo の指定が無い').not.toBeNull();
 
     // 幅は画面幅の比で持つ。目標は絵の幅が画面の 74.7%。
-    const widthPct = Number(logo![0].match(/--logo-w:\s*min\(([\d.]+)vw/)?.[1]);
-    expect(Number.isFinite(widthPct), 'ロゴの幅が vw で書かれていない').toBe(true);
-    const artWidth = (widthPct / 100) * (TITLE_LOGO_ART.right - TITLE_LOGO_ART.left);
-    expect(Math.abs(artWidth - TITLE_TARGET_LAYOUT.logo.width)).toBeLessThan(0.03);
+    const widthPct = Number(logo![0].match(/--logo-art-w:\s*min\(([\d.]+)vw/)?.[1]);
+    expect(Number.isFinite(widthPct), 'ロゴの絵の幅が vw で書かれていない').toBe(true);
+    // 目標の構図と同じ「絵の幅」を指定している（素材の余白は CSS 側で差し引く）。
+    expect(Math.abs(widthPct / 100 - TITLE_LOGO_PLACEMENT.artWidth)).toBeLessThan(0.005);
+    expect(Math.abs(TITLE_LOGO_PLACEMENT.artWidth - TITLE_TARGET_LAYOUT.logo.width)).toBeLessThan(
+      0.005,
+    );
+    // 素材の絵の幅は、いま使っている素材の実測値と一致していること。
+    const artW = Number((TITLE_LOGO_ART.right - TITLE_LOGO_ART.left).toFixed(4));
+    expect(logo![0]).toContain(`--art-w: ${artW}`);
 
     // 幅は原寸比に任せるので、縦横比が崩れない。
     expect(logo![0]).toMatch(/width:\s*var\(--logo-w\)/);
@@ -333,9 +350,11 @@ describe('表紙の CSS', () => {
    */
   it('重なりを消すためにロゴを縮める書き方へ戻っていない', () => {
     const logo = titleCss.match(/\.t-logo\s*\{[^}]*\}/);
+    // 地球儀の上端から高さの上限を出す書き方（帯）へは戻さない。
     expect(logo![0]).not.toContain('--band-bottom');
-    expect(logo![0]).not.toContain('--logo-h');
     expect(logo![0]).not.toMatch(/max-height/);
+    // 高さは幅と原寸比から決まる。画面の高さで頭打ちにしない。
+    expect(logo![0]).toMatch(/--logo-h:\s*calc\(var\(--logo-w\) \/ var\(--logo-ratio\)\)/);
   });
 
   it('ロゴには背景へ溶ける光が付いている', () => {
@@ -458,15 +477,13 @@ describe('復元用の背景と目標の構図', () => {
     expect(baseNames(RESTORE_WEBP)).toEqual(['background-reference-exact.webp']);
   });
 
-  it('いま画面に出しているのは復元用の背景', () => {
-    expect(TITLE_BACKGROUND_VARIANT).toBe('restore');
-    expect(TITLE_LAYERS.background).toContain(
+  it('復元用の背景の測定値は残してある（比較のため）', () => {
+    expect(TITLE_BACKGROUNDS.restore).toContain(
       'restore-reference/background-reference-exact.webp',
     );
   });
 
-  it('目印は復元用の背景の実測値で、v1 の流用ではない', () => {
-    expect(TITLE_BACKGROUND_LANDMARKS).toEqual(TITLE_BACKGROUND_RESTORE.landmarks);
+  it('復元用の背景の目印は、v1 の流用ではない', () => {
     const v1Globe = { left: 0.36, top: 0.205, right: 0.6, bottom: 0.33 };
     const globe = TITLE_BACKGROUND_RESTORE.landmarks.globe;
     expect(globe).not.toEqual(v1Globe);
@@ -519,5 +536,96 @@ describe('復元用の背景と目標の構図', () => {
     const subH = Number(screen.match(/--sub-h:\s*max\(var\(--tap-min\),\s*([\d.]+)dvh/)?.[1]);
     expect(Math.abs(primaryH / 100 - (t.primary.bottom - t.primary.top))).toBeLessThan(0.004);
     expect(Math.abs(subH / 100 - (t.sub.bottom - t.sub.top))).toBeLessThan(0.004);
+  });
+});
+
+/*
+ * 接地（人物が地面に立って見えるか）の材料。
+ *
+ * 靴の直下に石畳があるかは実ブラウザテストで測る。
+ * ここでは、その判定に使う実測値が筋の通った形になっているかを見る。
+ */
+describe('接地の材料', () => {
+  it('受領した5点が名前のまま置いてある', () => {
+    expect(baseNames(GROUNDING_SOURCE)).toEqual([
+      'README.md',
+      'background-walkway-candidate.png',
+      'floating-current-reference.jpeg',
+      'logo-glow-candidate.png',
+      'target-cover-reference.jpeg',
+    ]);
+    expect(baseNames(GROUNDING_WEBP)).toEqual([
+      'background-walkway-candidate.webp',
+      'logo-glow-candidate.webp',
+    ]);
+  });
+
+  it('いま仮組みしているのは歩道つきの候補', () => {
+    expect(TITLE_BACKGROUND_VARIANT).toBe('walkway');
+    expect(TITLE_LAYERS.background).toContain('grounding-v1/background-walkway-candidate.webp');
+    expect(TITLE_BACKGROUND_LANDMARKS).toEqual(TITLE_BACKGROUND_WALKWAY.landmarks);
+  });
+
+  it('ロゴは現行のまま（候補は切り替えで見比べられる）', () => {
+    expect(TITLE_LOGO_VARIANT).toBe('v1');
+    expect(TITLE_LOGOS.glow).toContain('grounding-v1/logo-glow-candidate.webp');
+    expect(TITLE_LOGOS.v1).not.toBe(TITLE_LOGOS.glow);
+  });
+
+  it('接地点が靴とかばんの脚をすべて含んでいる', () => {
+    expect(TITLE_CAST_CONTACTS.length).toBe(6);
+    const names = TITLE_CAST_CONTACTS.map((c) => c.name);
+    expect(names.filter((n) => n.includes('男性')).length).toBe(2);
+    expect(names.filter((n) => n.includes('CA')).length).toBe(2);
+    expect(names.filter((n) => n.includes('かばん')).length).toBe(2);
+    for (const c of TITLE_CAST_CONTACTS) {
+      // 接地点は素材の下のほうにあり、絵の範囲の中に入っている。
+      expect(c.y).toBeGreaterThan(0.85);
+      expect(c.y).toBeLessThanOrEqual(TITLE_CAST_ART.bottom);
+      expect(c.x).toBeGreaterThan(TITLE_CAST_ART.left);
+      expect(c.x).toBeLessThan(TITLE_CAST_ART.right);
+    }
+  });
+
+  it('歩道の範囲が台形として筋が通っている', () => {
+    for (const [name, w] of Object.entries(TITLE_WALKWAYS)) {
+      // 奥（far）より手前（near）のほうが下にあり、広い。
+      expect(w.near.y, `${name}`).toBeGreaterThan(w.far.y);
+      expect(w.far.y, `${name}`).toBeGreaterThan(w.top);
+      expect(w.near.left, `${name}`).toBeLessThan(w.far.left);
+      expect(w.near.right, `${name}`).toBeGreaterThan(w.far.right);
+      expect(w.far.left, `${name}`).toBeLessThan(w.far.right);
+    }
+    // 候補の歩道は、いまの背景の歩道よりずっと奥から始まる。
+    expect(TITLE_WALKWAYS.walkway.top).toBeLessThan(TITLE_WALKWAYS.restore.top);
+  });
+
+  it('背景の縦の見せ方が、靴の高さに歩道が来る値になっている', () => {
+    /*
+     * 靴は画面の 67〜75% に来る。切り取りが起きる画面で、そこへ歩道が
+     * 来るだけ背景を下へ寄せる必要がある（必要な下限は実測で 0.39〜0.40）。
+     * 大きくしすぎると背景が上へ動き、短い画面で地球儀がロゴの裏へ隠れる。
+     */
+    expect(TITLE_BACKGROUND_POSITION_Y).toBeGreaterThanOrEqual(0.4);
+    expect(TITLE_BACKGROUND_POSITION_Y).toBeLessThanOrEqual(0.55);
+  });
+
+  it('接地影は CSS で描いており、画像を足していない', () => {
+    const ground = titleCss.match(/\.t-ground\s*\{[^}]*\}/);
+    expect(ground, '.t-ground の指定が無い').not.toBeNull();
+    // 楕円の影を3つ重ねる。画像は読み込まない。
+    expect((ground![0].match(/radial-gradient\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(ground![0]).not.toMatch(/url\(/);
+    // 人物と同じ位置・同じ大きさの基準を使う（足元からずれない）。
+    expect(ground![0]).toContain('--cast-bottom');
+    expect(ground![0]).toContain('--cast-h');
+    // 人物より後ろに置く。
+    expect(ground![0]).toMatch(/z-index:\s*1/);
+    expect(screenSource).toContain("class: 't-ground'");
+    // 作っただけでなく、画面へ実際に足していること。
+    const appended = screenSource.match(/root\.append\(([\s\S]*?)\n  \);/);
+    expect(appended, 'root.append が見つからない').not.toBeNull();
+    // 'background' に含まれる ground を拾わないよう、行そのもので見る。
+    expect(appended![1]).toMatch(/^\s*ground,$/m);
   });
 });

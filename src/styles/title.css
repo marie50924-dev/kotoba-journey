@@ -29,6 +29,15 @@
     var(--btn-bottom) + var(--sub-h) + var(--btn-gap) + var(--primary-h)
   );
 
+  /*
+   * 人物の大きさと、箱の下端の位置。
+   * 接地影（.t-ground）も同じ値を使って足元に合わせる。
+   */
+  --cast-h: min(49.6dvh, 122vw);
+  --cast-bottom: calc(
+    max(25dvh, calc(var(--safe-bottom) + var(--controls-h) + 8px)) - var(--cast-h) * 0.0417
+  );
+
   /* 幕は操作の位置に合わせる（中央の光を消さないため。下の .t-scrim 参照）。 */
   --scrim-strong: calc(var(--safe-bottom) + var(--btn-bottom) + var(--sub-h) + 16px);
   --scrim-end: calc(var(--scrim-strong) + 48px);
@@ -85,13 +94,26 @@
  * 上端は、切り欠きがあるときだけその下へ逃がす。
  */
 .t-logo {
+  /*
+   * 素材の中で、実際に絵が描かれている範囲（透明度32超の実測値）。
+   * 素材を差し替えたら、この3つも一緒に差し替える。
+   *   v1   絵は 横1.8%〜100%、縦13.58%〜93.78%
+   *   glow 絵は 横1.8%〜99.65%、縦2.16%〜100%
+   */
   --art-top: 0.1358;
   --art-span: 0.802;
+  --art-w: 0.982;
   --logo-ratio: 2.534;
-  --logo-w: min(76vw, 470px);
+
+  /* 目標：絵の幅が画面の74.7%、絵の上端が画面の7.9%。 */
+  --logo-art-w: min(74.7vw, 460px);
+  --logo-w: calc(var(--logo-art-w) / var(--art-w));
+  --logo-h: calc(var(--logo-w) / var(--logo-ratio));
+  --band-top: max(calc(var(--safe-top) + 8px), 7.9dvh);
 
   position: absolute;
-  top: max(calc(var(--safe-top) + 8px), 6dvh);
+  /* 絵の上端が帯の上端へ来るよう、透明な余白のぶんだけ持ち上げる。 */
+  top: calc(var(--band-top) - var(--logo-h) * var(--art-top));
   left: 50%;
   transform: translateX(-50%);
   width: var(--logo-w);
@@ -156,19 +178,42 @@
 .t-cast {
   --art-top: 0.0189;
   --art-bottom: 0.9583;
-  --cast-h: min(49.6dvh, 122vw);
 
   position: absolute;
   left: 52%;
-  bottom: calc(
-    max(25dvh, calc(var(--safe-bottom) + var(--controls-h) + 8px)) -
-      var(--cast-h) * 0.0417
-  );
+  bottom: var(--cast-bottom);
   transform: translateX(-50%);
   height: var(--cast-h);
   width: auto;
   z-index: 2;
   filter: drop-shadow(0 8px 18px rgba(10, 30, 60, 0.34));
+}
+
+/*
+ * 足元の接地影。
+ *
+ * 人物の靴底・かばんの脚の位置に、小さな楕円の影を置いて地面に着いて見せる。
+ * 影だけで浮きを解決するものではない。地面（石畳）が靴の直下に続いていることが
+ * 前提で、その上に足す仕上げ。
+ *
+ * 位置は人物素材の接地点の実測値に合わせてある（素材の高さに対する比）。
+ *   男性の靴   0.930 / 0.927      → 帯の中で 55% あたり
+ *   CAの靴     0.945 / 0.958      → 帯の中で 83% あたり
+ *   かばんの脚 0.893 / 0.904      → 帯の中で 18〜29% あたり
+ */
+.t-ground {
+  position: absolute;
+  left: 52%;
+  bottom: calc(var(--cast-bottom) + var(--cast-h) * 0.025);
+  transform: translateX(-50%);
+  width: calc(var(--cast-h) * 0.6667);
+  height: calc(var(--cast-h) * 0.1);
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 13% 24% at 26% 55%, rgba(32, 20, 10, 0.44), rgba(32, 20, 10, 0) 72%),
+    radial-gradient(ellipse 11% 22% at 65% 83%, rgba(32, 20, 10, 0.42), rgba(32, 20, 10, 0) 72%),
+    radial-gradient(ellipse 12% 18% at 82% 26%, rgba(32, 20, 10, 0.3), rgba(32, 20, 10, 0) 72%);
 }
 
 /* ---- レイヤー4・5：操作 ---- */

@@ -72,15 +72,61 @@ function rectsOverlap(a, b) {
  * 画面側は background の object-position としてこの比率を出しているので、
  * 食い違っていないことは下の検査で突き合わせる。
  */
-const BG_NATURAL = { width: 709, height: 1536 };
-const BG_POSITION_Y = 0.27;
+const BG_NATURAL = { width: 853, height: 1844 };
+const BG_POSITION_Y = 0.45;
 /** 背景の中の位置（比率）。 */
 const LANDMARKS = {
-  globe: { left: 0.26, top: 0.185, right: 0.775, bottom: 0.395 },
-  fuji: { left: 0.04, top: 0.395, right: 0.45, bottom: 0.47 },
+  globe: { left: 0.235, top: 0.178, right: 0.775, bottom: 0.4 },
+  fuji: { left: 0.03, top: 0.395, right: 0.43, bottom: 0.48 },
 };
 /** 富士山の山頂。ここは人物にもロゴにも隠させない。 */
-const FUJI_SUMMIT = { x: 0.189, y: 0.399 };
+const FUJI_SUMMIT = { x: 0.191, y: 0.401 };
+
+/**
+ * 石畳の歩道の範囲（背景に対する比率）。src/data/titleAssets.ts の実測値と同じ。
+ * 歩道は遠近法で台形になるので、2つの高さの左右の端を直線でつなぐ。
+ */
+const WALKWAYS = {
+  'background-walkway-candidate.webp': {
+    top: 0.555,
+    far: { y: 0.7, left: 0.2, right: 0.786 },
+    near: { y: 0.85, left: 0.045, right: 0.95 },
+  },
+  // 歩道が 71.5% から始まり、その上は川と欄干。
+  'background-reference-exact.webp': {
+    top: 0.715,
+    far: { y: 0.78, left: 0.345, right: 0.66 },
+    near: { y: 0.92, left: 0.1, right: 0.9 },
+  },
+};
+
+/** いま出している背景に対応する歩道。背景を替えたら歩道も替わる。 */
+function walkwayFor(file) {
+  const w = WALKWAYS[file];
+  if (!w) throw new Error(`歩道の実測値が無い背景: ${file}`);
+  return w;
+}
+
+/** 人物素材の接地点（素材に対する比率）。 */
+const CAST_CONTACTS = [
+  { name: '男性の前の靴', x: 0.235, y: 0.93, edgeMargin: 0 },
+  { name: '男性の後ろの靴', x: 0.29, y: 0.927, edgeMargin: 0 },
+  { name: 'CAの後ろの靴', x: 0.62, y: 0.945, edgeMargin: 0 },
+  { name: 'CAの前の靴', x: 0.685, y: 0.958, edgeMargin: 0 },
+  // かばんは浮いている絵。歩道の端から少しはみ出す画面があるが、そこは花壇。
+  { name: 'かばんの左脚', x: 0.76, y: 0.893, edgeMargin: 0.05 },
+  { name: 'かばんの右脚', x: 0.879, y: 0.904, edgeMargin: 0.05 },
+];
+const CONTACT_MARGIN = Object.fromEntries(CAST_CONTACTS.map((c) => [c.name, c.edgeMargin]));
+
+/** その高さでの歩道の左右の端。far と near を結んだ直線で求める。 */
+function walkwayEdges(walkway, y) {
+  const t = (y - walkway.far.y) / (walkway.near.y - walkway.far.y);
+  return {
+    left: walkway.far.left + (walkway.near.left - walkway.far.left) * t,
+    right: walkway.far.right + (walkway.near.right - walkway.far.right) * t,
+  };
+}
 /** 透過素材の、絵柄が入っている範囲（原寸比）。透明な余白を除くために使う。 */
 const LOGO_ART = { l: 18 / 1997, r: 1, t: 88 / 788, b: 754 / 788 };
 const CAST_ART = { l: 0.0156, r: 0.9951, t: 0.0189, b: 0.9583 };
@@ -172,7 +218,37 @@ function titleMetrics() {
     const posY = Number.parseFloat(getComputedStyle(bg).objectPosition.split(' ')[1]) || 50;
     return { x: box.x + (box.width - w) / 2 + w * fx, y: box.y + (box.height - h) * (posY / 100) + h * fy };
   };
-  const summit = bg && bg.naturalWidth ? bgPoint(0.189, 0.399) : null;
+  const summit = bg && bg.naturalWidth ? bgPoint(0.191, 0.401) : null;
+
+  /*
+   * 人物の接地点（靴底・かばんの脚）が、背景のどこに来ているか。
+   * 画面の座標ではなく「背景の中の比率」で返す。
+   * 石畳の歩道の上に来ているかは、呼び出し側で歩道の範囲と突き合わせる。
+   */
+  const castContacts = (() => {
+    if (!bg || !bg.naturalWidth || !cast) return null;
+    const box = bg.getBoundingClientRect();
+    const scale = Math.max(box.width / bg.naturalWidth, box.height / bg.naturalHeight);
+    const w = bg.naturalWidth * scale;
+    const h = bg.naturalHeight * scale;
+    const posY = Number.parseFloat(getComputedStyle(bg).objectPosition.split(' ')[1]) || 50;
+    const x0 = box.x + (box.width - w) / 2;
+    const y0 = box.y + (box.height - h) * (posY / 100);
+    const cb = cast.getBoundingClientRect();
+    const points = [
+      { name: '男性の前の靴', x: 0.235, y: 0.93 },
+      { name: '男性の後ろの靴', x: 0.29, y: 0.927 },
+      { name: 'CAの後ろの靴', x: 0.62, y: 0.945 },
+      { name: 'CAの前の靴', x: 0.685, y: 0.958 },
+      { name: 'かばんの左脚', x: 0.76, y: 0.893 },
+      { name: 'かばんの右脚', x: 0.879, y: 0.904 },
+    ];
+    return points.map((p) => {
+      const sx = cb.x + cb.width * p.x;
+      const sy = cb.y + cb.height * p.y;
+      return { name: p.name, bx: (sx - x0) / w, by: (sy - y0) / h, sx, sy };
+    });
+  })();
 
   /*
    * 地球儀の面のうち、ロゴにも人物にも隠されずに見えている割合。
@@ -219,6 +295,10 @@ function titleMetrics() {
     summit,
     summitCoveredByCast: summit ? summitCoveredBy(castAlpha, summit) : null,
     summitCoveredByLogo: summit ? summitCoveredBy(logoAlpha, summit) : null,
+    castContacts,
+    bgFile: bg ? bg.src.split('/').pop() : '',
+    // 接地影が足元に置かれているか。
+    ground: rect('.t-ground'),
     globeVisibleRatio,
     bg: rect('.t-bg'),
     // 欠け・重なりの判定は、要素の矩形ではなく塗られる範囲で行う。
@@ -528,6 +608,42 @@ try {
           `${label}: ロゴが小さい（画面幅の ${(logoWidthRatio * 100).toFixed(1)}%）`,
         );
 
+        /*
+         * 人物が浮いていないこと。
+         *
+         * 人物の矩形の下端とボタンの距離ではなく、男性の左右の靴底、
+         * CAの左右の靴底、かばんの左右の脚のそれぞれについて、
+         * その位置に石畳の歩道があるかを見る。
+         */
+        check(Array.isArray(m.castContacts), `${label}: 接地点を測れていない`);
+        const walkway = walkwayFor(m.bgFile);
+        for (const c of m.castContacts ?? []) {
+          const edges = walkwayEdges(walkway, c.by);
+          const margin = CONTACT_MARGIN[c.name] ?? 0;
+          // 水の上に来ていないこと（歩道の消失点より下にあること）。
+          check(
+            c.by > walkway.top,
+            `${label}: ${c.name}が歩道より奥にある（背景の縦 ${(c.by * 100).toFixed(1)}% / 歩道は ${(walkway.top * 100).toFixed(1)}% から）`,
+          );
+          check(
+            c.bx >= edges.left - margin && c.bx <= edges.right + margin,
+            `${label}: ${c.name}の下に石畳が無い（背景の ${(c.bx * 100).toFixed(1)}%,${(c.by * 100).toFixed(1)}% / ` +
+              `その高さの歩道は ${(edges.left * 100).toFixed(1)}〜${(edges.right * 100).toFixed(1)}%` +
+              `${margin > 0 ? `／許す端のはみ出し ${(margin * 100).toFixed(0)}%` : ''}）`,
+          );
+        }
+        // 接地影が足元の高さに置かれている（影だけで解決しない前提の仕上げ）。
+        check(m.ground !== null, `${label}: 接地影が無い`);
+        if (m.ground && m.castContacts) {
+          const soles = m.castContacts.map((c) => c.sy);
+          const lowest = Math.max(...soles);
+          const highest = Math.min(...soles);
+          check(
+            m.ground.y <= highest + 1 && m.ground.y + m.ground.height >= lowest - 1,
+            `${label}: 接地影が靴底の高さに無い（影 ${m.ground.y.toFixed(1)}〜${(m.ground.y + m.ground.height).toFixed(1)} / 靴底 ${highest.toFixed(1)}〜${lowest.toFixed(1)}）`,
+          );
+        }
+
         // ボタンの文字が2行に折り返していない。
         for (const lab of m.buttonLabels) {
           check(
@@ -730,6 +846,21 @@ try {
             logoWidthRatio >= 0.7,
             `${label}: ロゴが小さい（画面幅の ${(logoWidthRatio * 100).toFixed(1)}%）`,
           );
+          const walkway = walkwayFor(m.bgFile);
+          for (const c of m.castContacts ?? []) {
+            const edges = walkwayEdges(walkway, c.by);
+            const margin = CONTACT_MARGIN[c.name] ?? 0;
+            check(
+              c.by > walkway.top,
+              `${label}: ${c.name}が歩道より奥にある（背景の縦 ${(c.by * 100).toFixed(1)}%）`,
+            );
+            check(
+              c.bx >= edges.left - margin && c.bx <= edges.right + margin,
+              `${label}: ${c.name}の下に石畳が無い（背景の ${(c.bx * 100).toFixed(1)}%,${(c.by * 100).toFixed(1)}%）`,
+            );
+          }
+          check(m.ground !== null, `${label}: 接地影が無い`);
+
           for (const lab of m.buttonLabels) {
             check(
               lab.height <= lab.fontSize * 1.7,
