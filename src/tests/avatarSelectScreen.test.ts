@@ -6,10 +6,7 @@ import screenShellSource from '../components/screenShell.ts?raw';
 import confirmScreenSource from '../screens/avatarConfirmScreen.ts?raw';
 import settingsScreenSource from '../screens/settingsScreen.ts?raw';
 import { UI } from '../data/strings';
-import {
-  AGE_GROUP_IMAGE_BACKGROUND,
-  AGE_GROUP_IMAGE_BACKGROUND_GLASS,
-} from '../data/avatars';
+import { AGE_GROUP_IMAGE_BACKGROUND } from '../data/avatars';
 import { AVATARS, fullName } from '../data/avatars';
 
 /**
@@ -401,23 +398,40 @@ describe('選択ボタンのガラス調', () => {
     expect(Math.max(...alphas(fill(primary))), '主ボタンの塗りが厚い').toBeLessThanOrEqual(0.6);
   });
 
-  it('顔のうしろの丸い地色も、一覧の中では透ける', () => {
-    /*
-     * 人物画像は背景のない切り抜きで、顔のうしろの丸い色はこの地色そのもの。
-     * ここが不透明だと、カードを透かしても顔のまわりだけ色の板が残る。
-     */
-    const decls = block('.avatar-list .avatar-card .avatar-thumb__face.has-image');
-    expect(decls).toMatch(/background:\s*var\(--age-image-bg-glass/);
-    for (const [group, value] of Object.entries(AGE_GROUP_IMAGE_BACKGROUND_GLASS)) {
-      const m = value.match(/^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/);
-      expect(m, `${group} の透けた地色が rgba で書かれていない`).not.toBeNull();
-      const [, r, g, b, a] = m as RegExpMatchArray;
-      expect(Number(a), `${group} の地色が不透明`).toBeLessThanOrEqual(0.5);
-      // 色みは不透明な方と同じにする（透かすだけで、色は変えない）。
-      const opaque = AGE_GROUP_IMAGE_BACKGROUND[group as keyof typeof AGE_GROUP_IMAGE_BACKGROUND];
-      const n = parseInt(opaque.slice(1), 16);
-      expect([Number(r), Number(g), Number(b)]).toEqual([(n >> 16) & 255, (n >> 8) & 255, n & 255]);
+  /*
+   * 以前は「顔のうしろの丸い地色を透かす」ことを求めていた。
+   * いまは丸い地色も円の切り抜きも置かないので、その決まりをこちらへ置き換えた。
+   * 透かすより強い条件（そもそも置かない）になっている。
+   */
+  it('一覧の中では、顔のうしろに丸い地色も円の切り抜きも置かない', () => {
+    const face = block('.avatar-list .avatar-card .avatar-thumb__face.has-image');
+    expect(face).toMatch(/background:\s*transparent/);
+    expect(face).toMatch(/border-radius:\s*0/);
+    expect(face).toMatch(/box-shadow:\s*none/);
+    const img = block('.avatar-list .avatar-card .avatar-thumb__face.has-image .avatar-thumb__img');
+    expect(img).toMatch(/border-radius:\s*0/);
+  });
+
+  it('肩と服の下端だけを透明へなじませる（人物全体は薄くしない）', () => {
+    const face = block('.avatar-list .avatar-card .avatar-thumb__face.has-image');
+    const img = block('.avatar-list .avatar-card .avatar-thumb__face.has-image .avatar-thumb__img');
+    // 縦は画像、横はその外側。分けてあるので mask-composite に頼らない。
+    expect(img, '縦のなじませが無い').toMatch(/mask-image:\s*linear-gradient\(\s*180deg/);
+    expect(face, '横のなじませが無い').toMatch(/mask-image:\s*linear-gradient\(\s*90deg/);
+    for (const decls of [face, img]) {
+      expect(decls, 'Safari 用の -webkit- が無い').toMatch(/-webkit-mask-image:/);
+      // 人物そのものを薄くしたりぼかしたりしない。
+      expect(decls).not.toMatch(/\n\s*opacity:\s*0?\.\d/);
+      expect(decls).not.toMatch(/\n\s*filter:/);
     }
+    // 顔と髪のある上側は触らない（最初の区切りが 55% 以降）。
+    const m = img.match(/mask-image:\s*linear-gradient\(\s*180deg,\s*#000 0%,\s*#000 (\d+)%/);
+    expect(m, '縦のなじませの始まりが読めない').not.toBeNull();
+    expect(Number((m as RegExpMatchArray)[1])).toBeGreaterThanOrEqual(55);
+  });
+
+  it('名前にはなじませを掛けない', () => {
+    expect(block('.avatar-list .avatar-card .avatar-thumb__name')).not.toMatch(/mask-image:/);
   });
 
   it('ほかの画面のサムネイルの地色は不透明のまま', () => {

@@ -104,24 +104,6 @@ export const AGE_GROUP_IMAGE_BACKGROUND: Record<AvatarAgeGroup, string> = {
 };
 
 /**
- * 主人公選択の一覧で使う、透けた地色。
- *
- * 人物画像は背景を含まない切り抜き（透過）で、顔のうしろに見える丸い色は
- * この地色そのもの。上の不透明な色のままだと、カードをいくら透かしても
- * 顔のうしろだけは色の板が残り、背景が見えない。
- * 色みは上と同じで、不透明度だけを下げてある。人物そのものは薄くならない。
- *
- * 旅の画面・出題画面・結果画面・国紹介では、これまでどおり上の不透明な色を使う。
- */
-export const AGE_GROUP_IMAGE_BACKGROUND_GLASS: Record<AvatarAgeGroup, string> = {
-  elementary: 'rgba(248, 210, 184, 0.34)',
-  middle: 'rgba(191, 229, 214, 0.34)',
-  high: 'rgba(199, 221, 236, 0.34)',
-  university: 'rgba(223, 208, 239, 0.34)',
-  adult: 'rgba(231, 200, 192, 0.34)',
-};
-
-/**
  * 年代×見た目区分から、基準画像のキーを作る。
  *
  * 名簿側の年代IDをそのまま使う。中学生は 'middle' で、旅の情景イラスト側の
