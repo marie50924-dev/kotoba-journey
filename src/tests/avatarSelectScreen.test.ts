@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import avatarCssInline from '../styles/avatar.css?inline';
+import baseCssInline from '../styles/base.css?inline';
 import selectScreenSource from '../screens/avatarSelectScreen.ts?raw';
 import screenShellSource from '../components/screenShell.ts?raw';
 import confirmScreenSource from '../screens/avatarConfirmScreen.ts?raw';
@@ -207,6 +208,138 @@ describe('主人公選択 表紙の旅の空気', () => {
     expect(list).toContain('rgba(186, 246, 255');
     expect(list).toContain('rgba(26, 99, 166, 0.14)');
     expect(screen).toContain("el('div', { class: 'avatar-list' }, [grid])");
+  });
+});
+
+describe('選択ボタンのガラス調', () => {
+  /*
+   * ガラスの作り方は3つの決まりで表す。
+   *   1. 面は半透明（rgba のアルファが 1 未満）
+   *   2. ぼかしは backdrop-filter で背後だけにかける
+   *   3. 要素全体の opacity は使わない（使うと顔の画像と文字まで薄くなる）
+   * さらに Safari 用の -webkit- 付きも必ず併記する。
+   */
+  const GLASS: [string, string][] = [
+    ['年代タブ 未選択', '.avatar-tab'],
+    ['年代タブ 選択中', ".avatar-tab[aria-selected='true']"],
+    ['絞り込み 未押下', '.avatar-filter__btn'],
+    ['絞り込み 押している', ".avatar-filter__btn[aria-pressed='true']"],
+    ['人物カード 未選択', '.avatar-card'],
+    ['人物カード 選択中', ".avatar-card[aria-selected='true']"],
+    ['一覧の枠', '.avatar-list'],
+    ['確定バー', '.avatar-select__confirm'],
+  ];
+
+  /** 宣言の中の rgba(...) のアルファをすべて拾う。 */
+  function alphas(decls: string): number[] {
+    return [...decls.matchAll(/rgba\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*([\d.]+)\s*\)/g)].map(
+      (m) => Number(m[1]),
+    );
+  }
+
+  /** background の宣言だけを取り出す（box-shadow の色は含めない）。 */
+  function fill(decls: string): string {
+    const m = decls.match(/\n\s*background:\s*([^;]+);/);
+    return m === null ? '' : m[1];
+  }
+
+  it.each(GLASS)('%s の面は半透明', (_name, selector) => {
+    const decls = block(selector);
+    const f = fill(decls);
+    expect(f, `${selector} に background の指定がない`).not.toBe('');
+    const a = alphas(f);
+    expect(a.length, `${selector} の面が rgba で書かれていない`).toBeGreaterThan(0);
+    expect(Math.max(...a), `${selector} の面が不透明`).toBeLessThan(1);
+  });
+
+  it.each(GLASS)('%s のぼかしは背後だけ（Safari 用も併記）', (_name, selector) => {
+    const decls = block(selector);
+    expect(decls, `${selector} に backdrop-filter がない`).toMatch(/backdrop-filter:\s*blur\(/);
+    expect(decls, `${selector} に -webkit-backdrop-filter がない`).toMatch(
+      /-webkit-backdrop-filter:\s*blur\(/,
+    );
+    // filter（要素そのものをぼかす）は使わない。顔と文字までぼける。
+    expect(decls).not.toMatch(/\n\s*filter:\s*blur\(/);
+  });
+
+  it('要素全体の opacity は使わない（顔と文字を薄くしない）', () => {
+    for (const [, selector] of GLASS) {
+      expect(block(selector), `${selector} で opacity を使っている`).not.toMatch(
+        /\n\s*opacity:\s*0?\.\d/,
+      );
+    }
+  });
+
+  it('白系は白いガラス、青系は青いガラスのまま', () => {
+    const rgbOf = (decls: string): [number, number, number] => {
+      const m = fill(decls).match(/rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      expect(m, '面の色が読めない').not.toBeNull();
+      const [, r, g, b] = m as RegExpMatchArray;
+      return [Number(r), Number(g), Number(b)];
+    };
+    // 未選択・未押下は白系（3原色がどれも高い）
+    for (const sel of ['.avatar-tab', '.avatar-filter__btn', '.avatar-card']) {
+      const [r, g, b] = rgbOf(block(sel));
+      expect(Math.min(r, g, b), `${sel} が白系でない`).toBeGreaterThanOrEqual(200);
+    }
+    // 選択中・押している は青系（青が赤よりはっきり大きい）
+    for (const sel of [
+      ".avatar-tab[aria-selected='true']",
+      ".avatar-filter__btn[aria-pressed='true']",
+      ".avatar-card[aria-selected='true']",
+    ]) {
+      const [r, , b] = rgbOf(block(sel));
+      expect(b - r, `${sel} が青系でない`).toBeGreaterThanOrEqual(50);
+    }
+  });
+
+  it('ボタンのガラスは主人公の画面だけに限る（共通の .btn は変えない）', () => {
+    // avatar.css で .btn を触るときは、必ず主人公の画面のセレクタを前に付ける。
+    const scopes = [
+      '.screen--avatar-select',
+      '.avatar-select__confirm',
+      '.screen--avatar-confirm',
+      '.setting-row--avatar',
+    ];
+    const lines = css.split('}');
+    for (const chunk of lines) {
+      const head = chunk.split('{')[0];
+      if (!/\.btn\b/.test(head)) continue;
+      const scoped = head
+        .split(',')
+        .map((one) => one.trim())
+        .filter((one) => one.length > 0)
+        .every((one) => scopes.some((scope) => one.includes(scope)));
+      expect(scoped, `主人公の画面の外まで届くボタンの指定がある: ${head.trim()}`).toBe(true);
+    }
+  });
+
+  it('共通の .btn / .btn--primary には手を付けていない', () => {
+    const base = withoutComments(String(baseCssInline));
+    // 基本のボタンは、これまでどおりの不透明に近い面のまま。
+    expect(base).toMatch(/\.btn\s*\{[^}]*background:\s*var\(--c-paper-2\)/);
+    expect(base).toMatch(
+      /\.btn--primary\s*\{[^}]*background:\s*linear-gradient\(180deg,\s*rgba\(42, 126, 205, 0\.88\)/,
+    );
+  });
+
+  it('確認画面と設定画面のボタンにもガラスを当てている', () => {
+    const blue = block('.screen--avatar-confirm .screen__footer .btn--primary');
+    expect(blue).toMatch(/backdrop-filter:\s*blur\(/);
+    const white = block('.setting-row--avatar .btn');
+    expect(white).toMatch(/backdrop-filter:\s*blur\(/);
+    expect(Math.max(...alphas(fill(white)))).toBeLessThan(1);
+  });
+
+  it('キーボードで選んでいる場所は、選択中の青とも未選択とも見分けられる', () => {
+    const focus = block('.avatar-card:focus-visible,\n.avatar-tab:focus-visible,\n.avatar-filter__btn:focus-visible');
+    const m = focus.match(/outline:\s*(\d+(?:\.\d+)?)px solid (#[0-9a-f]{6})/i);
+    expect(m, 'フォーカスの輪の指定が読めない').not.toBeNull();
+    const [, width, colour] = m as RegExpMatchArray;
+    expect(Number(width)).toBeGreaterThanOrEqual(3);
+    // 選択中の縁（#1268e0）と同じ色にしない。離して描く。
+    expect(colour.toLowerCase()).not.toBe('#1268e0');
+    expect(focus).toMatch(/outline-offset:\s*[1-9]/);
   });
 });
 

@@ -12,7 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSuite } from './visualCaseReporter.mjs';
-import { decodePng, pixelAt, textContrast } from './pngPixels.mjs';
+import { decodePng, pixelAt, relLum, textContrast } from './pngPixels.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../dist', import.meta.url));
 const BASE_PATH = '/kotoba-journey/';
@@ -202,6 +202,29 @@ function reachableAvatars() {
   }
   grid.scrollTop = 0;
   return { reached: reached.size, total: cards.length };
+}
+
+/** 箱の上のほうの、文字が無い帯の平均色。ガラスの「面の色」として使う。 */
+function faceColour(img, box, scale, pad = 6) {
+  const px = [];
+  for (let y = Math.round((box.t + pad) * scale); y < Math.round((box.t + pad + 4) * scale); y += 1) {
+    for (let x = Math.round((box.l + pad) * scale); x < Math.round((box.r - pad) * scale); x += 1) {
+      px.push(pixelAt(img, x, y));
+    }
+  }
+  if (px.length === 0) return [0, 0, 0];
+  return [0, 1, 2].map((i) => Math.round(px.reduce((a, p) => a + p[i], 0) / px.length));
+}
+
+const lum8 = (p) => 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+
+/** 一時的に CSS を足して撮る。撮ったら必ず外す。 */
+async function shotWithCss(page, css) {
+  if (!css) return decodePng(await page.screenshot());
+  const tag = await page.addStyleTag({ content: css });
+  const buf = await page.screenshot();
+  await tag.evaluate((n) => n.remove());
+  return decodePng(buf);
 }
 
 async function clearBoard(page) {
@@ -764,7 +787,158 @@ try {
   }
 
   /*
-   * ---- 12. 選んだ人が一覧から完全に見えなくなっても、下の帯は使える ----
+   * ---- 12. 選択ボタンのガラス調 ----
+   *
+   * 「透けているか」は、画面の地色だけを白と黒に差し替えて測る。
+   *   透過率 = (白地のときの面の明るさ - 黒地のときの面の明るさ) / 255
+   *   1.0 … 背後がそのまま見える   0 … まったく透けない
+   * 平らな地色なので、ぼかしの強さに左右されない。この地色は測定のためだけで、
+   * 製品の画面には出さない。
+   *
+   * あわせて「面の色の系統が変わっていないか」「文字が読めるか」も見る。
+   */
+  for (const vp of [
+    { width: 320, height: 568 },
+    { width: 393, height: 852 },
+  ]) {
+    const label = `${vp.width}x${vp.height}`;
+    await runCase(`${label} 選択ボタンのガラス調`, async () => {
+      const context = await browser.newContext({
+        viewport: { width: vp.width, height: vp.height },
+        deviceScaleFactor: 2,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: '旅をはじめる' }).click();
+        await page.waitForSelector('.avatar-grid');
+        await page.locator('.avatar-card').nth(5).click();
+        await page.waitForTimeout(500);
+
+        /*
+         * name          … 報告に出す呼び名
+         * selector      … 測る要素
+         * minPass       … 求める透過率の下限
+         * family        … 'white'（白系）か 'blue'（青系）か
+         *
+         * 青い面の下限が低いのは、明るい背景の上で白文字を 4.5:1 以上に
+         * 保つと、通せる明るさがその分だけ減るため。物理的な上限がある。
+         */
+        const TARGETS = [
+          { name: '年代タブ 未選択', selector: '.avatar-tab:not([aria-selected="true"])', minPass: 0.25, minBlue: null },
+          { name: '年代タブ 選択中', selector: ".avatar-tab[aria-selected='true']", minPass: 0.06, minBlue: 80 },
+          { name: '絞り込み 未押下', selector: '.avatar-filter__btn:not([aria-pressed="true"])', minPass: 0.25, minBlue: null },
+          // 押している絞り込みは、もともと淡い青（#e2f0fc）なので青みの幅は小さい。
+          { name: '絞り込み 押している', selector: ".avatar-filter__btn[aria-pressed='true']", minPass: 0.25, minBlue: 18 },
+          { name: '人物カード 未選択', selector: '.avatar-card:not([aria-selected="true"])', minPass: 0.12, minBlue: null },
+          // 選択中のカードも淡い青。濃い青に塗り替えない。
+          { name: '人物カード 選択中', selector: ".avatar-card[aria-selected='true']", minPass: 0.1, minBlue: 18 },
+          { name: 'この人を選ぶ', selector: '.avatar-select__confirm .btn--primary', minPass: 0.05, minBlue: 80 },
+        ];
+
+        const boxes = await page.evaluate((sels) => {
+          const out = {};
+          for (const sel of sels) {
+            const n = document.querySelector(sel);
+            if (n === null) { out[sel] = null; continue; }
+            const r = n.getBoundingClientRect();
+            out[sel] = { l: r.left, r: r.right, t: r.top, b: r.bottom };
+          }
+          return out;
+        }, TARGETS.map((t) => t.selector));
+
+        const screenBg = (c) => `.screen{background:${c} !important;background-image:none !important;}`;
+        /*
+         * 面の色を測るときは、そのボタンの中身（顔・名前・チェック印）を一時的に
+         * 隠す。隠さないと、狭い画面では顔やチェック印の画素を拾ってしまい、
+         * 面の色として読めない。中身を隠しても面の指定は変わらない。
+         */
+        const bare = `${TARGETS.map((t) => `${t.selector} > *`).join(',')}{visibility:hidden !important;}`;
+        const normal = await shotWithCss(page, '');
+        const bareShot = await shotWithCss(page, bare);
+        const onWhite = await shotWithCss(page, `${screenBg('#ffffff')} ${bare}`);
+        const onBlack = await shotWithCss(page, `${screenBg('#000000')} ${bare}`);
+
+        const notes = [];
+        for (const t of TARGETS) {
+          const box = boxes[t.selector];
+          check(box !== null && box !== undefined, `${label}: ${t.name} が見つからない`);
+          if (!box) continue;
+          const pass = (lum8(faceColour(onWhite, box, 2)) - lum8(faceColour(onBlack, box, 2))) / 255;
+          const col = faceColour(bareShot, box, 2);
+          check(
+            pass >= t.minPass,
+            `${label}: ${t.name} が透けていない（透過率 ${pass.toFixed(2)}・${t.minPass} 以上を期待）`,
+          );
+          if (t.minBlue === null) {
+            check(
+              Math.min(...col) >= 200,
+              `${label}: ${t.name} の面が白系でない rgb(${col.join(',')})`,
+            );
+          } else {
+            check(
+              col[2] - col[0] >= t.minBlue,
+              `${label}: ${t.name} の面が青系でない rgb(${col.join(',')})・青−赤 ${col[2] - col[0]}`,
+            );
+          }
+          const tx = textContrast(normal, box, 2);
+          check(
+            tx.ratio >= 4.5,
+            `${label}: ${t.name} の文字が読みにくい（${tx.ratio.toFixed(2)}:1・4.5:1 以上を期待）`,
+          );
+          notes.push(`${t.name} ${pass.toFixed(2)}`);
+        }
+
+        // 顔の画像と名前は薄くしない（要素全体の opacity を使っていない）。
+        const solid = await page.evaluate(() => {
+          const card = document.querySelector('.avatar-card');
+          const img = card.querySelector('.avatar-thumb__img');
+          const name = card.querySelector('.avatar-thumb__name');
+          const o = (n) => (n === null ? null : Number(getComputedStyle(n).opacity));
+          return { card: o(card), img: o(img), name: o(name) };
+        });
+        check(solid.card === 1, `${label}: カード全体が薄くなっている（opacity ${solid.card}）`);
+        check(solid.img === 1, `${label}: 顔の画像が薄くなっている（opacity ${solid.img}）`);
+        check(solid.name === 1, `${label}: 名前が薄くなっている（opacity ${solid.name}）`);
+
+        // キーボードで選んでいる場所は、選択中の青とも見分けられる。
+        let focused = null;
+        for (let i = 0; i < 40; i += 1) {
+          await page.keyboard.press('Tab');
+          focused = await page.evaluate(() => {
+            const a = document.activeElement;
+            if (!a || !a.classList.contains('avatar-card')) return null;
+            const cs = getComputedStyle(a);
+            const sel = document.querySelector('.avatar-card[aria-selected="true"]');
+            return {
+              selected: a.getAttribute('aria-selected') === 'true',
+              outline: cs.outlineColor,
+              width: parseFloat(cs.outlineWidth),
+              offset: parseFloat(cs.outlineStyle === 'none' ? '0' : cs.outlineOffset),
+              selectedBorder: sel ? getComputedStyle(sel).borderTopColor : null,
+            };
+          });
+          if (focused && !focused.selected) break;
+        }
+        check(focused !== null, `${label}: Tab でカードへ移れない`);
+        if (focused) {
+          check(focused.width >= 3, `${label}: フォーカスの輪が細い（${focused.width}px）`);
+          check(focused.offset >= 1, `${label}: フォーカスの輪が要素に密着している`);
+          check(
+            focused.outline !== focused.selectedBorder,
+            `${label}: フォーカスの輪が選択中の縁と同じ色（${focused.outline}）`,
+          );
+        }
+
+        return ` 透過率 ${notes.join(' / ')}`;
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  /*
+   * ---- 13. 選んだ人が一覧から完全に見えなくなっても、下の帯は使える ----
    *
    * 320x568 では一覧が1行ぶんしかスクロールしないので、選んだ人を
    * 完全に画面外へ送れない。送れる短い画面で、その状態を作って確かめる。
@@ -836,7 +1010,7 @@ try {
   }
 
   /*
-   * ---- 13. キーボードだけで選べる ----
+   * ---- 14. キーボードだけで選べる ----
    */
   {
     await runCase('キーボードで選べる', async () => {
@@ -871,7 +1045,7 @@ try {
     });
   }
 
-  // ---- 14. prefers-reduced-motion でも会話が読める ----
+  // ---- 15. prefers-reduced-motion でも会話が読める ----
   {
     await runCase('prefers-reduced-motion', async () => {
       const context = await browser.newContext({
