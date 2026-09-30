@@ -487,14 +487,14 @@ try {
         check(after.selectedAvatarId === chosenId, `${label}: 再読み込み後に選択が残っていない`);
         check(after.totalPlays === 1, `${label}: 再読み込み後に学習記録が残っていない`);
 
-        // ---- 10. 設定からキャラクターを変更できる ----
+        // ---- 10. 設定から「旅するあなた」を変えられる ----
         await page.goto(baseUrl, { waitUntil: 'networkidle' });
         await page.getByRole('button', { name: '設定' }).click();
         check(
-          (await page.getByRole('button', { name: '旅するキャラクターを変更' }).count()) === 1,
-          `${label}: 設定に「旅するキャラクターを変更」が無い`,
+          (await page.getByRole('button', { name: '旅するあなたを変える' }).count()) === 1,
+          `${label}: 設定に「旅するあなたを変える」が無い`,
         );
-        await page.getByRole('button', { name: '旅するキャラクターを変更' }).click();
+        await page.getByRole('button', { name: '旅するあなたを変える' }).click();
         await page.waitForSelector('.screen--avatar-select');
         await page.getByRole('tab', { name: '中学生' }).click();
         await page.waitForTimeout(120);
@@ -591,6 +591,35 @@ try {
           reach.reached === 16,
           `${label}: スクロールしても16人に到達できない（${reach.reached}人）`,
         );
+
+        /*
+         * --- 一覧の枠のまわりに大きな空白を作らない ---
+         *
+         * 16人が収まる画面では、枠を使える高さいっぱいに広げ、行を等分して伸ばす。
+         * 以前は枠を中身の高さまで縮めていたため、393x852 で上下に 75px、
+         * 430x932 で 109px の空白が残り、画面全体が間延びして見えていた。
+         */
+        const bands = await page.evaluate(() => {
+          const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+          const filter = r('.avatar-filter');
+          const list = r('.avatar-list');
+          const note = r('.avatar-select__note');
+          return {
+            above: list.top - filter.bottom,
+            below: note.top - list.bottom,
+            listHeight: list.height,
+          };
+        });
+        if (before.full === 16) {
+          check(
+            bands.above <= 16,
+            `${label}: 一覧の枠の上に ${bands.above.toFixed(1)}px の空白がある（16px以下を期待）`,
+          );
+          check(
+            bands.below <= 16,
+            `${label}: 一覧の枠の下に ${bands.below.toFixed(1)}px の空白がある（16px以下を期待）`,
+          );
+        }
 
         // --- 選択の色は青。チェック印は顔に隠れず前面に出る ---
         await page.locator('.avatar-card').nth(5).click();
@@ -725,6 +754,7 @@ try {
 
         return (
           ` 完全に見える${before.full}/16人・${before.columns}列・顔${before.faceSize.toFixed(0)}px` +
+          `／枠の上下の空白 ${bands.above.toFixed(0)}/${bands.below.toFixed(0)}px` +
           `／到達${reach.reached}人／コントラスト ${ratios.join(' ')}`
         );
       } finally {

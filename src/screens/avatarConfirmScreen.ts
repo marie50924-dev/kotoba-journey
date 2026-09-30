@@ -11,7 +11,7 @@ import { screenShell } from '../components/screenShell';
 import type { AppContext } from '../app/state';
 
 /**
- * 選んだキャラクターの確認。
+ * 選んだ「旅するあなた」の確認。
  * 確定するまで保存しないので、ここから選び直せる。
  */
 export function avatarConfirmScreen(ctx: AppContext): HTMLElement {
@@ -37,7 +37,12 @@ export function avatarConfirmScreen(ctx: AppContext): HTMLElement {
   }
 
   return screenShell(
-    { title: UI.avatar.confirmHeading, onBack: () => ctx.back(), variant: 'screen--avatar-confirm' },
+    {
+      title: UI.avatar.confirmHeading,
+      lead: UI.avatar.confirmQuestion,
+      onBack: () => ctx.back(),
+      variant: 'screen--avatar-confirm',
+    },
     [
       el('div', { class: 'avatar-confirm' }, [
         avatarThumb(avatar, { size: 'lg', label: '' }),

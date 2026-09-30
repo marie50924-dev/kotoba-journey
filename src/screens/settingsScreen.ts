@@ -7,7 +7,7 @@ import type { AppContext } from '../app/state';
 
 /**
  * 設定画面。
- * キャラクター変更・音声ON/OFF・移動演出・学習記録の消去だけを置く。
+ * 「旅するあなた」の変更・音声ON/OFF・移動演出・学習記録の消去だけを置く。
  * 旧「コース連動の年齢層設定」は80人方式へ統一したため廃止した。
  */
 export function settingsScreen(ctx: AppContext): HTMLElement {
@@ -75,7 +75,7 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
   const me = findAvatar(ctx.records.get().selectedAvatarId);
 
   return screenShell({ title: UI.settings.heading, onBack: () => ctx.back() }, [
-    el('div', { class: 'setting-row' }, [
+    el('div', { class: 'setting-row setting-row--avatar' }, [
       el('span', { class: 'setting-row__label' }, [
         el('span', { text: UI.avatar.current }),
         me

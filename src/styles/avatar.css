@@ -291,13 +291,15 @@
  */
 .avatar-list {
   /*
-   * 人数がこの高さに収まる画面では、枠を中身の高さまで縮める。
-   * 縮めないと 393x852 や 430x932 で枠の下半分が空白になる。
-   * 余った高さは下の案内文を押し下げ、そこに背景の暖かい光が見える。
+   * 枠は、使える高さいっぱいに広げる。
+   *
+   * 以前は中身の高さまで縮めていたが、16人が収まる画面（393x852・430x932）では
+   * 枠の上下に 75〜109px の空白が残り、画面全体が間延びして見えた。
+   * いまは枠を広げたうえで、中の行（.avatar-grid の grid-auto-rows）を
+   * 同じ高さに伸ばす。空白は枠の外ではなく、カード1枚ずつの余裕になる。
+   * 人数が収まらない画面（320x568）では行は中身の高さのままで、枠の中が縦スクロールする。
    */
-  flex: 0 1 auto;
-  /* 縮んだぶんの余白は、枠の上と下へ同じだけ配る。枠が帯の側へ寄らない。 */
-  margin-block: auto;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   padding: 5px;
@@ -325,8 +327,15 @@
 .avatar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(62px, 18.5vw, 80px), 1fr));
-  /* 行は中身の高さで決め、つぶさない。あふれたぶんはこの枠の中だけで縦スクロールする。 */
-  grid-auto-rows: min-content;
+  /*
+   * 行の高さ。
+   *
+   * 中身の高さを下限、余りがあれば等分（1fr）して伸ばす。
+   *   16人が収まる画面 … 4行が枠いっぱいに広がり、枠の外に空白が残らない
+   *   収まらない画面   … 余りが無いので下限（中身の高さ）のまま。行はつぶれず、
+   *                      あふれたぶんはこの枠の中だけで縦スクロールする
+   */
+  grid-auto-rows: minmax(min-content, 1fr);
   align-content: start;
   gap: 6px;
   flex: 1 1 auto;
@@ -342,6 +351,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* 行が伸びたときは、顔と名前をカードの中央に置く。 */
+  justify-content: center;
   gap: 3px;
   /* 顔と名前が必ず入る高さ。顔の大きさに合わせて決まる。 */
   min-height: calc(clamp(50px, 13.5vw, 58px) + 28px);
@@ -587,11 +598,11 @@
  */
 @media (min-height: 700px) {
   .avatar-list .avatar-card .avatar-thumb__face {
-    width: clamp(50px, 17.5vw, 72px);
-    height: clamp(50px, 17.5vw, 72px);
+    width: clamp(50px, 18.6vw, 82px);
+    height: clamp(50px, 18.6vw, 82px);
   }
 
   .avatar-list .avatar-card {
-    min-height: calc(clamp(50px, 17.5vw, 72px) + 28px);
+    min-height: calc(clamp(50px, 18.6vw, 82px) + 28px);
   }
 }

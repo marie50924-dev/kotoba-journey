@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import avatarCssInline from '../styles/avatar.css?inline';
 import selectScreenSource from '../screens/avatarSelectScreen.ts?raw';
 import screenShellSource from '../components/screenShell.ts?raw';
+import confirmScreenSource from '../screens/avatarConfirmScreen.ts?raw';
+import settingsScreenSource from '../screens/settingsScreen.ts?raw';
 import { UI } from '../data/strings';
 import { AVATARS, fullName } from '../data/avatars';
 
@@ -26,6 +28,8 @@ function withoutComments(css: string): string {
 const css = withoutComments(String(avatarCssInline));
 const screen = String(selectScreenSource);
 const shell = String(screenShellSource);
+const confirmSource = String(confirmScreenSource);
+const settingsSource = String(settingsScreenSource);
 
 /** セレクタの宣言ブロックを取り出す。 */
 function block(selector: string, source = css): string {
@@ -75,6 +79,49 @@ describe('主人公選択 文言', () => {
     for (const key of ['selectHeading', 'selectLead', 'selectNote', 'empty', 'chosen'] as const) {
       expect(UI.avatar[key], `${key}`).not.toContain('キャラクター');
     }
+  });
+});
+
+describe('確認画面と設定画面の呼び名', () => {
+  it('確認画面の見出しも「旅するあなた」で、問いかけはその下の一文', () => {
+    expect(UI.avatar.confirmHeading).toBe('旅するあなた');
+    expect(UI.avatar.confirmQuestion).toContain('旅をしますか');
+    // 見出しは狭い帯に収まる長さにする（320px の 17px で9文字ほどが上限）。
+    expect(UI.avatar.confirmHeading.length).toBeLessThanOrEqual(9);
+    expect(confirmSource).toContain('lead: UI.avatar.confirmQuestion');
+  });
+
+  it('設定画面の項目名と変更ボタンも「旅するあなた」', () => {
+    expect(UI.avatar.current).toBe('旅するあなた');
+    expect(UI.avatar.change).toContain('旅するあなた');
+    expect(UI.avatar.change).not.toContain('キャラクター');
+  });
+
+  it('主人公まわりの文言に「キャラクター」は残っていない', () => {
+    for (const [key, value] of Object.entries(UI.avatar)) {
+      expect(value, `UI.avatar.${key}`).not.toContain('キャラクター');
+    }
+  });
+
+  it('確認画面と設定画面の操作は変えていない（文字の差し替えだけ）', () => {
+    // 見出し・項目名・ボタンの出し方と、押したときの行き先は以前のまま。
+    expect(confirmSource).toContain('title: UI.avatar.confirmHeading');
+    expect(confirmSource).toContain('button(UI.avatar.startWith, decide');
+    expect(confirmSource).toContain("button(UI.avatar.chooseAgain, () => ctx.navigate({ name: 'avatarSelect' })");
+    expect(settingsSource).toContain('el(\'span\', { text: UI.avatar.current })');
+    expect(settingsSource).toContain(
+      "button(UI.avatar.change, () => ctx.navigate({ name: 'avatarSelect' })",
+    );
+  });
+
+  it('別機能の「表示キャラクター」は、意味が違うので置き換えていない', () => {
+    /*
+     * 「表示キャラクター」は年齢層ごとの2人組の情景イラストのことで、
+     * 80人から選ぶ主人公とは別物。いまはどの画面にも出していない文言だが、
+     * 「旅するあなた」に置き換えると2つの別の物が同じ名前になってしまう。
+     */
+    expect(UI.settings.character).toBe('表示キャラクター');
+    expect(UI.characters.ageSetting).toBe('表示キャラクター');
   });
 });
 
