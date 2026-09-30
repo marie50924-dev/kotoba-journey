@@ -971,6 +971,134 @@ try {
           }
         }
 
+        /*
+         * --- 人物のなじませ（実際に描かれた画素で確認） ---
+         *
+         * 1) なじませの形そのもの
+         *    絵柄を箱の外へ追い出し、代わりに黒い地色を敷く。白い地の上で撮ると
+         *    「黒がどれだけ残っているか」が、そのまま2枚のマスクの掛け算になる。
+         *      なじませ = 1 - 明るさ / 255
+         *    これで、絵柄の中身に左右されずにマスクの形だけを測れる。
+         */
+        {
+          const maskCss = `
+${screenBg('#ffffff')}
+.avatar-list,.avatar-card{background:none !important;backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;box-shadow:none !important;border-color:transparent !important;}
+.avatar-thumb__name,.avatar-card__check{visibility:hidden !important;}
+.avatar-list .avatar-card .avatar-thumb__img{object-fit:none !important;
+  object-position:-4000px -4000px !important;background:#000 !important;}`;
+          const faceBox = await page.evaluate(() => {
+            const n = document.querySelector('.avatar-card:not([aria-selected="true"]) .avatar-thumb__face');
+            if (n === null) return null;
+            const r = n.getBoundingClientRect();
+            return { l: r.left, t: r.top, w: r.width, h: r.height };
+          });
+          check(faceBox !== null, `${label}: 人物の表示領域が見つからない`);
+          if (faceBox) {
+            const shot = await shotWithCss(page, maskCss);
+            // 箱の中の相対位置（0〜1）での、なじませの強さ。
+            const maskAt = (fx, fy) => {
+              const x = Math.round((faceBox.l + faceBox.w * fx) * 2);
+              const y = Math.round((faceBox.t + faceBox.h * fy) * 2);
+              return 1 - lum8(pixelAt(shot, x, y)) / 255;
+            };
+            const keep = [
+              ['顔の中心', 0.5, 0.35],
+              ['髪の左端', 0.11, 0.5],
+              ['髪の右端', 0.89, 0.5],
+              ['頭の上', 0.5, 0.06],
+            ];
+            for (const [name, fx, fy] of keep) {
+              const v = maskAt(fx, fy);
+              check(v >= 0.95, `${label}: ${name} が薄くなっている（残り ${v.toFixed(2)}・0.95 以上を期待）`);
+            }
+            const bottomMid = maskAt(0.5, 0.94);
+            const corners = [
+              ['下の左角', maskAt(0.08, 0.94)],
+              ['下の右角', maskAt(0.92, 0.94)],
+            ];
+            for (const [name, v] of corners) {
+              check(v <= 0.08, `${label}: ${name} が消えていない（残り ${v.toFixed(2)}・0.08 以下を期待）`);
+              /*
+               * 「下端だけを水平に消す」やり方だと、角と下辺の中央が同じ値になる。
+               * 角のほうが先に消えていることを求めて、肩の左右へも移行があると確かめる。
+               */
+              check(
+                bottomMid - v >= 0.1,
+                `${label}: ${name} と下辺の中央が同じ（角 ${v.toFixed(2)} / 中央 ${bottomMid.toFixed(2)}）`,
+              );
+            }
+            for (const [name, fx, fy, max] of [
+              ['下辺', 0.5, 1.0, 0.08],
+              ['左辺', 0.02, 0.8, 0.25],
+              ['右辺', 0.98, 0.8, 0.25],
+            ]) {
+              const v = maskAt(fx, fy);
+              check(v <= max, `${label}: ${name} の切り口が残っている（残り ${v.toFixed(2)}・${max} 以下を期待）`);
+            }
+            /*
+             * 段差が無いこと。
+             *
+             * 見るのは「変化の大きさ」ではなく「変化の変わりかた」（2階差分）。
+             * なめらかに落ちている限り、急な坂でもここは小さいままになる。
+             * 一段落ちる場所があると、ここだけが跳ね上がる。
+             * 外周2画素は撮影の切り口なので外して測る。
+             */
+            let step = 0;
+            const x0 = Math.round(faceBox.l * 2) + 3;
+            const x1 = Math.round((faceBox.l + faceBox.w) * 2) - 3;
+            const y0 = Math.round((faceBox.t + faceBox.h * 0.6) * 2);
+            const y1 = Math.round((faceBox.t + faceBox.h) * 2) - 3;
+            for (let y = y0; y < y1; y += 1) {
+              for (let x = x0; x < x1; x += 1) {
+                const here = lum8(pixelAt(shot, x, y));
+                const dx = Math.abs(lum8(pixelAt(shot, x + 1, y)) - here - (here - lum8(pixelAt(shot, x - 1, y))));
+                const dy = Math.abs(lum8(pixelAt(shot, x, y + 1)) - here - (here - lum8(pixelAt(shot, x, y - 1))));
+                step = Math.max(step, dx, dy);
+              }
+            }
+            check(step <= 24, `${label}: なじませが途中で折れている（${step.toFixed(0)}・24 以下を期待）`);
+            notes.push(`なじませ 角 ${corners[0][1].toFixed(2)}/中央 ${bottomMid.toFixed(2)}・折れ ${step.toFixed(0)}`);
+          }
+
+          /*
+           * 2) なじませの途中で、背後（ガラスと景色）が本当に見えること。
+           *    不透明な白い帯で消したように見せていないことの確認でもある。
+           *    画面の地を白と黒に変えて、その場所の明るさがどれだけ動くかを測る。
+           */
+          if (faceBox) {
+            const onW = await shotWithCss(page, screenBg('#ffffff'));
+            const onK = await shotWithCss(page, screenBg('#000000'));
+            const seeAt = (fx, fy) => {
+              let sw = 0;
+              let sk = 0;
+              let n = 0;
+              const cx = Math.round((faceBox.l + faceBox.w * fx) * 2);
+              const cy = Math.round((faceBox.t + faceBox.h * fy) * 2);
+              for (let y = cy - 2; y <= cy + 2; y += 1) {
+                for (let x = cx - 2; x <= cx + 2; x += 1) {
+                  sw += lum8(pixelAt(onW, x, y));
+                  sk += lum8(pixelAt(onK, x, y));
+                  n += 1;
+                }
+              }
+              return (sw - sk) / n / 255;
+            };
+            const fade = seeAt(0.5, 0.92);
+            check(
+              fade >= 0.3,
+              `${label}: なじませの途中で背後が見えない（透過率 ${fade.toFixed(2)}・0.3 以上を期待）`,
+            );
+            const faceSolid = seeAt(0.5, 0.35);
+            check(
+              faceSolid <= 0.12,
+              `${label}: 顔が透けている（透過率 ${faceSolid.toFixed(2)}・0.12 以下を期待）`,
+            );
+            notes.push(`なじませの途中の透過率 ${fade.toFixed(2)}`);
+          }
+        }
+
         // 顔の画像と名前は薄くしない（要素全体の opacity を使っていない）。
         const solid = await page.evaluate(() => {
           const card = document.querySelector('.avatar-card');

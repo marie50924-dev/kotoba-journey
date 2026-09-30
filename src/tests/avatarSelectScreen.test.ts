@@ -412,22 +412,63 @@ describe('選択ボタンのガラス調', () => {
     expect(img).toMatch(/border-radius:\s*0/);
   });
 
-  it('肩と服の下端だけを透明へなじませる（人物全体は薄くしない）', () => {
+  it('肩と服を、下だけでなく左右にもなじませる（人物全体は薄くしない）', () => {
     const face = block('.avatar-list .avatar-card .avatar-thumb__face.has-image');
     const img = block('.avatar-list .avatar-card .avatar-thumb__face.has-image .avatar-thumb__img');
-    // 縦は画像、横はその外側。分けてあるので mask-composite に頼らない。
-    expect(img, '縦のなじませが無い').toMatch(/mask-image:\s*linear-gradient\(\s*180deg/);
+    /*
+     * なじませは2枚。掛け算にするため、別々の要素に分けてある
+     * （1つにまとめると mask-composite が要り、対応していない環境で
+     * 「足し算」になって両方とも効かなくなる）。
+     *   画像   … 上に中心を置いた楕円。下へ行くほど、そして同じ高さでも
+     *            左右の端へ行くほど強く落ちる。肩の左右の切れ口はここで消える。
+     *   外側   … 横方向の細い帯。画像の左右の枠に肩が接している人の
+     *            まっすぐな切り口を落とす。
+     */
+    expect(img, '楕円のなじませが無い').toMatch(/mask-image:\s*radial-gradient\(/);
     expect(face, '横のなじませが無い').toMatch(/mask-image:\s*linear-gradient\(\s*90deg/);
     for (const decls of [face, img]) {
       expect(decls, 'Safari 用の -webkit- が無い').toMatch(/-webkit-mask-image:/);
       // 人物そのものを薄くしたりぼかしたりしない。
       expect(decls).not.toMatch(/\n\s*opacity:\s*0?\.\d/);
       expect(decls).not.toMatch(/\n\s*filter:/);
+      // 2枚を1つの要素に重ねていない（mask-composite に頼っていない）。
+      expect(decls, 'mask-composite に頼っている').not.toMatch(/mask-composite/);
     }
-    // 顔と髪のある上側は触らない（最初の区切りが 55% 以降）。
-    const m = img.match(/mask-image:\s*linear-gradient\(\s*180deg,\s*#000 0%,\s*#000 (\d+)%/);
-    expect(m, '縦のなじませの始まりが読めない').not.toBeNull();
+
+    // 楕円の中心は上寄り。ここが下へ動くと、顔と髪まで落ちてしまう。
+    const at = img.match(/mask-image:\s*radial-gradient\(\s*[\d.]+% [\d.]+% at [\d.]+% ([\d.]+)%/);
+    expect(at, '楕円の中心が読めない').not.toBeNull();
+    expect(Number((at as RegExpMatchArray)[1]), '楕円の中心が下がりすぎ').toBeLessThanOrEqual(30);
+
+    // 横より縦の半径が小さい。これがあるので、下の左右の角がいちばん先に消える。
+    const r = img.match(/mask-image:\s*radial-gradient\(\s*([\d.]+)% ([\d.]+)%/);
+    expect(r, '楕円の半径が読めない').not.toBeNull();
+    const [, rx, ry] = r as RegExpMatchArray;
+    expect(Number(ry), '縦横が同じだと角から消えない').toBeLessThan(Number(rx));
+
+    // 顔と髪のある内側は触らない（最初の区切りが 55% 以降）。
+    const m = img.match(/mask-image:\s*radial-gradient\([^)]*?#000 0%,\s*#000 (\d+)%/);
+    expect(m, 'なじませの始まりが読めない').not.toBeNull();
     expect(Number((m as RegExpMatchArray)[1])).toBeGreaterThanOrEqual(55);
+
+    /*
+     * 落ち始めに横線が出ないよう、区切りを細かく刻む。
+     * 区切りが少ないと、不透明度の変わり方が急に変わる場所が線に見える。
+     */
+    // -webkit- 側と2回並ぶので、接頭辞の無いほうだけを取り出して数える。
+    const plain = img.match(/(?:^|\n)\s*mask-image:\s*radial-gradient\(([\s\S]*?)\);/);
+    expect(plain, 'なじませの区切りが読めない').not.toBeNull();
+    const stops = [...(plain as RegExpMatchArray)[1].matchAll(/rgba\(0, 0, 0, ([\d.]+)\) (\d+)%/g)].map(
+      (x) => [Number(x[1]), Number(x[2])],
+    );
+    expect(stops.length, 'なじませの区切りが少なすぎる').toBeGreaterThanOrEqual(5);
+    expect(stops[stops.length - 1][0], '端まで透明になっていない').toBe(0);
+    expect(stops[stops.length - 1][1], '端まで透明になっていない').toBe(100);
+    // 不透明度は単調に下がる。
+    for (let i = 1; i < stops.length; i += 1) {
+      expect(stops[i][0], 'なじませが途中で濃くなっている').toBeLessThan(stops[i - 1][0]);
+      expect(stops[i][1], '区切りの位置が前後している').toBeGreaterThan(stops[i - 1][1]);
+    }
   });
 
   it('内側の縁から白い光がにじむ', () => {
