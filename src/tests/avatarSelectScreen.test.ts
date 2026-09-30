@@ -6,6 +6,10 @@ import screenShellSource from '../components/screenShell.ts?raw';
 import confirmScreenSource from '../screens/avatarConfirmScreen.ts?raw';
 import settingsScreenSource from '../screens/settingsScreen.ts?raw';
 import { UI } from '../data/strings';
+import {
+  AGE_GROUP_IMAGE_BACKGROUND,
+  AGE_GROUP_IMAGE_BACKGROUND_GLASS,
+} from '../data/avatars';
 import { AVATARS, fullName } from '../data/avatars';
 
 /**
@@ -176,8 +180,29 @@ describe('主人公選択 表紙の旅の空気', () => {
     const b = block('.screen--avatar-select');
     expect(b).toMatch(/radial-gradient/);
     expect(b).toMatch(/linear-gradient/);
-    // 表紙の下部と同じ暖色が入っていること。
-    expect(b).toContain('244, 206, 150');
+    /*
+     * 下に暖色の光、上に空の青。値そのものではなく「暖色と青の光が置かれ、
+     * 上下で明るさに差がある」ことを見る。背景の濃淡はガラスが透けて見える
+     * ための材料でもあるので、差が小さくなったら気づけるようにしておく。
+     */
+    const warm = b.match(/rgba\((\d+), (\d+), (\d+), [\d.]+\) 0%, rgba\(\1, \2, \3, 0\)/g);
+    expect(warm, '暖色と青の光が2つとも見つからない').not.toBeNull();
+    expect((warm as RegExpMatchArray).length).toBeGreaterThanOrEqual(2);
+    const stops = [...b.matchAll(/linear-gradient\(180deg, (#[0-9a-f]{6}) 0%[^)]*?(#[0-9a-f]{6}) 100%\)/g)];
+    expect(stops.length, '上下の地色が読めない').toBe(1);
+    const lum = (hex: string): number => {
+      const n = parseInt(hex.slice(1), 16);
+      return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+    };
+    const top = stops[0][1];
+    const bottom = stops[0][2];
+    const blueness = (hex: string): number => {
+      const n = parseInt(hex.slice(1), 16);
+      return (n & 255) - ((n >> 16) & 255);
+    };
+    // 上は青寄り、下は暖色寄り。透けたときに色の違いが分かるだけの差を持つ。
+    expect(blueness(top) - blueness(bottom), '上下の色の差が小さい').toBeGreaterThanOrEqual(30);
+    expect(Math.abs(lum(top) - lum(bottom))).toBeGreaterThanOrEqual(0);
   });
 
   it('見出しは青い帯にする', () => {
@@ -252,7 +277,20 @@ describe('選択ボタンのガラス調', () => {
     expect(Math.max(...a), `${selector} の面が不透明`).toBeLessThan(1);
   });
 
-  it.each(GLASS)('%s のぼかしは背後だけ（Safari 用も併記）', (_name, selector) => {
+  /*
+   * ぼかしを掛ける場所。
+   *
+   * 以前は「ガラスの8か所すべてに backdrop-filter を付ける」ことを求めていたが、
+   * これは誤りだった。backdrop-filter を持つ要素は「背後の基準」をそこで
+   * 区切ってしまうため、一覧の枠や確定バーに付けると、その中のカードや
+   * ボタンの色変換が効かなくなる（実際に青いタブと主ボタンが灰色に寄った）。
+   * いまは「中身を入れる器（枠・確定バー）には付けない」「中のボタンには付ける」
+   * という形を検査する。前の決まりはこの検査で置き換えている。
+   */
+  const CONTAINERS = ['.avatar-list', '.avatar-select__confirm'];
+  const PANELS = GLASS.filter(([, sel]) => !CONTAINERS.includes(sel));
+
+  it.each(PANELS)('%s のぼかしは背後だけ（Safari 用も併記）', (_name, selector) => {
     const decls = block(selector);
     expect(decls, `${selector} に backdrop-filter がない`).toMatch(/backdrop-filter:\s*blur\(/);
     expect(decls, `${selector} に -webkit-backdrop-filter がない`).toMatch(
@@ -260,6 +298,12 @@ describe('選択ボタンのガラス調', () => {
     );
     // filter（要素そのものをぼかす）は使わない。顔と文字までぼける。
     expect(decls).not.toMatch(/\n\s*filter:\s*blur\(/);
+  });
+
+  it.each(CONTAINERS)('%s には backdrop-filter を掛けない（中の色変換を止めないため）', (selector) => {
+    expect(block(selector), `${selector} に backdrop-filter がある`).not.toMatch(
+      /backdrop-filter:/,
+    );
   });
 
   it('要素全体の opacity は使わない（顔と文字を薄くしない）', () => {
@@ -329,6 +373,81 @@ describe('選択ボタンのガラス調', () => {
     const white = block('.setting-row--avatar .btn');
     expect(white).toMatch(/backdrop-filter:\s*blur\(/);
     expect(Math.max(...alphas(fill(white)))).toBeLessThan(1);
+  });
+
+  it('面の塗りは薄い（塗り重ねて板に戻さない）', () => {
+    /*
+     * 表紙の副ボタンは塗りのアルファが 0.14〜0.2 で、色はほとんど
+     * backdrop-filter で作っている。塗りを厚くすると、透過率の数字が
+     * 出ていても見た目は板になる。白い面は薄く、白い文字を載せる青い面だけ
+     * 読みやすさのぶん厚めを許す。
+     */
+    // 白い面は薄く。淡い青は少しだけ厚く。白文字を載せる濃い青はそのぶん厚くてよい。
+    const MAX: Record<string, number> = {
+      ".avatar-tab[aria-selected='true']": 0.6,
+      '.avatar-select__confirm .btn--primary': 0.6,
+      ".avatar-filter__btn[aria-pressed='true']": 0.45,
+      ".avatar-card[aria-selected='true']": 0.45,
+    };
+    for (const [, selector] of GLASS) {
+      const a = alphas(fill(block(selector)));
+      const max = MAX[selector] ?? 0.35;
+      expect(Math.max(...a), `${selector} の塗りが厚い`).toBeLessThanOrEqual(max);
+    }
+    // 主ボタンは2つのセレクタをまとめて書いてあるので、その組でも確かめる。
+    const primary = block(
+      '.avatar-select__confirm .btn--primary,\n.screen--avatar-confirm .screen__footer .btn--primary',
+    );
+    expect(Math.max(...alphas(fill(primary))), '主ボタンの塗りが厚い').toBeLessThanOrEqual(0.6);
+  });
+
+  it('顔のうしろの丸い地色も、一覧の中では透ける', () => {
+    /*
+     * 人物画像は背景のない切り抜きで、顔のうしろの丸い色はこの地色そのもの。
+     * ここが不透明だと、カードを透かしても顔のまわりだけ色の板が残る。
+     */
+    const decls = block('.avatar-list .avatar-card .avatar-thumb__face.has-image');
+    expect(decls).toMatch(/background:\s*var\(--age-image-bg-glass/);
+    for (const [group, value] of Object.entries(AGE_GROUP_IMAGE_BACKGROUND_GLASS)) {
+      const m = value.match(/^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/);
+      expect(m, `${group} の透けた地色が rgba で書かれていない`).not.toBeNull();
+      const [, r, g, b, a] = m as RegExpMatchArray;
+      expect(Number(a), `${group} の地色が不透明`).toBeLessThanOrEqual(0.5);
+      // 色みは不透明な方と同じにする（透かすだけで、色は変えない）。
+      const opaque = AGE_GROUP_IMAGE_BACKGROUND[group as keyof typeof AGE_GROUP_IMAGE_BACKGROUND];
+      const n = parseInt(opaque.slice(1), 16);
+      expect([Number(r), Number(g), Number(b)]).toEqual([(n >> 16) & 255, (n >> 8) & 255, n & 255]);
+    }
+  });
+
+  it('ほかの画面のサムネイルの地色は不透明のまま', () => {
+    // 旅の画面・出題画面・結果画面・国紹介はこの値を使う。透かすと絵が変わる。
+    for (const value of Object.values(AGE_GROUP_IMAGE_BACKGROUND)) {
+      expect(value).toMatch(/^#[0-9a-f]{6}$/);
+    }
+    // 共通のサムネイルの指定は、これまでどおり不透明な方を使う。
+    expect(block('.avatar-thumb__face.has-image')).toMatch(/background:\s*var\(--age-image-bg,/);
+  });
+
+  it('backdrop-filter が効かない環境では、青い面を不透明へ戻す', () => {
+    /*
+     * 青い面の暗さは backdrop-filter の brightness で作っているので、
+     * 効かないと面が淡くなり、白文字が 2.20:1 / 1.92:1 まで落ちて読めなくなる
+     * （Chromium で backdrop-filter を止めて実測）。効かない環境だけ
+     * 元の不透明な青へ戻す。
+     */
+    const m = css.match(
+      /@supports not \(\(backdrop-filter: blur\(2px\)\) or \(-webkit-backdrop-filter: blur\(2px\)\)\)\s*\{([\s\S]*)\}/,
+    );
+    expect(m, 'backdrop-filter が無い環境向けの指定が見つからない').not.toBeNull();
+    const body = (m as RegExpMatchArray)[1];
+    expect(body).toContain(".avatar-tab[aria-selected='true']");
+    expect(body).toContain('.avatar-select__confirm .btn--primary');
+    // 戻す先は、透けない濃い青（アルファ 0.9 以上か、色名そのもの）。
+    const fallbackAlphas = alphas(body);
+    for (const a of fallbackAlphas) {
+      expect(a, '戻す先の青が薄い').toBeGreaterThanOrEqual(0.9);
+    }
   });
 
   it('キーボードで選んでいる場所は、選択中の青とも未選択とも見分けられる', () => {

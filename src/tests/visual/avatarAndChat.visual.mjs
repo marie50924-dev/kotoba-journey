@@ -825,15 +825,17 @@ try {
          * 保つと、通せる明るさがその分だけ減るため。物理的な上限がある。
          */
         const TARGETS = [
-          { name: '年代タブ 未選択', selector: '.avatar-tab:not([aria-selected="true"])', minPass: 0.25, minBlue: null },
-          { name: '年代タブ 選択中', selector: ".avatar-tab[aria-selected='true']", minPass: 0.06, minBlue: 80 },
-          { name: '絞り込み 未押下', selector: '.avatar-filter__btn:not([aria-pressed="true"])', minPass: 0.25, minBlue: null },
+          { name: '年代タブ 未選択', selector: '.avatar-tab:not([aria-selected="true"])', minPass: 0.6, minBlue: null },
+          // 白い文字を載せる濃い青は、明るい背景の上で 4.5:1 を保つと
+          // 通せる明るさが限られる。ここだけ下限が低いのはそのため。
+          { name: '年代タブ 選択中', selector: ".avatar-tab[aria-selected='true']", minPass: 0.12, minBlue: 80 },
+          { name: '絞り込み 未押下', selector: '.avatar-filter__btn:not([aria-pressed="true"])', minPass: 0.6, minBlue: null },
           // 押している絞り込みは、もともと淡い青（#e2f0fc）なので青みの幅は小さい。
-          { name: '絞り込み 押している', selector: ".avatar-filter__btn[aria-pressed='true']", minPass: 0.25, minBlue: 18 },
-          { name: '人物カード 未選択', selector: '.avatar-card:not([aria-selected="true"])', minPass: 0.12, minBlue: null },
+          { name: '絞り込み 押している', selector: ".avatar-filter__btn[aria-pressed='true']", minPass: 0.5, minBlue: 18 },
+          { name: '人物カード 未選択', selector: '.avatar-card:not([aria-selected="true"])', minPass: 0.5, minBlue: null },
           // 選択中のカードも淡い青。濃い青に塗り替えない。
-          { name: '人物カード 選択中', selector: ".avatar-card[aria-selected='true']", minPass: 0.1, minBlue: 18 },
-          { name: 'この人を選ぶ', selector: '.avatar-select__confirm .btn--primary', minPass: 0.05, minBlue: 80 },
+          { name: '人物カード 選択中', selector: ".avatar-card[aria-selected='true']", minPass: 0.45, minBlue: 18 },
+          { name: 'この人を選ぶ', selector: '.avatar-select__confirm .btn--primary', minPass: 0.12, minBlue: 80 },
         ];
 
         const boxes = await page.evaluate((sels) => {
@@ -871,9 +873,22 @@ try {
             `${label}: ${t.name} が透けていない（透過率 ${pass.toFixed(2)}・${t.minPass} 以上を期待）`,
           );
           if (t.minBlue === null) {
+            /*
+             * 白い面の見分け方。
+             *
+             * 以前は「3原色がどれも 200 以上」を求めていたが、これは透けた
+             * ガラスには合わない。よく透ける白いガラスは背後の空の青を拾って
+             * 当然だからで、実際 rgb(195,230,254) で落ちた。
+             * いまは「十分に明るいこと」と「青く塗られていないこと」で見る。
+             * 青く塗り替えたら（逆検証D）明るさが落ちるので検出できる。
+             */
             check(
-              Math.min(...col) >= 200,
-              `${label}: ${t.name} の面が白系でない rgb(${col.join(',')})`,
+              lum8(col) >= 195 && Math.min(...col) >= 165,
+              `${label}: ${t.name} の面が明るくない rgb(${col.join(',')})・明るさ ${lum8(col).toFixed(0)}`,
+            );
+            check(
+              col[2] - col[0] <= 70,
+              `${label}: ${t.name} の面が青く塗られている rgb(${col.join(',')})`,
             );
           } else {
             check(
@@ -887,6 +902,32 @@ try {
             `${label}: ${t.name} の文字が読みにくい（${tx.ratio.toFixed(2)}:1・4.5:1 以上を期待）`,
           );
           notes.push(`${t.name} ${pass.toFixed(2)}`);
+        }
+
+        /*
+         * 顔のうしろの丸い地色も透けること。
+         *
+         * 人物画像は背景のない切り抜きで、顔のうしろの丸い色はこの地色そのもの。
+         * ここが不透明だと、カードを透かしても顔のまわりだけ色の板が残る。
+         * 人物画像だけを隠して、丸の地色そのものを測る。
+         */
+        {
+          const discBox = await page.evaluate(() => {
+            const n = document.querySelector('.avatar-card .avatar-thumb__face');
+            const r = n.getBoundingClientRect();
+            return { l: r.left, r: r.right, t: r.top, b: r.bottom };
+          });
+          const hideImg = '.avatar-card .avatar-thumb__img{visibility:hidden !important;}';
+          const discWhite = await shotWithCss(page, `${screenBg('#ffffff')} ${hideImg}`);
+          const discBlack = await shotWithCss(page, `${screenBg('#000000')} ${hideImg}`);
+          const pad = Math.round(Math.min(discBox.r - discBox.l, discBox.b - discBox.t) * 0.3);
+          const discPass =
+            (lum8(faceColour(discWhite, discBox, 2, pad)) - lum8(faceColour(discBlack, discBox, 2, pad))) / 255;
+          check(
+            discPass >= 0.4,
+            `${label}: 顔のうしろの丸い地色が透けていない（透過率 ${discPass.toFixed(2)}・0.4 以上を期待）`,
+          );
+          notes.push(`顔のうしろの丸 ${discPass.toFixed(2)}`);
         }
 
         // 顔の画像と名前は薄くしない（要素全体の opacity を使っていない）。
@@ -938,7 +979,98 @@ try {
   }
 
   /*
-   * ---- 13. 選んだ人が一覧から完全に見えなくなっても、下の帯は使える ----
+   * ---- 13. backdrop-filter が効かない環境でも読める ----
+   *
+   * 青い面の暗さは backdrop-filter の brightness で作っているので、効かないと
+   * 面が淡くなり白文字が読めなくなる。効かない環境向けの指定（@supports not）が
+   * 実際に効くかを、その指定を CSS から読み出して当てることで確かめる。
+   * 指定の中身をこの検査に書き写すと検査の意味が無くなるので、
+   * 出荷する CSS から取り出して使う。
+   */
+  {
+    await runCase('backdrop-filter が効かない環境', async () => {
+      const context = await browser.newContext({
+        viewport: { width: 393, height: 852 },
+        deviceScaleFactor: 2,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: '旅をはじめる' }).click();
+        await page.waitForSelector('.avatar-grid');
+        await page.locator('.avatar-card').nth(5).click();
+        await page.waitForTimeout(400);
+
+        // 出荷する CSS の中から、効かない環境向けの指定を取り出す。
+        const fallbackCss = await page.evaluate(() => {
+          const out = [];
+          for (const sheet of document.styleSheets) {
+            let rules;
+            try {
+              rules = sheet.cssRules;
+            } catch {
+              continue;
+            }
+            for (const rule of rules) {
+              if (
+                rule.constructor.name === 'CSSSupportsRule' &&
+                rule.conditionText.includes('backdrop-filter')
+              ) {
+                for (const inner of rule.cssRules) out.push(inner.cssText);
+              }
+            }
+          }
+          return out.join('\n');
+        });
+        check(
+          fallbackCss.length > 0,
+          'backdrop-filter が効かない環境向けの指定が CSS に無い',
+        );
+
+        const TARGETS = [
+          ['年代タブ 選択中', ".avatar-tab[aria-selected='true']"],
+          ['この人を選ぶ', '.avatar-select__confirm .btn--primary'],
+          ['年代タブ 未選択', '.avatar-tab:not([aria-selected="true"])'],
+          ['人物カード 未選択', '.avatar-card:not([aria-selected="true"])'],
+        ];
+        const boxes = await page.evaluate((sels) => {
+          const out = {};
+          for (const sel of sels) {
+            const n = document.querySelector(sel);
+            if (n === null) { out[sel] = null; continue; }
+            const r = n.getBoundingClientRect();
+            out[sel] = { l: r.left, r: r.right, t: r.top, b: r.bottom };
+          }
+          return out;
+        }, TARGETS.map(([, sel]) => sel));
+
+        const off = '*{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}';
+        // ぼかしだけを止めたとき（代替指定が無い場合の見え方）
+        const bare = await shotWithCss(page, off);
+        // 代替指定も一緒に当てたとき（実際の環境での見え方）
+        const withFallback = await shotWithCss(page, `${off} ${fallbackCss}`);
+
+        const notes = [];
+        for (const [name, sel] of TARGETS) {
+          const box = boxes[sel];
+          if (!box) continue;
+          const a = textContrast(bare, box, 2).ratio;
+          const b = textContrast(withFallback, box, 2).ratio;
+          check(
+            b >= 4.5,
+            `393x852: ${name} が、ぼかしの効かない環境で読みにくい（${b.toFixed(2)}:1・4.5:1 以上を期待）`,
+          );
+          notes.push(`${name} ${a.toFixed(1)}→${b.toFixed(1)}`);
+        }
+        return ` 代替指定なし→あり ${notes.join(' / ')}`;
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  /*
+   * ---- 14. 選んだ人が一覧から完全に見えなくなっても、下の帯は使える ----
    *
    * 320x568 では一覧が1行ぶんしかスクロールしないので、選んだ人を
    * 完全に画面外へ送れない。送れる短い画面で、その状態を作って確かめる。
@@ -1010,7 +1142,7 @@ try {
   }
 
   /*
-   * ---- 14. キーボードだけで選べる ----
+   * ---- 15. キーボードだけで選べる ----
    */
   {
     await runCase('キーボードで選べる', async () => {
@@ -1045,7 +1177,7 @@ try {
     });
   }
 
-  // ---- 15. prefers-reduced-motion でも会話が読める ----
+  // ---- 16. prefers-reduced-motion でも会話が読める ----
   {
     await runCase('prefers-reduced-motion', async () => {
       const context = await browser.newContext({

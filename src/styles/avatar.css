@@ -139,12 +139,18 @@
  */
 
 .screen--avatar-select {
+  /*
+   * 背景の濃淡は、ガラスが「透けて見える」ための材料でもある。
+   * 前の版は上から下まで明るさの差が 20 段ほどしかなく、面をいくら透かしても
+   * 見えるものが無かった。空の青と石畳の光をはっきりさせ、上下で色が変わる
+   * ようにしてある。文字が載る場所の読みやすさは実測で確かめている。
+   */
   background:
     /* 下半分に石畳の暖かい光。表紙の下部と同じ色味。 */
-    radial-gradient(124% 44% at 50% 100%, rgba(244, 206, 150, 0.46) 0%, rgba(244, 206, 150, 0) 72%),
+    radial-gradient(132% 48% at 50% 100%, rgba(240, 186, 116, 0.66) 0%, rgba(240, 186, 116, 0) 74%),
     /* 見出しの帯の下に、地球儀の青い光がにじむ。 */
-    radial-gradient(88% 26% at 50% 7%, rgba(126, 206, 255, 0.32) 0%, rgba(126, 206, 255, 0) 74%),
-    linear-gradient(180deg, #e8f2fb 0%, #f7f3ea 44%, #fdf8ee 100%);
+    radial-gradient(98% 34% at 50% 3%, rgba(82, 174, 244, 0.52) 0%, rgba(82, 174, 244, 0) 76%),
+    linear-gradient(180deg, #cde3f6 0%, #e7eef1 42%, #f8ecd9 100%);
 }
 
 /*
@@ -236,10 +242,17 @@
   padding: 6px 4px;
   border: 1.5px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--radius);
-  /* 白いガラス。面は透け、縁が細く光る。色の系統は白のまま。 */
-  background: rgba(255, 255, 255, 0.56);
-  backdrop-filter: blur(6px) saturate(1.1) brightness(1.05);
-  -webkit-backdrop-filter: blur(6px) saturate(1.1) brightness(1.05);
+  /*
+   * 白いガラス。
+   *
+   * 表紙の副ボタンと同じ作りにしてある。白い塗りを重ねて色を作るのではなく、
+   * 塗りはごく薄くし、背後を backdrop-filter で少し明るくするだけにする。
+   * こうすると背後の模様がほとんどそのまま通り、板ではなくガラスに見える。
+   * 前の版は塗りが 0.56 あり、実質は白い板だった。
+   */
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
+  -webkit-backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.2),
     0 0 8px rgba(120, 180, 240, 0.18),
@@ -262,14 +275,25 @@
    * そのままでは白文字が薄い地に負けるので、背後を brightness で落としてから
    * 重ねる。明暗の模様は残るので、石畳や空の見え方は透けたまま。
    */
-  background: linear-gradient(180deg, rgba(6, 124, 232, 0.68) 0%, rgba(4, 86, 170, 0.74) 100%);
   /*
-   * 背後は明るい空なので、ただ薄くすると青がくすんで灰色に寄る。
-   * sepia と hue-rotate で背後の色そのものを青へ振ってから暗くし、
-   * 明るさの模様（透け）は残したまま、面の青さを元のまま保つ。
+   * 青いガラス。塗りは薄く、色はほとんど backdrop-filter で作る。
+   *   sepia      … 色みを1色にそろえる（明暗の模様はそのまま残る）
+   *   hue-rotate … その1色を青へ回す
+   *   saturate   … 青を濃くする
+   *   brightness … 白い文字が読める明るさまで落とす
+   * 不透明な塗りを足していないので、背後の濃淡は通ったまま残る。
    */
-  backdrop-filter: blur(6px) sepia(0.85) hue-rotate(202deg) saturate(4.4) brightness(0.33);
-  -webkit-backdrop-filter: blur(6px) sepia(0.85) hue-rotate(202deg) saturate(4.4) brightness(0.33);
+  /*
+   * 青いガラス。
+   *
+   * 順序が大事。明るい背景に sepia を先に掛けると白へ振り切れてしまい、
+   * そのあとで色を回しても灰色にしかならない（実際そうなっていた）。
+   * 先に brightness で暗くしてから彩度を上げると、背景の青がそのまま濃くなる。
+   * そのうえに薄い青を重ねて、元の面の色にそろえる。
+   */
+  background: linear-gradient(180deg, rgba(46, 150, 252, 0.48) 0%, rgba(28, 108, 210, 0.56) 100%);
+  backdrop-filter: blur(5px) brightness(0.3) saturate(4.5);
+  -webkit-backdrop-filter: blur(5px) brightness(0.3) saturate(4.5);
   color: #fff;
   text-shadow: 0 1px 2px rgba(4, 22, 44, 0.5);
   box-shadow:
@@ -292,9 +316,9 @@
   border: 1.5px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--radius);
   /* 年代タブと同じ白いガラス。 */
-  background: rgba(255, 255, 255, 0.56);
-  backdrop-filter: blur(6px) saturate(1.1) brightness(1.05);
-  -webkit-backdrop-filter: blur(6px) saturate(1.1) brightness(1.05);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
+  -webkit-backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.2),
     0 0 8px rgba(120, 180, 240, 0.18),
@@ -311,10 +335,10 @@
  */
 .avatar-filter__btn[aria-pressed='true'] {
   border-color: rgba(29, 97, 162, 0.72);
-  /* 淡い青のガラス。文字は濃い青のままなので、読みやすさは落ちない。 */
-  background: rgba(198, 224, 248, 0.58);
-  backdrop-filter: blur(6px) saturate(1.35) brightness(1.02);
-  -webkit-backdrop-filter: blur(6px) saturate(1.35) brightness(1.02);
+  /* 淡い青のガラス。塗りは薄く、背後を青へ振って明るさはほぼそのまま。 */
+  background: rgba(146, 198, 250, 0.3);
+  backdrop-filter: blur(6px) saturate(1.9) brightness(1.02);
+  -webkit-backdrop-filter: blur(6px) saturate(1.9) brightness(1.02);
   color: #0f3b64;
   box-shadow:
     0 0 0 1px rgba(186, 246, 255, 0.8),
@@ -347,12 +371,16 @@
    * 枠の面も透かす。ここが不透明だと、上に載るカードをいくら透かしても
    * 白い板しか見えず、ガラスにならない。背後の空と石畳の色がここを通る。
    */
-  background:
-    radial-gradient(126% 62% at 50% 0%, rgba(216, 237, 252, 0.24) 0%, rgba(255, 255, 255, 0.18) 64%),
-    rgba(255, 255, 255, 0.08);
-  /* ぼかしは背後にだけかける。枠の中の顔と文字はぼけない。 */
-  backdrop-filter: blur(9px) saturate(1.08);
-  -webkit-backdrop-filter: blur(9px) saturate(1.08);
+  /*
+   * 枠自体には backdrop-filter を掛けない。
+   *
+   * backdrop-filter を持つ要素は「背後の基準」をそこで区切ってしまう。
+   * 枠に掛けると、中のカードやボタンの backdrop-filter は枠が塗った色しか
+   * 見なくなり、背後を青へ変換する働きが効かなくなる（実際、青いタブと
+   * 主ボタンが灰色に寄った）。枠は薄い塗りだけにして、ぼかしは中の
+   * カードとボタンに任せる。
+   */
+  background: rgba(255, 255, 255, 0.1);
   box-shadow:
     0 0 0 1px rgba(186, 246, 255, 0.72),
     0 0 14px rgba(26, 99, 166, 0.14),
@@ -409,9 +437,9 @@
    * 面だけを透かす（opacity は使わない）。上に載る顔の画像と名前は
    * 不透明のままなので、鮮明さは変わらない。
    */
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.32) 100%);
-  backdrop-filter: blur(5px) saturate(1.1) brightness(1.04);
-  -webkit-backdrop-filter: blur(5px) saturate(1.1) brightness(1.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.14) 100%);
+  backdrop-filter: blur(6px) saturate(1.05) brightness(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05) brightness(1.05);
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.16),
     0 0 9px rgba(120, 180, 240, 0.18),
@@ -427,9 +455,9 @@
 .avatar-card[aria-selected='true'] {
   /* 青い縁はそのまま。面は同じ淡い青を透かした青いガラスにする。 */
   border-color: #1268e0;
-  background: linear-gradient(180deg, rgba(203, 228, 255, 0.5) 0%, rgba(178, 212, 255, 0.44) 100%);
-  backdrop-filter: blur(5px) saturate(1.5) brightness(1.02);
-  -webkit-backdrop-filter: blur(5px) saturate(1.5) brightness(1.02);
+  background: linear-gradient(180deg, rgba(136, 190, 255, 0.32) 0%, rgba(110, 172, 252, 0.36) 100%);
+  backdrop-filter: blur(6px) saturate(1.9) brightness(1.02);
+  -webkit-backdrop-filter: blur(6px) saturate(1.9) brightness(1.02);
   box-shadow:
     0 0 0 1.5px rgba(166, 226, 255, 0.92),
     0 0 12px rgba(18, 104, 224, 0.34),
@@ -509,9 +537,8 @@
   padding: 6px 8px;
   border: 1.5px solid rgba(26, 99, 166, 0.42);
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(232, 242, 252, 0.46) 100%);
-  backdrop-filter: blur(9px) saturate(1.1);
-  -webkit-backdrop-filter: blur(9px) saturate(1.1);
+  /* 枠と同じ理由で、この帯にも backdrop-filter は掛けない（中のボタンのため）。 */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(232, 242, 252, 0.2) 100%);
   box-shadow:
     0 0 0 1px rgba(186, 246, 255, 0.6),
     0 4px 12px rgba(12, 46, 84, 0.13);
@@ -553,7 +580,11 @@
 .avatar-select__chosen-label {
   font-size: 11px;
   font-weight: 700;
-  color: #2a6ea3;
+  /*
+   * 帯を透かしたぶん、背後の石畳の暖かい光がここまで届く。
+   * 以前の #2a6ea3 では 4.23:1 まで落ちたので、同じ青のまま濃くした（5.7:1）。
+   */
+  color: #1f5a8a;
 }
 
 /* 本人の姓名。最長は5文字（一ノ瀬七海など）。 */
@@ -696,10 +727,15 @@
 /* 青いボタン（主操作）。白文字の読みやすさを保つため、背後を少し落としてから重ねる。 */
 .avatar-select__confirm .btn--primary,
 .screen--avatar-confirm .screen__footer .btn--primary {
-  background: linear-gradient(180deg, rgba(20, 122, 216, 0.7) 0%, rgba(10, 84, 180, 0.76) 100%);
+  background: linear-gradient(180deg, rgba(62, 176, 255, 0.5) 0%, rgba(34, 124, 228, 0.58) 100%);
   border-color: rgba(200, 242, 255, 0.92);
-  backdrop-filter: blur(10px) sepia(0.82) hue-rotate(198deg) saturate(3.8) brightness(0.34);
-  -webkit-backdrop-filter: blur(10px) sepia(0.82) hue-rotate(198deg) saturate(3.8) brightness(0.34);
+  /*
+   * 年代タブと同じ順序で、先に暗くしてから色を作る。
+   * ただしこのボタンの背後は下部の暖かい光なので、暗くしただけでは
+   * 茶色が濃くなるだけになる。hue-rotate で青へ回してから彩度を上げる。
+   */
+  backdrop-filter: blur(8px) brightness(0.34) hue-rotate(185deg) saturate(3.2);
+  -webkit-backdrop-filter: blur(8px) brightness(0.34) hue-rotate(185deg) saturate(3.2);
   text-shadow: 0 1px 2px rgba(4, 22, 44, 0.5);
   box-shadow:
     0 0 0 1px rgba(186, 246, 255, 0.72),
@@ -711,13 +747,50 @@
 /* 白いボタン（「えらび直す」「旅するあなたを変える」）。白いガラスにする。 */
 .screen--avatar-confirm .screen__footer .btn:not(.btn--primary),
 .setting-row--avatar .btn {
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.22);
   border-color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px) saturate(1.1) brightness(1.05);
-  -webkit-backdrop-filter: blur(8px) saturate(1.1) brightness(1.05);
+  backdrop-filter: blur(8px) saturate(1.05) brightness(1.07);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05) brightness(1.07);
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.18),
     0 0 10px rgba(120, 180, 240, 0.18),
     0 3px 8px rgba(12, 46, 84, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/*
+ * 顔のうしろの丸い地色。
+ *
+ * 人物画像は背景のない切り抜きなので、顔のうしろに見える色はこの地色そのもの。
+ * 一覧の中だけ、色みは変えずに不透明度を下げて、カードのガラスと同じように
+ * 背景が透けるようにする。人物そのもの（画像）は不透明のまま。
+ * ほかの画面のサムネイルは、これまでどおり不透明な地色のまま。
+ */
+.avatar-list .avatar-card .avatar-thumb__face.has-image {
+  background: var(--age-image-bg-glass, var(--age-image-bg, var(--c-paper-2)));
+}
+
+/*
+ * backdrop-filter が効かない環境への備え。
+ *
+ * 白い面（タブ・絞り込み・カード・白いボタン）は、背後が明るいので
+ * ぼかしと明るさの調整が消えても濃い文字が読める（実測 9.1〜17.2:1）。
+ *
+ * 問題は白い文字を載せている青い面。青さと暗さは backdrop-filter の
+ * brightness で作っているので、効かないと面が淡くなり、白文字が
+ *   年代タブ 選択中   5.45:1 -> 2.20:1
+ *   この人を選ぶ      3.97:1 -> 1.92:1
+ * まで落ちて読めなくなる（Chromium で backdrop-filter を止めて実測）。
+ * この2つだけは、効かない環境では元の不透明な青へ戻す。
+ * 透け感は失われるが、読めなくなるより良い。
+ */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .avatar-tab[aria-selected='true'] {
+    background: linear-gradient(180deg, #2472ba 0%, #16508a 100%);
+  }
+
+  .avatar-select__confirm .btn--primary,
+  .screen--avatar-confirm .screen__footer .btn--primary {
+    background: linear-gradient(180deg, rgba(42, 126, 205, 0.94) 0%, rgba(20, 86, 170, 0.96) 100%);
+  }
 }
