@@ -89,6 +89,15 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
     for (const tab of tabs) {
       tab.setAttribute('aria-selected', String(tab.dataset.age === activeAge));
     }
+    /*
+     * 年代に合わせて背景を切り替えるための印。
+     *
+     * 実際にどんな背景を出すかは CSS 側（--avatar-scene）で決める。
+     * 5年代ぶんの背景素材はまだ届いていないので、今はどの年代でも
+     * これまでと同じ背景が出る。素材が届いたら CSS の5行に画像を
+     * 入れるだけでよく、この画面の処理は変えなくて済む。
+     */
+    screen.dataset.ageGroup = activeAge;
   }
 
   function renderFilters(): void {
@@ -160,12 +169,11 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
     ctx.navigate({ name: 'avatarConfirm' });
   }
 
-  renderTabs();
   renderFilters();
   renderGrid();
   renderChosen();
 
-  return screenShell(
+  const screen = screenShell(
     {
       title: UI.avatar.selectHeading,
       titleIcon: planeIcon(),
@@ -183,4 +191,9 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
       el('div', { class: 'avatar-select__confirm' }, [chosenLine, confirmButton]),
     ],
   );
+
+  // 画面を組み立ててから、いまの年代を印として載せる。
+  renderTabs();
+
+  return screen;
 }

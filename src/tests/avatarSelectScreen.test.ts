@@ -8,6 +8,8 @@ import settingsScreenSource from '../screens/settingsScreen.ts?raw';
 import { UI } from '../data/strings';
 import { AGE_GROUP_IMAGE_BACKGROUND } from '../data/avatars';
 import { AVATARS, fullName } from '../data/avatars';
+import { AVATAR_HEAD_SHIFT } from '../data/avatarFraming';
+import thumbSource from '../components/avatarThumb.ts?raw';
 
 /**
  * 主人公選択画面の検査。
@@ -36,9 +38,13 @@ const settingsSource = String(settingsScreenSource);
 /** セレクタの宣言ブロックを取り出す。 */
 function block(selector: string, source = css): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const m = source.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`));
-  expect(m, `${selector} の指定が見つからない`).not.toBeNull();
-  return (m as RegExpMatchArray)[1];
+  /*
+   * 同じセレクタの指定が複数の場所に分かれていることがある（組み立てと見た目など）。
+   * 最初の1つだけを見ると、後ろに書いた指定を見落とす。全部つないで返す。
+   */
+  const all = [...source.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
+  expect(all.length, `${selector} の指定が見つからない`).toBeGreaterThan(0);
+  return all.map((m) => m[1]).join('\n');
 }
 
 /** rgb(...) / #rrggbb を [r,g,b] にする。 */
@@ -511,6 +517,87 @@ describe('選択ボタンのガラス調', () => {
         .toBeGreaterThanOrEqual(180);
       expect(Number(a), `${name} の内側の光が強すぎる`).toBeLessThanOrEqual(0.7);
     }
+  });
+
+  it('人物をカードいっぱいに置き、切り取らない', () => {
+    /*
+     * 人物画像は正方形で、左右にほとんど透明の余白が無い（実測：左端の中央値
+     * 1.4%、右端の中央値 98.7%）。カード幅より大きくすると多くの人で髪が切れる。
+     * そこで「カード幅まで広げる・切り取らない」を指定で固定する。
+     */
+    const face = block('.avatar-list .avatar-card .avatar-thumb__face.has-image');
+    const img = block('.avatar-list .avatar-card .avatar-thumb__face.has-image .avatar-thumb__img');
+    expect(face, '人物の枠がカード幅に広がっていない').toMatch(/position:\s*absolute/);
+    expect(face, '左右がカードの端まで届いていない').toMatch(/left:\s*0/);
+    expect(face, '左右がカードの端まで届いていない').toMatch(/right:\s*0/);
+    expect(face, '正方形になっていない').toMatch(/aspect-ratio:\s*1\s*\/\s*1/);
+    expect(img, '切り取らない指定になっていない').toMatch(/object-fit:\s*contain/);
+    expect(img, '切り取る指定が残っている').not.toMatch(/object-fit:\s*cover/);
+    // カードの角からはみ出させない。
+    expect(block('.avatar-list .avatar-card')).toMatch(/overflow:\s*hidden/);
+  });
+
+  it('カードの寸法は変えない', () => {
+    // 高さを決めているのはカードの min-height。ここが変わると人数と列数が動く。
+    const card = block('.avatar-card');
+    expect(card, 'カードの高さの決め方が変わっている').toMatch(
+      /min-height:\s*calc\(clamp\(50px,\s*13\.5vw,\s*58px\)\s*\+\s*28px\)/,
+    );
+    expect(css, '縦に余裕のある画面のカードの高さが変わっている').toMatch(
+      /min-height:\s*calc\(clamp\(50px,\s*18\.6vw,\s*82px\)\s*\+\s*28px\)/,
+    );
+  });
+
+  it('頭のてっぺんをそろえる値が、画像のある人ぶんだけある', () => {
+    /*
+     * 値は画像そのものから測ったもの。名前や並び順から作っていないことを、
+     * 「画像キーと1対1で対応している」ことで確かめる。
+     */
+    const keys = AVATARS.filter((a) => a.imageKey !== null).map((a) => a.imageKey as string);
+    expect(keys.length).toBe(80);
+    const table = Object.keys(AVATAR_HEAD_SHIFT);
+    expect(new Set(table).size, '表に重複がある').toBe(table.length);
+    for (const k of keys) {
+      expect(AVATAR_HEAD_SHIFT[k], `${k} の下げ量が無い`).toBeTypeOf('number');
+    }
+    for (const k of table) {
+      expect(keys, `${k} は一覧に出ない画像キー`).toContain(k);
+    }
+    // 下げ量は 0〜画像の高さの1割まで。ここを超えると顔が下がりすぎる。
+    for (const [k, v] of Object.entries(AVATAR_HEAD_SHIFT)) {
+      expect(v, `${k} の下げ量が負`).toBeGreaterThanOrEqual(0);
+      expect(v, `${k} の下げ量が大きすぎる`).toBeLessThanOrEqual(10);
+    }
+    // CSS と画面コードがその値を使っていること。
+    expect(thumbSource, '下げ量を要素に渡していない').toMatch(/--avatar-head-shift/);
+    expect(block('.avatar-list .avatar-card .avatar-thumb__face.has-image')).toMatch(
+      /margin-top:\s*calc\(var\(--avatar-head-shift/,
+    );
+  });
+
+  it('名前は人物の上に置くが、不透明な帯は敷かない', () => {
+    const name = block('.avatar-list .avatar-card .avatar-thumb__name');
+    expect(name, '名前が人物より後ろにある').toMatch(/z-index:\s*[2-9]/);
+    expect(name, '名前の下に帯を敷いている').not.toMatch(/background/);
+    // 名前そのものは薄くしない・ぼかさない。
+    expect(name).not.toMatch(/\n\s*opacity:\s*0?\.\d/);
+    expect(name).not.toMatch(/\n\s*filter:/);
+    // チェック印は名前より前面。
+    expect(block('.avatar-card__check')).toMatch(/z-index:\s*3/);
+  });
+
+  it('年代タブに合わせて背景を切り替える受け口が5年代ぶんある', () => {
+    for (const age of ['elementary', 'middle', 'high', 'university', 'adult']) {
+      expect(css, `${age} の背景の受け口が無い`).toContain(
+        `.screen--avatar-select[data-age-group='${age}']`,
+      );
+    }
+    // 画面側が年代を印として載せていること。
+    expect(screen, '年代の印を載せていない').toMatch(/dataset\.ageGroup\s*=/);
+    // 背景の指定が受け口を読んでいること。
+    expect(block('.screen--avatar-select'), '背景が受け口を読んでいない').toMatch(
+      /var\(--avatar-scene/,
+    );
   });
 
   it('名前にはなじませを掛けない', () => {

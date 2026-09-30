@@ -1,4 +1,5 @@
 import { el } from '../app/dom';
+import { avatarHeadShift } from '../data/avatarFraming';
 import {
   AGE_GROUP_COLOR,
   AGE_GROUP_IMAGE_BACKGROUND,
@@ -91,7 +92,13 @@ export function avatarThumb(
       // 依存しない。色の値はデータ側の1か所で定義している。
       style:
         `--age-color:${AGE_GROUP_COLOR[avatar.ageGroup]};` +
-        `--age-image-bg:${AGE_GROUP_IMAGE_BACKGROUND[avatar.ageGroup]}`,
+        `--age-image-bg:${AGE_GROUP_IMAGE_BACKGROUND[avatar.ageGroup]};` +
+        /*
+         * 一覧で頭のてっぺんをそろえるための下げ量（カード幅に対する%）。
+         * 画像そのものから測った値で、画像キーだけで決まる。
+         * 使うのは一覧のCSSだけ。ほかの画面では読まれないので影響はない。
+         */
+        `--avatar-head-shift:${avatarHeadShift(avatar.imageKey)}`,
     },
     [fallback],
   );

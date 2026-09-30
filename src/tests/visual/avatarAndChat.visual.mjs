@@ -1085,7 +1085,13 @@ ${screenBg('#ffffff')}
               }
               return (sw - sk) / n / 255;
             };
-            const fade = seeAt(0.5, 0.92);
+            /*
+             * 測る場所は「なじませが半分ほど効いている高さ」。
+             * 人物をカードいっぱいに広げたぶん、服は前より下まで残るように
+             * したので、この高さも下へ移した（求める値 0.3 は変えていない）。
+             * 設計上ここのなじませは 0.4 前後で、上の形の測定と対になっている。
+             */
+            const fade = seeAt(0.5, 0.95);
             check(
               fade >= 0.3,
               `${label}: なじませの途中で背後が見えない（透過率 ${fade.toFixed(2)}・0.3 以上を期待）`,
@@ -1232,6 +1238,136 @@ ${screenBg('#ffffff')}
           notes.push(`${name} ${a.toFixed(1)}→${b.toFixed(1)}`);
         }
         return ` 代替指定なし→あり ${notes.join(' / ')}`;
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  /*
+   * ---- 13-B. 80人ぜんぶの見え方 ----
+   *
+   * 人物をカードいっぱいに広げたので、1人ずつ確かめる。
+   *   ・顔や髪が切れていないか（描いた画像がカードの中に収まっているか）
+   *   ・不自然に引き伸ばされていないか（正方形のまま・切り取り無し）
+   *   ・頭のてっぺんがそろっているか
+   *   ・名前が読めるか
+   * 393x852 は16人とも一度に見えるので、年代ごとに1枚撮って測る。
+   */
+  {
+    await runCase('80人の人物の見え方', async () => {
+      const context = await browser.newContext({
+        viewport: { width: 393, height: 852 },
+        deviceScaleFactor: 2,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.getByRole('button', { name: '旅をはじめる' }).click();
+        await page.waitForSelector('.avatar-grid');
+
+        const AGES = ['小学生', '中学生', '高校生', '大学生', '大人'];
+        const seen = new Set();
+        let worstContrast = Infinity;
+        let headSpread = 0;
+        const headTops = [];
+
+        for (const age of AGES) {
+          await page.locator('.avatar-tab', { hasText: age }).click();
+          await page.waitForTimeout(300);
+
+          // 1) 寸法は画素を撮らずに読める。切り取り・引き伸ばし・はみ出しをここで見る。
+          const geo = await page.evaluate(() => {
+            return [...document.querySelectorAll('.avatar-card')].map((card) => {
+              const img = card.querySelector('.avatar-thumb__img');
+              const cr = card.getBoundingClientRect();
+              const ir = img.getBoundingClientRect();
+              const cs = getComputedStyle(img);
+              return {
+                id: (img.getAttribute('src') || '').split('/').pop(),
+                fit: cs.objectFit,
+                square: img.naturalWidth === img.naturalHeight,
+                widthRatio: (ir.right - ir.left) / (cr.right - cr.left),
+                inside:
+                  ir.left >= cr.left - 0.6 &&
+                  ir.right <= cr.right + 0.6 &&
+                  ir.top >= cr.top - 0.6 &&
+                  ir.bottom <= cr.bottom + 0.6,
+              };
+            });
+          });
+          check(geo.length === 16, `${age}: 16人ではなく ${geo.length} 人`);
+          for (const g of geo) {
+            seen.add(g.id);
+            check(g.fit === 'contain', `${g.id}: 切り取る指定になっている（${g.fit}）`);
+            check(g.square, `${g.id}: 画像が正方形ではない（引き伸ばしの恐れ）`);
+            check(
+              g.widthRatio >= 0.95,
+              `${g.id}: 人物がカード幅まで広がっていない（${(g.widthRatio * 100).toFixed(0)}%）`,
+            );
+            check(g.inside, `${g.id}: 人物がカードからはみ出していて、切れている`);
+          }
+
+          /*
+           * 2) 頭のてっぺんと名前の読みやすさは、実際に描かれた画素で測る。
+           *    ガラスを外して地を白にし、白でない画素が最初に出る行を頭とする。
+           */
+          const boxes = await page.evaluate(() =>
+            [...document.querySelectorAll('.avatar-card')].map((card) => {
+              const cr = card.getBoundingClientRect();
+              const nr = card.querySelector('.avatar-thumb__name').getBoundingClientRect();
+              const img = card.querySelector('.avatar-thumb__img');
+              return {
+                id: (img.getAttribute('src') || '').split('/').pop(),
+                card: { l: cr.left, t: cr.top, r: cr.right, b: cr.bottom },
+                name: { l: nr.left, t: nr.top, r: nr.right, b: nr.bottom },
+              };
+            }),
+          );
+
+          const plain = await shotWithCss(
+            page,
+            `.screen{background:#ffffff !important;background-image:none !important;}
+             .avatar-list,.avatar-card{background:none !important;backdrop-filter:none !important;
+               -webkit-backdrop-filter:none !important;box-shadow:none !important;
+               border-color:transparent !important;}
+             .avatar-thumb__name,.avatar-card__check{visibility:hidden !important;}`,
+          );
+          for (const b2 of boxes) {
+            const x0 = Math.round(b2.card.l * 2) + 3;
+            const x1 = Math.round(b2.card.r * 2) - 3;
+            const y0 = Math.round(b2.card.t * 2) + 2;
+            const y1 = Math.round(b2.card.b * 2) - 2;
+            let top = null;
+            for (let y = y0; y < y1 && top === null; y += 1) {
+              for (let x = x0; x < x1; x += 1) {
+                const q = pixelAt(plain, x, y);
+                if (q[0] < 235 || q[1] < 235 || q[2] < 235) { top = y; break; }
+              }
+            }
+            check(top !== null, `${b2.id}: 人物が描かれていない`);
+            if (top !== null) headTops.push(top / 2 - b2.card.t);
+          }
+
+          // 名前は通常の表示で測る（人物と重なった状態での読みやすさ）。
+          const normalShot = await shotWithCss(page, '');
+          for (const b2 of boxes) {
+            const tx = textContrast(normalShot, b2.name, 2);
+            worstContrast = Math.min(worstContrast, tx.ratio);
+            check(
+              tx.ratio >= 4.5,
+              `${b2.id}: 名前が読みにくい（${tx.ratio.toFixed(2)}:1・4.5:1 以上を期待）`,
+            );
+          }
+        }
+
+        check(seen.size === 80, `80人ではなく ${seen.size} 人しか見ていない`);
+        headSpread = Math.max(...headTops) - Math.min(...headTops);
+        check(
+          headSpread <= 3,
+          `頭のてっぺんがそろっていない（ばらつき ${headSpread.toFixed(1)}px・3px 以内を期待）`,
+        );
+        return `80人・切れ0件・頭のばらつき ${headSpread.toFixed(1)}px・名前の最小コントラスト ${worstContrast.toFixed(2)}`;
       } finally {
         await context.close();
       }
