@@ -430,6 +430,48 @@ describe('選択ボタンのガラス調', () => {
     expect(Number((m as RegExpMatchArray)[1])).toBeGreaterThanOrEqual(55);
   });
 
+  it('内側の縁から白い光がにじむ', () => {
+    /*
+     * 外へ広げる光だけだと「縁が光っている板」に見える。
+     * 内側にも細い芯と、そこから中へ溶ける光を置いて、
+     * ガラスの内側に光があると分かるようにする。
+     * 白を中まで広げすぎると文字の地が明るくなるので、広がりには上限を置く。
+     */
+    const INNER: [string, string][] = [
+      ['年代タブ 未選択', '.avatar-tab'],
+      ['年代タブ 選択中', ".avatar-tab[aria-selected='true']"],
+      ['絞り込み 未押下', '.avatar-filter__btn'],
+      ['絞り込み 押している', ".avatar-filter__btn[aria-pressed='true']"],
+      ['人物カード 未選択', '.avatar-card'],
+      ['人物カード 選択中', ".avatar-card[aria-selected='true']"],
+      [
+        'この人を選ぶ',
+        '.avatar-select__confirm .btn--primary,\n.screen--avatar-confirm .screen__footer .btn--primary',
+      ],
+    ];
+    for (const [name, selector] of INNER) {
+      const decls = block(selector);
+      const shadow = decls.match(/box-shadow:([\s\S]*?);/);
+      expect(shadow, `${name} に box-shadow がない`).not.toBeNull();
+      const body = (shadow as RegExpMatchArray)[1];
+      // 内側の細い芯（広がり 0 の inset）
+      expect(body, `${name} に内側の芯がない`).toMatch(
+        /inset 0 0 0 [\d.]+px rgba\(\s*\d+,\s*\d+,\s*\d+/,
+      );
+      // 内側へ溶ける光（ぼけ幅 8px 以上 16px 以下の inset）
+      const bleed = [...body.matchAll(/inset 0 0 (\d+)px rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/g)];
+      expect(bleed.length, `${name} に内側へ溶ける光がない`).toBeGreaterThan(0);
+      const chosen = bleed.find((m) => Number(m[1]) >= 8);
+      expect(chosen, `${name} の内側の光が狭すぎる`).toBeDefined();
+      const [, blur, r, g, b, a] = chosen as RegExpMatchArray;
+      expect(Number(blur), `${name} の内側の光が中まで広がりすぎ`).toBeLessThanOrEqual(16);
+      // 白い光であること（3原色がどれも高い）
+      expect(Math.min(Number(r), Number(g), Number(b)), `${name} の内側の光が白くない`)
+        .toBeGreaterThanOrEqual(180);
+      expect(Number(a), `${name} の内側の光が強すぎる`).toBeLessThanOrEqual(0.7);
+    }
+  });
+
   it('名前にはなじませを掛けない', () => {
     expect(block('.avatar-list .avatar-card .avatar-thumb__name')).not.toMatch(/mask-image:/);
   });

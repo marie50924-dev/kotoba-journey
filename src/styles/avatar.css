@@ -253,11 +253,22 @@
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
   -webkit-backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
+  /*
+   * 内側の縁から白い光がにじむ。
+   *
+   * 外へ広げる光だけだと「縁が光っている板」に見える。
+   * 内側にも細い芯（inset 0 0 0 1px）と、そこから中へ溶ける光
+   * （inset 0 0 Npx）を置くと、ガラスの内側に光があるように見える。
+   * 白を中まで広げすぎると文字の地が明るくなって読みにくくなるので、
+   * 広がりは縁から 10〜14px までにとどめてある（実測で確かめている）。
+   */
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.2),
     0 0 8px rgba(120, 180, 240, 0.18),
     0 2px 5px rgba(12, 46, 84, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
+    inset 0 0 10px rgba(255, 255, 255, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   color: #234a68;
   font-size: 13px;
   font-weight: 700;
@@ -296,11 +307,14 @@
   -webkit-backdrop-filter: blur(5px) brightness(0.3) saturate(4.5);
   color: #fff;
   text-shadow: 0 1px 2px rgba(4, 22, 44, 0.5);
+  /* 青いガラスも内側から光らせる。白文字が負けないよう、光は縁寄りに置く。 */
   box-shadow:
     0 0 0 1px rgba(186, 246, 255, 0.75),
     0 0 12px rgba(24, 110, 210, 0.34),
     0 3px 9px rgba(12, 46, 84, 0.24),
-    inset 0 1px 0 rgba(200, 240, 255, 0.5);
+    inset 0 0 0 1px rgba(222, 248, 255, 0.72),
+    inset 0 0 9px rgba(190, 238, 255, 0.4),
+    inset 0 1px 0 rgba(220, 246, 255, 0.6);
 }
 
 .avatar-filter {
@@ -319,11 +333,22 @@
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
   -webkit-backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
+  /*
+   * 内側の縁から白い光がにじむ。
+   *
+   * 外へ広げる光だけだと「縁が光っている板」に見える。
+   * 内側にも細い芯（inset 0 0 0 1px）と、そこから中へ溶ける光
+   * （inset 0 0 Npx）を置くと、ガラスの内側に光があるように見える。
+   * 白を中まで広げすぎると文字の地が明るくなって読みにくくなるので、
+   * 広がりは縁から 10〜14px までにとどめてある（実測で確かめている）。
+   */
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.2),
     0 0 8px rgba(120, 180, 240, 0.18),
     0 2px 5px rgba(12, 46, 84, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
+    inset 0 0 10px rgba(255, 255, 255, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   color: #234a68;
   font-size: 13px;
   font-weight: 700;
@@ -344,7 +369,9 @@
     0 0 0 1px rgba(186, 246, 255, 0.8),
     0 0 10px rgba(29, 97, 162, 0.22),
     0 2px 5px rgba(12, 46, 84, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.82),
+    inset 0 0 10px rgba(255, 255, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 /*
@@ -444,7 +471,9 @@
     0 0 0 1px rgba(26, 99, 166, 0.16),
     0 0 9px rgba(120, 180, 240, 0.18),
     0 2px 6px rgba(12, 46, 84, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.88),
+    inset 0 0 14px rgba(255, 255, 255, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
   min-width: 0;
 }
 
@@ -462,7 +491,8 @@
     0 0 0 1.5px rgba(166, 226, 255, 0.92),
     0 0 12px rgba(18, 104, 224, 0.34),
     0 3px 8px rgba(12, 46, 84, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.8),
+    inset 0 0 14px rgba(255, 255, 255, 0.5);
 }
 
 .avatar-card[aria-selected='true'] .avatar-thumb__name {
@@ -741,7 +771,9 @@
     0 0 0 1px rgba(186, 246, 255, 0.72),
     0 0 14px rgba(24, 110, 210, 0.34),
     0 6px 16px rgba(12, 46, 84, 0.24),
-    inset 0 1px 0 rgba(215, 245, 255, 0.55);
+    inset 0 0 0 1px rgba(224, 249, 255, 0.72),
+    inset 0 0 11px rgba(196, 240, 255, 0.42),
+    inset 0 1px 0 rgba(224, 249, 255, 0.62);
 }
 
 /* 白いボタン（「えらび直す」「旅するあなたを変える」）。白いガラスにする。 */

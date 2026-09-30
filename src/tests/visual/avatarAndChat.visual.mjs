@@ -930,6 +930,47 @@ try {
           notes.push(`顔のうしろの丸 ${discPass.toFixed(2)}`);
         }
 
+        /*
+         * --- 内側の縁から白い光がにじんでいるか（実際に描かれた画素で確認） ---
+         *
+         * 画面の地色を平らな中間色にして、面の明るさが場所によってどう変わるかを見る。
+         * 内側に光があれば、縁のすぐ内（2〜5px）が真ん中より明るくなる。
+         * 背景の模様に左右されないよう、地色は平らにして測る。
+         */
+        {
+          const flat = await shotWithCss(page, `${screenBg('#7f7f7f')} ${bare}`);
+          const glowTargets = [
+            ['人物カード 未選択', '.avatar-card:not([aria-selected="true"])'],
+            ['年代タブ 未選択', '.avatar-tab:not([aria-selected="true"])'],
+          ];
+          for (const [name, sel] of glowTargets) {
+            const box = boxes[sel];
+            if (!box) continue;
+            const mean = (x0, x1, y0, y1) => {
+              let sum = 0;
+              let n = 0;
+              for (let y = Math.round(y0 * 2); y < Math.round(y1 * 2); y += 1) {
+                for (let x = Math.round(x0 * 2); x < Math.round(x1 * 2); x += 1) {
+                  sum += lum8(pixelAt(flat, x, y));
+                  n += 1;
+                }
+              }
+              return n === 0 ? 0 : sum / n;
+            };
+            const w = box.r - box.l;
+            const h = box.b - box.t;
+            // 縁のすぐ内（上辺から 2〜5px）と、真ん中の帯
+            const edge = mean(box.l + 8, box.r - 8, box.t + 2, box.t + 5);
+            const middle = mean(box.l + 8, box.r - 8, box.t + h / 2 - 2, box.t + h / 2 + 2);
+            check(
+              edge - middle >= 4,
+              `${label}: ${name} の内側に光が見えない（縁 ${edge.toFixed(0)} / 中 ${middle.toFixed(0)}・差4以上を期待）`,
+            );
+            notes.push(`${name}の内側の光 +${(edge - middle).toFixed(0)}`);
+            if (w <= 0) break;
+          }
+        }
+
         // 顔の画像と名前は薄くしない（要素全体の opacity を使っていない）。
         const solid = await page.evaluate(() => {
           const card = document.querySelector('.avatar-card');
