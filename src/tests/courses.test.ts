@@ -208,57 +208,149 @@ describe('世界マップ', () => {
    * 縦の間隔は枠の高さに左右され、低い画面では足りなくなるため当てにしない。
    * 横だけで離れていることを見る。
    */
-  const NARROWEST_MAP_WIDTH = 296;
-  const MIN_PIN_GAP = 55;
+  /*
+   * 印の札が、どの画面でも「はみ出さない・重ならない・輪を隠さない」ことを、
+   * 座標とずれ量の数値だけで確かめる。
+   *
+   * 盤面は縦横比 3:2 に固定してあるので、枠の高さは幅から決まる。
+   * 札の大きさは画面サイズによらず同じ px なので、
+   * いちばん狭い画面がいちばん不利になる。全5サイズを見る。
+   *
+   * 札の大きさは実ブラウザ（Chromium）で測った値。
+   *   日本     44 x 44（国名だけ）
+   *   ロンドン  64 x 59（国名＋ロック表示）
+   *   パリ     46 x 59（国名＋ロック表示）
+   */
+  const MAP_WIDTHS = [296, 347, 365, 374, 402];
+  const MAP_RATIO = 3 / 2;
+  const PIN_BOX: Record<string, { w: number; h: number }> = {
+    japan: { w: 44, h: 44 },
+    london: { w: 64, h: 59 },
+    paris: { w: 46, h: 59 },
+  };
+  /*
+   * 札の外へ出る光の最大。
+   * 通常は 8px だが、選択中（--glass-glow-on）は 11px 届く。
+   * ロンドンとパリはいまロック中で選べないものの、解放されたときに
+   * 光が切れないよう、はじめから 11px の余裕で確かめる。
+   */
+  const GLOW = 11;
+  const PIN_GAP = 16; // 札どうしのすきま（光どうしが触れない）
+  const ANCHOR_RADIUS = 5; // 元の位置を示す輪
 
-  function drawnX(id: string): number {
+  function find(id: string): (typeof DESTINATIONS)[number] {
     const d = DESTINATIONS.find((x) => x.id === id);
     expect(d, `${id} が無い`).toBeTruthy();
-    const dest = d as (typeof DESTINATIONS)[number];
-    return dest.position.x * NARROWEST_MAP_WIDTH + (dest.displayOffset?.x ?? 0);
+    return d as (typeof DESTINATIONS)[number];
   }
 
-  it('いちばん小さい画面でも、ロンドンとパリの印が横で離れている', () => {
-    const gap = Math.abs(drawnX('paris') - drawnX('london'));
-    expect(gap, `ロンドンとパリの間隔が ${gap.toFixed(1)}px しかない`).toBeGreaterThanOrEqual(
-      MIN_PIN_GAP,
-    );
-  });
+  /** ある画面幅での、札の箱と、元の位置。 */
+  function placed(id: string, frameWidth: number) {
+    const d = find(id);
+    const fh = frameWidth / MAP_RATIO;
+    const px = d.position.x * frameWidth;
+    const py = d.position.y * fh;
+    const dx = d.displayOffset?.x ?? 0;
+    const dy = d.displayOffset?.y ?? 0;
+    const { w, h } = PIN_BOX[id];
+    return {
+      point: { x: px, y: py },
+      shifted: dx !== 0 || dy !== 0,
+      box: { x0: px + dx - w / 2, y0: py + dy - h / 2, x1: px + dx + w / 2, y1: py + dy + h / 2 },
+      frame: { w: frameWidth, h: fh },
+    };
+  }
 
-  it('いちばん小さい画面でも、日本とパリの印が横で離れている', () => {
-    // 日本の箱は 44px、パリは 46px なので、必要な間隔は (44 + 46) / 2 = 45px。
-    const gap = Math.abs(drawnX('japan') - drawnX('paris'));
-    expect(gap, `日本とパリの間隔が ${gap.toFixed(1)}px しかない`).toBeGreaterThanOrEqual(45);
-  });
+  const IDS = ['japan', 'london', 'paris'];
 
-  it('印をずらしたものには、元の位置へ戻すためのずれ量がある', () => {
-    /*
-     * ずれは px で持つ。割合で持つと、画面が大きいほど引出線が長くなり
-     * 「短い引出線」でなくなる。
-     */
-    for (const destination of DESTINATIONS) {
-      if (!destination.displayOffset) continue;
-      expect(
-        Math.abs(destination.displayOffset.x) + Math.abs(destination.displayOffset.y),
-        `${destination.label} のずれが 0`,
-      ).toBeGreaterThan(0);
-      // 引出線が長くなりすぎないこと（元の位置が分かる範囲にとどめる）。
-      expect(Math.abs(destination.displayOffset.x), `${destination.label} の横のずれが大きい`).toBeLessThanOrEqual(48);
-      expect(Math.abs(destination.displayOffset.y), `${destination.label} の縦のずれが大きい`).toBeLessThanOrEqual(48);
+  it('どの画面でも、札と外側の光が盤面に収まる', () => {
+    for (const fw of MAP_WIDTHS) {
+      for (const id of IDS) {
+        const p = placed(id, fw);
+        const margin = Math.min(p.box.x0, p.box.y0, p.frame.w - p.box.x1, p.frame.h - p.box.y1);
+        expect(
+          margin,
+          `枠幅 ${fw} の ${id}：盤面のふちまで ${margin.toFixed(1)}px しかない`,
+        ).toBeGreaterThanOrEqual(GLOW);
+      }
     }
   });
 
-  it('ずらしても、位置関係は変わらない（ロンドンは西かつ北、日本はいちばん東）', () => {
-    const london = DESTINATIONS.find((d) => d.id === 'london');
-    const paris = DESTINATIONS.find((d) => d.id === 'paris');
-    expect(london && paris, 'ロンドンかパリが無い').toBeTruthy();
-    // 描く位置でも、ロンドンはパリより西（左）。
-    expect(drawnX('london'), 'ロンドンがパリより東にある').toBeLessThan(drawnX('paris'));
-    // 縦のずれは使っていないので、北（上）の関係はそのまま。
-    expect((london as (typeof DESTINATIONS)[number]).position.y).toBeLessThan(
-      (paris as (typeof DESTINATIONS)[number]).position.y,
-    );
-    // 日本はいちばん東（右）。
-    expect(drawnX('japan'), '日本がいちばん東にない').toBeGreaterThan(drawnX('paris'));
+  it('どの画面でも、札どうしが重ならない', () => {
+    for (const fw of MAP_WIDTHS) {
+      for (let i = 0; i < IDS.length; i += 1) {
+        for (let j = i + 1; j < IDS.length; j += 1) {
+          const a = placed(IDS[i], fw).box;
+          const b = placed(IDS[j], fw).box;
+          // 横か縦の、どちらかで離れていればよい。
+          const gapX = Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1);
+          const gapY = Math.max(a.y0, b.y0) - Math.min(a.y1, b.y1);
+          const gap = Math.max(gapX, gapY);
+          expect(
+            gap,
+            `枠幅 ${fw} の ${IDS[i]}×${IDS[j]}：すきまが ${gap.toFixed(1)}px しかない`,
+          ).toBeGreaterThanOrEqual(PIN_GAP);
+        }
+      }
+    }
+  });
+
+  it('どの画面でも、元の位置を示す輪がどの札にも隠れない', () => {
+    for (const fw of MAP_WIDTHS) {
+      for (const id of IDS) {
+        const p = placed(id, fw);
+        if (!p.shifted) continue; // ずらしていない都市は輪を出さない
+        const r = {
+          x0: p.point.x - ANCHOR_RADIUS,
+          y0: p.point.y - ANCHOR_RADIUS,
+          x1: p.point.x + ANCHOR_RADIUS,
+          y1: p.point.y + ANCHOR_RADIUS,
+        };
+        for (const other of IDS) {
+          const b = placed(other, fw).box;
+          const hit =
+            Math.min(r.x1, b.x1) - Math.max(r.x0, b.x0) > 0 &&
+            Math.min(r.y1, b.y1) - Math.max(r.y0, b.y0) > 0;
+          expect(hit, `枠幅 ${fw}：${id} の輪が ${other} の札に隠れている`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('引出線が長くなりすぎない（元の位置が分かる範囲にとどめる）', () => {
+    for (const destination of DESTINATIONS) {
+      if (!destination.displayOffset) continue;
+      const { x, y } = destination.displayOffset;
+      const length = Math.hypot(x, y);
+      expect(length, `${destination.label} のずれが 0`).toBeGreaterThan(0);
+      expect(length, `${destination.label} の引出線が ${length.toFixed(1)}px と長い`).toBeLessThanOrEqual(80);
+    }
+  });
+
+  it('ずらしても、位置関係は地理のまま（ロンドンは西かつ北、日本はいちばん東）', () => {
+    for (const fw of MAP_WIDTHS) {
+      const l = placed('london', fw).box;
+      const p = placed('paris', fw).box;
+      const j = placed('japan', fw).box;
+      const cx = (b: typeof l) => (b.x0 + b.x1) / 2;
+      const cy = (b: typeof l) => (b.y0 + b.y1) / 2;
+      expect(cx(l), `枠幅 ${fw}：ロンドンの札がパリより東にある`).toBeLessThan(cx(p));
+      expect(cy(l), `枠幅 ${fw}：ロンドンの札がパリより南にある`).toBeLessThan(cy(p));
+      expect(cx(j), `枠幅 ${fw}：日本の札がいちばん東にない`).toBeGreaterThan(cx(p));
+    }
+    // 元の位置そのものでも、ロンドンはパリより西かつ北。
+    expect(find('london').position.x).toBeLessThan(find('paris').position.x);
+    expect(find('london').position.y).toBeLessThan(find('paris').position.y);
+  });
+
+  it('座標は、採用した地図の絵から読み取った値', () => {
+    /*
+     * 盤面に敷く絵（world-map-v2）の上で、海岸線を手がかりに読み取った推定位置。
+     * 絵を差し替えたら、この値も読み直す必要がある。
+     * 地理的な正確さを確かめたものではない。
+     */
+    expect(find('london').position).toEqual({ x: 0.225, y: 0.323 });
+    expect(find('paris').position).toEqual({ x: 0.234, y: 0.356 });
+    expect(find('japan').position).toEqual({ x: 0.822, y: 0.476 });
   });
 });

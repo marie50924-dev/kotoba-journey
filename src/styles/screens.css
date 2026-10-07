@@ -188,31 +188,63 @@
 }
 
 /* ---- 世界マップ ---- */
-.screen--map .screen__body {
-  gap: 10px;
-}
 
+/*
+ * 盤面。正式な地図イラストを敷く。
+ *
+ * 縦横比を 3:2 に固定し、画像も同じ 3:2（1536x1024）で作ってある。
+ * こうすると画像を枠いっぱいに敷いても伸びも切れも起きず、
+ * 「枠に対する割合」で置いた印が、絵の上の同じ場所を必ず指す。
+ * 高さを画面の残りで決めていたころは縦横比が 1.37〜0.64 まで動き、
+ * 1枚の絵ではどうやっても伸びるか切れるかしていた。
+ */
 .map {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 3 / 2;
   min-height: 0;
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #bfe1f2, #96c9e6);
+  background-color: #bfe1f2;
+  /* 絵そのものは画面コード側が background-image で渡す（相対パスの解き方のため）。 */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   border: 1px solid var(--c-line);
   overflow: hidden;
-}
-
-.map__ocean {
-  position: absolute;
-  inset: 8%;
-  border-radius: 40% 55% 45% 50%;
-  background: rgba(255, 255, 255, 0.34);
+  /* まとまりを上下中央へ寄せるための、上側の余り。 */
+  margin-top: auto;
 }
 
 /*
  * 行き先の印も選択ボタンなので、共通の青ガラス（base.css）にそろえる。
  * 以前は白い面＋橙の印で、選択中も橙の輪だった。
  */
+/*
+ * 世界マップの画面の並べ方。
+ *
+ * 地図の縦横比を固定すると、背の高い画面では地図が小さくなり余りが出る。
+ * その余りを「出発する」の上の空白にしないため、
+ * 地図・説明・同行者の帯・出発ボタンをひとまとまりにして上下中央へ寄せる。
+ *
+ * 中央寄せは、先頭（.map）の margin-top: auto と
+ * 末尾（.screen__footer）の margin-bottom: auto で作る。
+ * 余りが無いときは auto が 0 になるので、入りきらない画面でも
+ * 中身の上が切れてたどり着けなくなることがない
+ * （justify-content: center だとその恐れがある）。
+ */
+.screen--map .screen__body {
+  /* 入りきらない画面はスクロールで下まで届く。文字も操作領域も縮めない。 */
+  overflow-y: auto;
+  /* 要素どうしのすきま。以前は 10px だった。 */
+  gap: 14px;
+}
+
+.screen--map .screen__footer {
+  /* 下端へ押しやるのをやめ、下側の余りにする。 */
+  margin-top: 0;
+  margin-bottom: auto;
+}
+
 /*
  * 元の場所を示す小さな輪と、そこから印へ引く短い線。
  *
@@ -230,6 +262,13 @@
   pointer-events: none;
 }
 
+/*
+ * 線は輪から札の縁へ引く。向きは自由（斜めも引ける）。
+ *
+ * 回転の中心を輪の中心に置き、まず輪の半径ぶん外へ出してから回す。
+ * 長さは画面コード側が札の大きさを測って決めるので、
+ * 線が札の中へ入らない＝文字の上を通らない。
+ */
 .map-leader {
   position: absolute;
   height: 2px;
@@ -239,11 +278,8 @@
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 0 0 1px rgba(26, 79, 216, 0.4);
   pointer-events: none;
-}
-
-/* 線は輪から印のほうへ伸ばす。印が左にあるときは左へ、右にあるときは右へ。 */
-.map-leader--left {
-  transform: translateX(-100%);
+  transform-origin: 0 50%;
+  transform: rotate(var(--leader-angle, 0deg)) translateX(var(--leader-gap, 0px));
 }
 
 .map-pin {
