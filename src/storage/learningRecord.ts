@@ -68,6 +68,12 @@ export interface LearningRecord {
   totalCorrect: number;
   totalIncorrect: number;
   masteredPairIds: number[];
+  /**
+   * 誤答1回だったことば。
+   * まちがいなし・復習とは重ならず、各語はこの3つのどれか1つにだけ入る。
+   * この項目が無い過去の保存データは、空の配列として読む（後方互換）。
+   */
+  practicingPairIds: number[];
   reviewPairIds: number[];
   /** 枚数ごとのベストタイム(ms)。 */
   bestTimeMs: Partial<Record<CardCount, number>>;
@@ -122,6 +128,7 @@ export function createEmptyRecord(): LearningRecord {
     totalCorrect: 0,
     totalIncorrect: 0,
     masteredPairIds: [],
+    practicingPairIds: [],
     reviewPairIds: [],
     bestTimeMs: {},
     selectedCourseId: null,
@@ -310,6 +317,9 @@ export function parseRecord(raw: string | null): LearningRecord {
     totalCorrect: asNumber(data.totalCorrect, 0),
     totalIncorrect: asNumber(data.totalIncorrect, 0),
     masteredPairIds: asPairIdArray(data.masteredPairIds),
+    // 練習中は後から足した項目。無ければ空で読む（後方互換）。
+    // 過去の練習中のことばは保存されていなかったので、推測で補わない。
+    practicingPairIds: asPairIdArray(data.practicingPairIds),
     reviewPairIds: asPairIdArray(data.reviewPairIds),
     bestTimeMs: asBestTimes(data.bestTimeMs),
     selectedCourseId: typeof data.selectedCourseId === 'string' ? data.selectedCourseId : null,
@@ -390,7 +400,16 @@ export function bestTimeOverall(record: LearningRecord): number | null {
 
 /**
  * 1プレイ分の結果を記録へ反映した新しい記録を返す純粋関数。
- * 習得したペアは復習対象から外し、復習判定のペアは復習対象へ入れる。
+ *
+ * 区分は「そのことばが最後に出たプレイの結果」だけで決まる。
+ *   誤答0回    → まちがいなし（masteredPairIds）
+ *   誤答1回    → 練習中      （practicingPairIds）
+ *   誤答2回以上 → 復習        （reviewPairIds）
+ *
+ * 今回出たことばは、先に3つすべてから外してから入れ直す。
+ * これで同じことばが2つ以上の区分に同時に入ることはない。
+ * 今回出題されなかったことばには触れないので、その記録はそのまま残る。
+ * 誤答回数はどこにも保存しないため、過去のプレイとは足し合わせない。
  */
 export function applyPlayResult(
   record: LearningRecord,
@@ -399,17 +418,19 @@ export function applyPlayResult(
 ): LearningRecord {
   const dateKey = toDateKey(playedAt);
   const mastered = new Set(record.masteredPairIds);
+  const practicing = new Set(record.practicingPairIds);
   const review = new Set(record.reviewPairIds);
 
   for (const stat of result.pairStats) {
+    // まず3つすべてから外す。区分の重複を作らないための手順。
+    mastered.delete(stat.pairId);
+    practicing.delete(stat.pairId);
+    review.delete(stat.pairId);
+
     const level: MasteryLevel = masteryFor(stat.mistakes);
-    if (level === 'mastered') {
-      mastered.add(stat.pairId);
-      review.delete(stat.pairId);
-    } else if (level === 'review') {
-      review.add(stat.pairId);
-      mastered.delete(stat.pairId);
-    }
+    if (level === 'mastered') mastered.add(stat.pairId);
+    else if (level === 'practicing') practicing.add(stat.pairId);
+    else review.add(stat.pairId);
   }
 
   const previousBest = record.bestTimeMs[result.cardCount];
@@ -435,6 +456,7 @@ export function applyPlayResult(
     totalCorrect: record.totalCorrect + result.correctSelections,
     totalIncorrect: record.totalIncorrect + result.incorrectSelections,
     masteredPairIds: Array.from(mastered).sort((a, b) => a - b),
+    practicingPairIds: Array.from(practicing).sort((a, b) => a - b),
     reviewPairIds: Array.from(review).sort((a, b) => a - b),
     bestTimeMs,
     history: [entry, ...record.history].slice(0, HISTORY_LIMIT),

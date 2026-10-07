@@ -11,6 +11,7 @@ import {
   parseRecord,
   toDateKey,
 } from '../storage/learningRecord';
+import type { LearningRecord } from '../storage/learningRecord';
 import { createMemoryStore } from '../storage/safeStorage';
 import type { PlayResult } from '../domain/types';
 
@@ -198,38 +199,49 @@ describe('記録の更新', () => {
 });
 
 /*
- * 「練習中」（誤答1回）の扱いを、現在の仕様のまま書き留めておく検査。
- * 仕様を変えるための検査ではなく、いまの保存内容を固定して
- * あとから意図せず変わったら気づけるようにするためのもの。
+ * ことばの区分の決まり方を確かめる検査。
  *
- * 現在の applyPlayResult は習得（誤答0回）と復習（誤答2回以上）だけを書き込み、
- * 練習中は習得にも復習にも入れない。保存形式に誤答回数の項目も無い。
+ * 区分は「そのことばが最後に出たプレイの結果」だけで決まる。
+ *   誤答0回 → まちがいなし / 誤答1回 → 練習中 / 誤答2回以上 → 復習
+ * 同じことばが2つ以上の区分に同時に入ることはなく、
+ * 今回出題されなかったことばの記録はそのまま残る。
  */
-describe('練習中（誤答1回）の保存内容', () => {
-  it('初めて出た語を1回間違えると、習得にも復習にも入らない', () => {
+describe('ことばの区分（まちがいなし・練習中・復習）', () => {
+  /** 3つの区分を、読みやすい形で取り出す。 */
+  function buckets(record: LearningRecord) {
+    return {
+      まちがいなし: record.masteredPairIds,
+      練習中: record.practicingPairIds,
+      復習: record.reviewPairIds,
+    };
+  }
+
+  it('初めて出た語は、今回の誤答回数どおりに振り分けられる', () => {
     const record = applyPlayResult(
       createEmptyRecord(),
-      result({ pairStats: [{ pairId: 39, mistakes: 1, answerTimeMs: 1200 }] }),
-      new Date('2026-10-07T10:00:00'),
+      result({
+        pairStats: [
+          { pairId: 10, mistakes: 0, answerTimeMs: 900 },
+          { pairId: 20, mistakes: 1, answerTimeMs: 1200 },
+          { pairId: 30, mistakes: 2, answerTimeMs: 2500 },
+        ],
+      }),
+      new Date('2026-10-08T10:00:00'),
     );
-    expect(record.masteredPairIds).not.toContain(39);
-    expect(record.reviewPairIds).not.toContain(39);
-    // 保存データ全体を見ても、その pairId はどこにも残らない。
-    expect(JSON.stringify(record)).not.toContain('39');
+    expect(buckets(record)).toEqual({ まちがいなし: [10], 練習中: [20], 復習: [30] });
   });
 
-  it('習得済みの語を1回間違えても、習得のまま残り復習へ移らない', () => {
+  it('まちがいなしだった語を1回間違えると、練習中へ移る', () => {
     const before = { ...createEmptyRecord(), masteredPairIds: [70] };
     const after = applyPlayResult(
       before,
       result({ pairStats: [{ pairId: 70, mistakes: 1, answerTimeMs: 1500 }] }),
-      new Date('2026-10-07T10:00:00'),
+      new Date('2026-10-08T10:00:00'),
     );
-    expect(after.masteredPairIds).toEqual([70]);
-    expect(after.reviewPairIds).toEqual([]);
+    expect(buckets(after)).toEqual({ まちがいなし: [], 練習中: [70], 復習: [] });
   });
 
-  it('習得済みの語を2回間違えると、習得から外れて復習へ移る', () => {
+  it('まちがいなしだった語を2回間違えると、復習へ移る', () => {
     const before = { ...createEmptyRecord(), masteredPairIds: [41, 65] };
     const after = applyPlayResult(
       before,
@@ -239,35 +251,195 @@ describe('練習中（誤答1回）の保存内容', () => {
           { pairId: 65, mistakes: 1, answerTimeMs: 1100 },
         ],
       }),
-      new Date('2026-10-07T10:00:00'),
+      new Date('2026-10-08T10:00:00'),
     );
-    expect(after.masteredPairIds).toEqual([65]);
-    expect(after.reviewPairIds).toEqual([41]);
+    // 41 は復習へ、巻き添えで1回まちがえた 65 は練習中へ。どちらもまちがいなしから外れる。
+    expect(buckets(after)).toEqual({ まちがいなし: [], 練習中: [65], 復習: [41] });
   });
 
-  it('復習対象の語を誤答0回で取ると習得へ移る（今回の結果で上書きされる）', () => {
+  it('復習だった語を1回間違えると、練習中へ移る（復習からは外れる）', () => {
+    const before = { ...createEmptyRecord(), reviewPairIds: [40] };
+    const after = applyPlayResult(
+      before,
+      result({ pairStats: [{ pairId: 40, mistakes: 1, answerTimeMs: 1300 }] }),
+      new Date('2026-10-08T10:00:00'),
+    );
+    expect(buckets(after)).toEqual({ まちがいなし: [], 練習中: [40], 復習: [] });
+  });
+
+  it('復習だった語を誤答0回で取ると、まちがいなしへ移る', () => {
     const before = { ...createEmptyRecord(), reviewPairIds: [40, 68] };
     const after = applyPlayResult(
       before,
       result({ pairStats: [{ pairId: 40, mistakes: 0, answerTimeMs: 900 }] }),
-      new Date('2026-10-07T10:00:00'),
+      new Date('2026-10-08T10:00:00'),
     );
-    expect(after.masteredPairIds).toEqual([40]);
-    expect(after.reviewPairIds).toEqual([68]);
+    expect(buckets(after)).toEqual({ まちがいなし: [40], 練習中: [], 復習: [68] });
   });
 
-  it('誤答回数は過去と足し合わされない（1回の誤答を2回繰り返しても復習へ入らない）', () => {
+  it('練習中の語は、次の結果しだいで3区分のどこへでも動く', () => {
+    const before = { ...createEmptyRecord(), practicingPairIds: [11, 12, 13] };
+    const after = applyPlayResult(
+      before,
+      result({
+        pairStats: [
+          { pairId: 11, mistakes: 0, answerTimeMs: 800 },
+          { pairId: 12, mistakes: 1, answerTimeMs: 1000 },
+          { pairId: 13, mistakes: 3, answerTimeMs: 3000 },
+        ],
+      }),
+      new Date('2026-10-08T10:00:00'),
+    );
+    expect(buckets(after)).toEqual({ まちがいなし: [11], 練習中: [12], 復習: [13] });
+  });
+
+  it('同じ区分のまま再プレイしても、重複して増えない', () => {
+    let record = { ...createEmptyRecord(), practicingPairIds: [12] };
+    for (let i = 0; i < 3; i += 1) {
+      record = applyPlayResult(
+        record,
+        result({ pairStats: [{ pairId: 12, mistakes: 1, answerTimeMs: 1000 }] }),
+        new Date('2026-10-08T10:00:00'),
+      );
+    }
+    expect(buckets(record)).toEqual({ まちがいなし: [], 練習中: [12], 復習: [] });
+  });
+
+  it('誤答回数は過去と足し合わせない（1回を繰り返しても復習へ入らない）', () => {
     let record = createEmptyRecord();
     for (let i = 0; i < 3; i += 1) {
       record = applyPlayResult(
         record,
         result({ pairStats: [{ pairId: 39, mistakes: 1, answerTimeMs: 1200 }] }),
-        new Date('2026-10-07T10:00:00'),
+        new Date('2026-10-08T10:00:00'),
       );
     }
     expect(record.totalPlays).toBe(3);
-    expect(record.masteredPairIds).toEqual([]);
-    expect(record.reviewPairIds).toEqual([]);
+    expect(buckets(record)).toEqual({ まちがいなし: [], 練習中: [39], 復習: [] });
+  });
+
+  it('今回出題されなかった語の区分は、そのまま残る', () => {
+    const before = {
+      ...createEmptyRecord(),
+      masteredPairIds: [1, 2],
+      practicingPairIds: [3, 4],
+      reviewPairIds: [5, 6],
+    };
+    const after = applyPlayResult(
+      before,
+      result({ pairStats: [{ pairId: 2, mistakes: 2, answerTimeMs: 2200 }] }),
+      new Date('2026-10-08T10:00:00'),
+    );
+    // 動くのは今回出た 2 だけ。他の5語はどこへも移らない。
+    expect(buckets(after)).toEqual({ まちがいなし: [1], 練習中: [3, 4], 復習: [2, 5, 6] });
+  });
+
+  it('同じことばが2つ以上の区分に同時に入らない', () => {
+    let record = {
+      ...createEmptyRecord(),
+      masteredPairIds: [7],
+      practicingPairIds: [7],
+      reviewPairIds: [7],
+    };
+    record = applyPlayResult(
+      record,
+      result({ pairStats: [{ pairId: 7, mistakes: 1, answerTimeMs: 1000 }] }),
+      new Date('2026-10-08T10:00:00'),
+    );
+    const all = [...record.masteredPairIds, ...record.practicingPairIds, ...record.reviewPairIds];
+    expect(all).toEqual([7]);
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('保存して読み直しても、3区分がそのまま戻る', () => {
+    const storage = createMemoryStore();
+    const store = new LearningRecordStore(storage);
+    store.update((record) =>
+      applyPlayResult(
+        record,
+        result({
+          pairStats: [
+            { pairId: 10, mistakes: 0, answerTimeMs: 900 },
+            { pairId: 20, mistakes: 1, answerTimeMs: 1200 },
+            { pairId: 30, mistakes: 2, answerTimeMs: 2500 },
+          ],
+        }),
+        new Date('2026-10-08T10:00:00'),
+      ),
+    );
+    const reloaded = new LearningRecordStore(storage).get();
+    expect(buckets(reloaded)).toEqual({ まちがいなし: [10], 練習中: [20], 復習: [30] });
+  });
+});
+
+/*
+ * 練習中の項目がまだ無い、古い保存データの読み込み。
+ * 過去の練習中のことばは保存されていなかったので、推測で補わない。
+ * そのかわり、他の項目を1つも失わないことを確かめる。
+ */
+describe('練習中の項目が無い古い保存データ', () => {
+  const 旧データ = {
+    version: 3,
+    totalPlays: 12,
+    playedDates: ['2026-10-01', '2026-10-05', '2026-10-07'],
+    totalCorrect: 90,
+    totalIncorrect: 30,
+    masteredPairIds: [1, 2, 3],
+    reviewPairIds: [9],
+    bestTimeMs: { 6: 6000, 20: 42000 },
+    selectedCourseId: 'grade-elementary',
+    visitedCountryIds: ['japan', 'london'],
+    history: [
+      { date: '2026-10-07', courseId: 'grade-elementary', courseLabel: '小学生', cardCount: 6, accuracy: 75, elapsedMs: 6000 },
+    ],
+    audioEnabled: false,
+    sfxEnabled: false,
+    characterAgeGroup: null,
+    quizHistory: [],
+    seenTravelIntros: ['japan'],
+    skipTravelAnimation: true,
+    selectedAvatarId: 'elementary-m-01',
+    metAvatarIds: ['elementary-f-06'],
+    recentNpcAvatarIds: ['elementary-f-06'],
+  };
+
+  it('練習中は空で読み、推測で補わない', () => {
+    expect(parseRecord(JSON.stringify(旧データ)).practicingPairIds).toEqual([]);
+  });
+
+  it('他の項目は1つも失わない', () => {
+    const r = parseRecord(JSON.stringify(旧データ));
+    expect(r.totalPlays).toBe(12);
+    expect(r.playedDates).toEqual(['2026-10-01', '2026-10-05', '2026-10-07']);
+    expect(r.totalCorrect).toBe(90);
+    expect(r.totalIncorrect).toBe(30);
+    expect(r.masteredPairIds).toEqual([1, 2, 3]);
+    expect(r.reviewPairIds).toEqual([9]);
+    expect(r.bestTimeMs).toEqual({ 6: 6000, 20: 42000 });
+    expect(r.selectedCourseId).toBe('grade-elementary');
+    expect(r.visitedCountryIds).toEqual(['japan', 'london']);
+    expect(r.history).toHaveLength(1);
+    expect(r.history[0].accuracy).toBe(75);
+    expect(r.audioEnabled).toBe(false);
+    expect(r.sfxEnabled).toBe(false);
+    expect(r.seenTravelIntros).toEqual(['japan']);
+    expect(r.skipTravelAnimation).toBe(true);
+    expect(r.selectedAvatarId).toBe('elementary-m-01');
+    expect(r.metAvatarIds).toEqual(['elementary-f-06']);
+  });
+
+  it('古い記録のうえに1プレイ重ねても、出題されなかった語は残る', () => {
+    const before = parseRecord(JSON.stringify(旧データ));
+    const after = applyPlayResult(
+      before,
+      result({ pairStats: [{ pairId: 3, mistakes: 1, answerTimeMs: 1200 }] }),
+      new Date('2026-10-08T10:00:00'),
+    );
+    // 出題された 3 だけが練習中へ移り、1・2・9 はそのまま。
+    expect(after.masteredPairIds).toEqual([1, 2]);
+    expect(after.practicingPairIds).toEqual([3]);
+    expect(after.reviewPairIds).toEqual([9]);
+    expect(after.totalPlays).toBe(13);
   });
 });
 

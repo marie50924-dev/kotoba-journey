@@ -458,6 +458,17 @@
   color: var(--c-ink-soft);
 }
 
+/*
+ * ことばの一覧を開くボタン。一覧の下に小さく置く。
+ * 共通のボタンの寸法（高さ 44px 以上）と色はそのまま使い、幅だけ内容に合わせる。
+ * 使うのはマイパスポートの2つの節だけで、他の画面には影響しない。
+ */
+.word-list__toggle {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 13px;
+}
+
 .word-list__empty {
   font-size: 12px;
   color: var(--c-ink-soft);
