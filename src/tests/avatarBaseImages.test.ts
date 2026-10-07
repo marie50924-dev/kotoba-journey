@@ -61,6 +61,16 @@ const EXPECTED_USED_KEYS: readonly string[] = [...INDIVIDUAL_IDS, ...SHARED_DIVI
 const EXPECTED_KEYS: readonly string[] = [...DIVISIONS, ...INDIVIDUAL_IDS];
 
 /*
+ * 名簿のキーに対応しない、差し替え用の配信ファイル。
+ *
+ * 描き直しを受け取った人は `<imageKey>.webp` とは別名のファイルを読む。
+ * そのファイルをここで名指しして認める。
+ * ここに無いファイルが public/assets/avatars/ に増えたら、下の検査が落ちる
+ * （「余計なファイルが混ざっていない」という保証はそのまま効く）。
+ */
+const EXTRA_WEBP: readonly string[] = ['elementary-f-03-replacement-v1-light-v1.webp'];
+
+/*
  * ファイルの列挙は Vite の glob で行う。
  * node:fs は、このプロジェクトに @types/node が入っていないため使えない
  * （新しい依存は足さない方針）。
@@ -89,8 +99,10 @@ describe('原寸PNGの保管', () => {
 });
 
 describe('配信用WebP', () => {
-  it('基準10枚と、個別展開が済んだ区分の画像だけがあり、余計なファイルが混ざっていない', () => {
-    expect(baseNames(PUBLIC_WEBP)).toEqual(EXPECTED_KEYS.map((k) => `${k}.webp`).sort());
+  it('基準10枚と個別展開ぶん、それに名指しした差し替え用だけがあり、余計なファイルが混ざっていない', () => {
+    expect(baseNames(PUBLIC_WEBP)).toEqual(
+      [...EXPECTED_KEYS.map((k) => `${k}.webp`), ...EXTRA_WEBP].sort(),
+    );
   });
 
   for (const key of EXPECTED_KEYS) {
@@ -99,10 +111,23 @@ describe('配信用WebP', () => {
     });
   }
 
-  it('原寸PNGと配信用WebPが1対1で対応している', () => {
+  it('原寸PNGと配信用WebPが1対1で対応している（差し替え用は別枠）', () => {
+    const webp = baseNames(PUBLIC_WEBP).filter((n) => !EXTRA_WEBP.includes(n));
     expect(baseNames(SOURCE_PNG).map((n) => n.replace(/\.png$/, ''))).toEqual(
-      baseNames(PUBLIC_WEBP).map((n) => n.replace(/\.webp$/, '')),
+      webp.map((n) => n.replace(/\.webp$/, '')),
     );
+  });
+
+  it('差し替え用のファイルは、実際に対応表から読まれている（置きっぱなしにしない）', () => {
+    const used = new Set(
+      AVATARS.map((a) => avatarImageUrl(a))
+        .filter((u): u is string => u !== null)
+        .map((u) => u.slice(u.lastIndexOf('/') + 1)),
+    );
+    for (const name of EXTRA_WEBP) {
+      expect(baseNames(PUBLIC_WEBP), `${name} が置かれていない`).toContain(name);
+      expect(used, `${name} がどこからも読まれていない`).toContain(name);
+    }
   });
 });
 
@@ -402,13 +427,51 @@ describe('名簿と画像の対応', () => {
     }
   });
 
-  it('URL は BASE_URL を通し、キーと拡張子が1回ずつ入る', () => {
+  /*
+   * 差し替えを受け取った人だけ、読むファイルが .webp ではなくなる。
+   * 対応表はここにも書いて、増えたときに気づけるようにしておく。
+   * ここに無い人は、これまでどおり `<imageKey>.webp` のままでなければならない。
+   */
+  const REPLACED: Readonly<Record<string, string>> = {
+    // 百瀬陽菜（ひな）。ChatGPT側の描き直しPNGへ差し替え。旧WebPは残してある。
+    'elementary-f-03': 'elementary-f-03-replacement-v1-light-v1.webp',
+  };
+
+  it('差し替えのない人は、URL が BASE_URL を通し、キーと拡張子が1回ずつ入る', () => {
+    const checked: string[] = [];
     for (const avatar of AVATARS) {
+      if (avatar.imageKey !== null && REPLACED[avatar.imageKey] !== undefined) continue;
       const url = avatarImageUrl(avatar) as string;
       expect(url.startsWith(import.meta.env.BASE_URL)).toBe(true);
       expect(url).toBe(`${import.meta.env.BASE_URL}assets/avatars/${avatar.imageKey}.webp`);
       expect(url.match(/\.webp/g)).toHaveLength(1);
+      checked.push(avatar.id);
     }
+    // 例外が静かに増えていないことを押さえる。
+    expect(checked).toHaveLength(AVATARS.length - Object.keys(REPLACED).length);
+  });
+
+  it('差し替えた人だけ、指定のファイルを読む', () => {
+    const names = baseNames(PUBLIC_WEBP);
+    for (const [key, file] of Object.entries(REPLACED)) {
+      const avatar = AVATARS.find((a) => a.imageKey === key);
+      expect(avatar, `${key} が名簿に無い`).toBeDefined();
+      expect(avatarImageUrl(avatar!)).toBe(`${import.meta.env.BASE_URL}assets/avatars/${file}`);
+      // 旧WebPは消さずに残す。
+      expect(names, `${key}.webp を消してはいけない`).toContain(`${key}.webp`);
+    }
+  });
+
+  it('差し替えは陽菜だけで、小春には及んでいない', () => {
+    // 同じ小学生女性の区分で紛れやすいので、名指しで押さえる。
+    const hina = AVATARS.find((a) => a.id === 'elementary-f-03');
+    const koharu = AVATARS.find((a) => a.id === 'elementary-f-07');
+    expect(hina?.givenName).toBe('陽菜');
+    expect(koharu?.givenName).toBe('小春');
+    expect(avatarImageUrl(hina!)).toContain('elementary-f-03-replacement-v1-light-v1.webp');
+    expect(avatarImageUrl(koharu!)).toBe(
+      `${import.meta.env.BASE_URL}assets/avatars/elementary-f-07.webp`,
+    );
   });
 });
 

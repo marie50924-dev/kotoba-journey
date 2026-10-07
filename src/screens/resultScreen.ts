@@ -74,8 +74,12 @@ export function resultScreen(ctx: AppContext): HTMLElement {
           class: 'btn btn--primary btn--large',
         }),
         el('div', { class: 'button-row' }, [
-          button(UI.actions.continue, () => ctx.navigate({ name: 'worldMap' }), { class: 'btn' }),
-          button(UI.actions.passport, () => ctx.navigate({ name: 'passport' }), { class: 'btn' }),
+          button(UI.actions.continue, () => ctx.navigate({ name: 'worldMap' }), {
+            class: 'btn btn--soft',
+          }),
+          button(UI.actions.passport, () => ctx.navigate({ name: 'passport' }), {
+            class: 'btn btn--soft',
+          }),
         ]),
       ]),
     ],

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-hidden="true">
+  <!-- 確認用イラスト：ねこ。簡潔な図形だけで描いている。 -->
+  <path d="M28 46 L30 18 L52 36 Z" fill="#8a8f98"/>
+  <path d="M92 46 L90 18 L68 36 Z" fill="#8a8f98"/>
+  <path d="M33 42 L34 26 L47 37 Z" fill="#e7b7b4"/>
+  <path d="M87 42 L86 26 L73 37 Z" fill="#e7b7b4"/>
+  <circle cx="60" cy="66" r="34" fill="#9aa0a9"/>
+  <circle cx="48" cy="60" r="5.5" fill="#223246"/>
+  <circle cx="72" cy="60" r="5.5" fill="#223246"/>
+  <path d="M60 72 l-6 5 h12 Z" fill="#e2807c"/>
+  <path d="M60 79 q-7 7 -13 2 M60 79 q7 7 13 2" stroke="#223246" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M20 66 h16 M20 74 h16 M100 66 h-16 M100 74 h-16" stroke="#6f757e" stroke-width="3" stroke-linecap="round"/>
+</svg>

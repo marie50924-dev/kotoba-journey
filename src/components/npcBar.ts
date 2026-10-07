@@ -73,7 +73,7 @@ export function npcBar(ctx: AppContext, options: NpcBarOptions): HTMLElement | n
       class: 'npc-bar__text',
       text: npcBarLine(cast.length, UI.chat.npcHereOne, UI.chat.npcHereMany),
     }),
-    button(UI.chat.open, () => openChat(cast[0]), { class: 'btn npc-bar__btn' }),
+    button(UI.chat.open, () => openChat(cast[0]), { class: 'btn npc-bar__btn btn--soft' }),
   ]);
 
   function openChat(npc: AvatarDefinition): void {

@@ -1,10 +1,31 @@
 /* カルタ盤面。縦スクロールさせず、20枚でも一画面に収める。 */
 
 .screen--karta {
-  background: linear-gradient(180deg, #f6efe1, #eadfc9);
+  /*
+   * 札をガラス調にするので、背後に濃淡があるほうが透け感が出る。
+   * 暖色の紙の階調は変えず、淡い光だけを重ねる。
+   */
+  background:
+    radial-gradient(120% 90% at 18% 8%, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0) 58%),
+    radial-gradient(100% 80% at 86% 96%, rgba(210, 232, 250, 0.52) 0%, rgba(210, 232, 250, 0) 62%),
+    linear-gradient(180deg, #f6efe1, #eadfc9);
   padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + 8px)
     calc(var(--safe-bottom) + 6px) calc(var(--safe-left) + 8px);
   gap: 6px;
+}
+
+/*
+ * 帯は2行。
+ * 1行目：やめる／とったペア／音設定
+ * 2行目：まちがい／じかん
+ * 2行ぶんの高さをここで先に確保し、盤面（.karta__board-wrap）は残りを使う。
+ * 1行へ押し込むと、狭い画面で誤答数と経過時間が音の設定に隠れる。
+ */
+.karta__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
 }
 
 .karta__bar {
@@ -14,19 +35,202 @@
   flex: 0 0 auto;
 }
 
-.karta__stats {
-  display: flex;
-  gap: 10px;
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--c-ink-soft);
+.karta__bar--main {
+  min-height: 44px;
+}
+
+.karta__bar--sub {
+  min-height: 22px;
+  gap: 12px;
+}
+
+/*
+ * 「やめる」は縮めない。
+ * 何も指定しないと狭い画面でこのボタンが押しつぶされ、
+ * 文字が3行に折り返して帯が高くなり、盤面が削られる。
+ * 共通の .btn は変えず、このカルタ画面の中だけで止める。
+ */
+.karta__bar > .btn--back {
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
-.karta__stats strong {
+/*
+ * 数字は省略も折り返しもしない。
+ * ペア 10 / 10・まちがい 99・じかん 59:59 まで、320px でも全部出る。
+ * 文字を小さくするだけでは隠れる問題は直らないので、行を分けて場所を確保する。
+ */
+.karta__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--c-ink-soft);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.karta__stat strong {
   color: var(--c-ink);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
+
+.karta__stat--pairs {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.karta__stat--time {
+  margin-left: auto;
+}
+
+/* 体験用であることを帯でも示す。 */
+.karta__trial-badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #0b4a7a;
+  border-radius: 999px;
+  background: rgba(214, 232, 245, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(26, 99, 166, 0.25);
+}
+
+/* ---- 音設定を開くボタンと、開閉式パネル ---- */
+.karta__sound-btn {
+  appearance: none;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  border-radius: 999px;
+  cursor: pointer;
+  /* 面・縁・光・文字色は base.css の青ガラス。以前の白いガラスは取り除いた。 */
+}
+
+.karta__sound-btn[aria-expanded='true'] {
+  /* 開いている間。面の青は変えず、縁と光を強める（aria-expanded も出している）。 */
+  box-shadow: var(--glass-glow-on);
+}
+
+/* 盤面の上に重ねる小さなガラス調パネル。開いている間は盤面を触らせない。 */
+.karta__sound-panel {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(240px, calc(100% - 12px));
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.84) 100%);
+  backdrop-filter: blur(10px) saturate(1.05) brightness(1.06);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05) brightness(1.06);
+  box-shadow:
+    0 0 0 1px rgba(26, 99, 166, 0.16),
+    0 10px 24px rgba(9, 32, 54, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+  pointer-events: auto;
+}
+
+.karta__sound-panel[hidden] {
+  display: none;
+}
+
+.karta__sound-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--c-ink);
+}
+
+.karta__sound-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.karta__sound-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.karta__sound-note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--c-ink-soft);
+}
+
+.karta__sound-close {
+  min-height: 44px;
+}
+
+/* 設定を開いている間は、盤面の札を触れないようにする。 */
+.screen--karta.is-sound-open .board {
+  pointer-events: none;
+}
+
+/* ---- 音のスイッチ（開閉式パネルの中に入る）---- */
+.karta__toggle {
+  /* 主人公選択の未選択ボタンと同じ系統の白いガラス。面だけを透かす。 */
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 指で押せる大きさを確保する。文字は ON / OFF だけなので幅は少し広めに取る。 */
+  min-width: 56px;
+  min-height: 44px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  color: var(--c-ink);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.44) 100%);
+  backdrop-filter: blur(6px) saturate(1.05) brightness(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05) brightness(1.05);
+  box-shadow:
+    0 0 0 1px rgba(26, 99, 166, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+}
+
+/* ONのときだけ、選択ボタンに合わせた青い縁と面にする。 */
+.karta__toggle.is-on {
+  border-color: #1268e0;
+  color: #0b3f86;
+  background: linear-gradient(180deg, rgba(136, 190, 255, 0.46) 0%, rgba(110, 172, 252, 0.5) 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(166, 226, 255, 0.9),
+    0 0 8px rgba(18, 104, 224, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+}
+
+.karta__toggle[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
 
 .karta__board-wrap {
   position: relative;
@@ -37,8 +241,38 @@
 .board {
   position: absolute;
   inset: 0;
-  /* カードは絶対配置。スロット計算で重ならないことを保証する。 */
-  touch-action: manipulation;
+  /*
+   * カードは絶対配置。スロット計算で重ならないことを保証する。
+   * 札をスライドさせるので、ここでのブラウザ既定のスクロール・拡大は止める。
+   * 盤面は縦にもスクロールしないので、操作を失わない。
+   */
+  touch-action: none;
+}
+
+/* 正誤を文字でも伝える短い知らせ。音だけで伝えない。 */
+.karta__notice {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 3px 10px;
+  max-width: calc(100% - 16px);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-ink);
+  text-align: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 1px 4px rgba(16, 36, 58, 0.18);
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* 文字が空のときは場所を取らない。 */
+.karta__notice:empty {
+  display: none;
 }
 
 .karta__hint {
@@ -46,7 +280,17 @@
   text-align: center;
 }
 
-/* ---- カード ---- */
+/* ---- 札（ガラス調）----
+ *
+ * 主人公選択の未選択ボタン（.avatar-card）と同じ系統にする。
+ *   半透明の白い面・背後だけ backdrop-filter・薄い白縁・控えめな縁光・丸角
+ * 札全体の opacity は下げない。面だけを透かすので、上に載る文字は
+ * 濃いまま鮮明に残る。
+ *
+ * 背景が明るくても暗くても読めるように、札の中に下地を1枚敷く
+ * （::before の白いグラデーション）。この下地があるので、
+ * 盤面の背景がどんな明るさでも文字のコントラストが落ちない。
+ */
 .card {
   position: absolute;
   display: flex;
@@ -54,24 +298,82 @@
   justify-content: center;
   padding: 2px 4px;
   margin: 0;
-  border: 1px solid rgba(16, 36, 58, 0.18);
-  border-radius: 8px;
-  background: var(--c-paper-2);
-  box-shadow: 0 2px 5px rgba(16, 36, 58, 0.18);
-  transform: rotate(var(--tilt, 0deg));
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  /* 面は半透明の白。札の opacity は変えない。 */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.26) 100%);
+  backdrop-filter: blur(6px) saturate(1.05) brightness(1.06);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05) brightness(1.06);
+  box-shadow:
+    0 0 0 1px rgba(26, 99, 166, 0.14),
+    0 0 8px rgba(120, 180, 240, 0.16),
+    0 2px 5px rgba(12, 46, 84, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
+    inset 0 0 12px rgba(255, 255, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transform: rotate(var(--tilt, 0deg)) translate(var(--drag-x, 0px), var(--drag-y, 0px));
   transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.2s ease;
   overflow: hidden;
   line-height: 1.15;
   font-weight: 700;
-  /* 文字は画像に焼き込まず、テキストのまま描画する。 */
+  /* 文字は濃色のまま。画像に焼き込まず、テキストのまま描画する。 */
+  color: var(--c-ink);
+  isolation: isolate;
 }
 
+/*
+ * 札の中の下地。
+ * 背景の明暗に関わらず文字が読めるだけの明るさを、札の内側で確保する。
+ * 文字より下、面より上に置く。
+ */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.3) 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/*
+ * 日本語と英語の区別。
+ * 色だけに頼らず、短いラベル（あ / A）と左右の置き場所で示す。
+ * ラベルは絶対配置なので、文字の折り返し幅や高さには影響しない。
+ */
+.card::after {
+  position: absolute;
+  top: 1px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 800;
+  padding: 1px 3px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.card[data-lang='ja']::after {
+  content: 'あ';
+  left: 2px;
+  color: #8a5a1c;
+  background: rgba(246, 226, 200, 0.85);
+}
+
+.card[data-lang='en']::after {
+  content: 'A';
+  right: 2px;
+  color: #0b4a7a;
+  background: rgba(214, 232, 245, 0.9);
+}
+
+/* 面の色みも言語ごとにわずかに変える（下地の明るさは落とさない）。 */
 .card--ja {
-  background: var(--c-ja);
+  background: linear-gradient(180deg, rgba(255, 247, 234, 0.46) 0%, rgba(246, 226, 200, 0.3) 100%);
 }
 
 .card--en {
-  background: var(--c-en);
+  background: linear-gradient(180deg, rgba(243, 250, 255, 0.46) 0%, rgba(214, 232, 245, 0.32) 100%);
 }
 
 .card__text {
@@ -80,30 +382,200 @@
   text-align: center;
   word-break: break-word;
   hyphens: auto;
+  position: relative;
 }
 
+/* 選択中・ドラッグ中は、選択ボタンに合わせた青い縁と面にする。 */
 .card.is-selected {
-  transform: rotate(var(--tilt, 0deg)) scale(1.06);
-  border-color: var(--c-accent);
-  box-shadow: 0 0 0 3px rgba(226, 112, 58, 0.5), 0 6px 14px rgba(16, 36, 58, 0.25);
+  transform: rotate(var(--tilt, 0deg)) translate(var(--drag-x, 0px), var(--drag-y, 0px)) scale(1.06);
+  border-color: #1268e0;
+  background: linear-gradient(180deg, rgba(136, 190, 255, 0.44) 0%, rgba(110, 172, 252, 0.48) 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(166, 226, 255, 0.92),
+    0 0 12px rgba(18, 104, 224, 0.34),
+    0 3px 8px rgba(12, 46, 84, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.8);
   z-index: 3;
 }
 
+/* ドラッグ中の札。持ち上がって指に追従する。元の配置は変えない。 */
+.card.is-dragging {
+  transform: rotate(var(--tilt, 0deg)) translate(var(--drag-x, 0px), var(--drag-y, 0px)) scale(1.08);
+  border-color: #1268e0;
+  box-shadow:
+    0 0 0 1.5px rgba(166, 226, 255, 0.92),
+    0 0 14px rgba(18, 104, 224, 0.38),
+    0 10px 18px rgba(12, 46, 84, 0.28);
+  /* 追従中は遅れて見えないよう、移動だけ補間しない。 */
+  transition: box-shadow 0.14s ease;
+  z-index: 8;
+}
+
+/*
+ * 正解の光。中心から外へ広がって消える。
+ *
+ * 組み立ては2つ。
+ *   1. 札の中心に置いた放射状グラデーション（.card__glow）を、
+ *      0.25倍から2.1倍まで広げながら消す。
+ *   2. 札そのものの外側の光（box-shadow）を、同じ時間で強→弱へ動かす。
+ * この2つで「中心で立ち上がり → 全面へ広がり → 外へ抜けて消える」になる。
+ *
+ * 時間の割り当て（全体 650ms）
+ *   0〜120ms   中心に白〜淡い金色が立ち上がる（18.5%まで）
+ *   120〜350ms 札の全面へ広がり、外側までふわっと届く（53.8%まで）
+ *   350〜650ms 外へ広がりながら自然に消える
+ *
+ * 光は文字より下に置くので、文字は読めるまま。
+ * 札の位置と寸法は動かさない（transform を掛けるのは光の層だけ）。
+ * 1回の正解につき1回だけ流す（クラスを付け外しするのは正解時のみ）。
+ */
+.card.is-correct-glow {
+  border-color: rgba(214, 164, 62, 0.95);
+  /* 外側の光。札の overflow には切られないので、枠の外まで届く。 */
+  animation: card-correct-ring 650ms ease-out 1 both;
+  /* 広がる光を札の枠で切らない。中身がはみ出すのはこの間だけ。 */
+  overflow: visible;
+  /* 隣の札より前に出して、広がった光が隠れないようにする。 */
+  z-index: 6;
+}
+
+@keyframes card-correct-ring {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(255, 236, 190, 0.9),
+      inset 0 0 10px rgba(255, 244, 214, 0.75);
+  }
+  18.5% {
+    box-shadow:
+      0 0 0 2px rgba(255, 228, 160, 0.95),
+      0 0 12px 3px rgba(246, 203, 110, 0.6),
+      inset 0 0 14px rgba(255, 242, 208, 0.9);
+  }
+  53.8% {
+    box-shadow:
+      0 0 0 3px rgba(255, 222, 150, 0.7),
+      0 0 26px 10px rgba(243, 196, 96, 0.5),
+      0 0 46px 20px rgba(255, 214, 128, 0.26),
+      inset 0 0 12px rgba(255, 240, 205, 0.55);
+  }
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(255, 222, 150, 0),
+      0 0 40px 22px rgba(243, 196, 96, 0),
+      0 0 72px 40px rgba(255, 214, 128, 0),
+      inset 0 0 12px rgba(255, 240, 205, 0);
+  }
+}
+
+/*
+ * 中心から広がる面の光。
+ * 置き場所を取らないよう絶対配置にしてあり、札の寸法には影響しない。
+ * 既定では見えず、正解のときだけ流れる。
+ */
+.card__glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* 札より大きめに取り、広がりきっても角が見えないようにする。 */
+  width: 150%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  /* 縁を作らず、外へ向かって完全に透明へ落とす（切り口を出さないため）。 */
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 246, 214, 0.85) 26%,
+    rgba(250, 214, 128, 0.5) 52%,
+    rgba(243, 196, 96, 0.18) 74%,
+    rgba(243, 196, 96, 0) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  /* 文字（.card__text）より先に置いてあるので、文字の下になる。 */
+  z-index: 0;
+  transform: translate(-50%, -50%) scale(0.25);
+}
+
+.card.is-correct-glow .card__glow {
+  animation: card-correct-burst 650ms ease-out 1 both;
+}
+
+@keyframes card-correct-burst {
+  /* 中心に立ち上がる */
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  18.5% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  /* 全面へ広がり、外側まで届く */
+  53.8% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.6);
+  }
+  /* 外へ抜けながら消える */
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.1);
+  }
+}
+
+/*
+ * 動きを減らす設定のとき。
+ * 拡大はせず、面がいったん明るくなって戻るだけで正解を示す。
+ * 点滅はしない（明→暗を1回だけ）。
+ */
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * この設定では base.css が全体に animation/transition を止めている。
+   * そのため動きで知らせる手は使わず、面の明るさだけで正解を示す。
+   *
+   * 札いっぱいの一様な明るさを、光っている間（650ms）だけ出す。
+   * 途中で明滅しないので、点滅にはならない。拡大もしない。
+   */
+  .card__glow {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    border-radius: inherit;
+    background: rgba(255, 240, 200, 0.72);
+    transform: translate(-50%, -50%);
+  }
+
+  .card.is-correct-glow .card__glow {
+    opacity: 1;
+  }
+}
+
+/* 不正解。青い縁を赤系へ一時的に変える。強い点滅はしない。 */
 .card.is-wrong {
   border-color: var(--c-ng);
-  box-shadow: 0 0 0 3px rgba(212, 86, 79, 0.45);
+  background: linear-gradient(180deg, rgba(255, 228, 226, 0.5) 0%, rgba(246, 198, 195, 0.44) 100%);
+  box-shadow:
+    0 0 0 2px rgba(212, 86, 79, 0.6),
+    0 0 10px rgba(212, 86, 79, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
   z-index: 3;
 }
 
 .card.is-rejected {
   border-color: var(--c-ink-soft);
-  box-shadow: 0 0 0 3px rgba(71, 97, 120, 0.35);
+  box-shadow:
+    0 0 0 2px rgba(71, 97, 120, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
 }
 
+/*
+ * 正解済み。入力はできないが、盤面には残す。
+ * 札ごと薄くしても、文字は読める明るさの下地を残しておく。
+ */
 .card.is-matched {
-  opacity: 0.32;
-  box-shadow: none;
+  opacity: 0.42;
   border-style: dashed;
+  border-color: rgba(26, 99, 166, 0.45);
+  box-shadow: none;
   cursor: default;
 }
 
@@ -126,6 +598,11 @@
   z-index: 10;
 }
 
+/*
+ * イラストで学ぶ正解表示。札と同じガラス調にそろえる。
+ * ただしここは文字を読む面なので、下地はより明るくして
+ * 日本語・英語・説明のコントラストを確保する。
+ */
 .pronounce {
   width: 100%;
   max-width: 300px;
@@ -134,10 +611,40 @@
   align-items: center;
   gap: 4px;
   padding: 16px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: var(--radius-lg);
-  background: var(--c-paper-2);
-  box-shadow: 0 12px 30px rgba(9, 32, 54, 0.32);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.82) 100%);
+  backdrop-filter: blur(10px) saturate(1.05) brightness(1.06);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05) brightness(1.06);
+  box-shadow:
+    0 0 0 1px rgba(26, 99, 166, 0.16),
+    0 0 14px rgba(120, 180, 240, 0.2),
+    0 12px 30px rgba(9, 32, 54, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
   text-align: center;
+}
+
+/* 単語イラスト。紐付けのある語だけ出る。無い語はこの枠自体を作らない。 */
+.pronounce__art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(56px, 20vw, 84px);
+  height: clamp(56px, 20vw, 84px);
+  margin-bottom: 2px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(238, 246, 255, 0.9) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(26, 99, 166, 0.14),
+    0 1px 4px rgba(16, 36, 58, 0.14);
+  flex: 0 0 auto;
+}
+
+.pronounce__art-img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
 }
 
 .pronounce__ja {
@@ -185,9 +692,40 @@
     display: none;
   }
 
+  /*
+   * 狭い画面でも数字は省略しない。
+   * 文字と余白だけを少し詰め、行は2行のまま保つ。
+   */
+  .karta__bar {
+    gap: 6px;
+  }
+
+  .karta__bar--sub {
+    gap: 8px;
+  }
+
+  .karta__stat {
+    font-size: 10px;
+    gap: 3px;
+  }
+
+  .karta__stat strong {
+    font-size: 12px;
+  }
+
+  .karta__sound-btn {
+    padding: 5px 7px;
+    font-size: 10px;
+  }
+
   .card {
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(16, 36, 58, 0.16);
+  }
+
+  .pronounce__art {
+    width: 50px;
+    height: 50px;
   }
 
   .pronounce__ja {
@@ -208,4 +746,111 @@
     padding-right: 8px;
     font-size: 13px;
   }
+}
+
+/*
+ * 動きを抑える設定のとき。
+ * 拡大・持ち上がり・補間をやめ、正誤は文字と色だけで示す。
+ * 光そのものは消さない（色で結果が分かるようにする）。
+ */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+
+  .card.is-selected,
+  .card.is-dragging {
+    transform: rotate(var(--tilt, 0deg)) translate(var(--drag-x, 0px), var(--drag-y, 0px));
+  }
+
+  .card.is-dragging {
+    box-shadow:
+      0 0 0 2px rgba(18, 104, 224, 0.6),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+  }
+
+  .card.is-correct-glow {
+    box-shadow:
+      0 0 0 2px rgba(214, 164, 62, 0.95),
+      inset 0 0 0 1px rgba(255, 240, 205, 0.9);
+  }
+}
+
+/*
+ * backdrop-filter が効かない環境への備え。
+ *
+ * 札の面はぼかしと明るさの調整で作っているので、効かないと
+ * 面が薄いまま背景の模様が透けて、濃い文字でも読みにくくなる。
+ * この環境では半透明度を落として、明るい面へ戻す。
+ * 透け感は失われるが、読めなくなるより良い。
+ */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.88) 100%);
+  }
+
+  .card--ja {
+    background: linear-gradient(180deg, rgba(255, 250, 242, 0.96) 0%, rgba(246, 226, 200, 0.92) 100%);
+  }
+
+  .card--en {
+    background: linear-gradient(180deg, rgba(246, 252, 255, 0.96) 0%, rgba(214, 232, 245, 0.92) 100%);
+  }
+
+  .card.is-selected {
+    background: linear-gradient(180deg, rgba(176, 212, 255, 0.95) 0%, rgba(150, 196, 252, 0.95) 100%);
+  }
+
+  .card.is-wrong {
+    background: linear-gradient(180deg, rgba(255, 228, 226, 0.96) 0%, rgba(246, 198, 195, 0.95) 100%);
+  }
+
+  .karta__toggle {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.9) 100%);
+  }
+
+  .karta__toggle.is-on {
+    background: linear-gradient(180deg, rgba(176, 212, 255, 0.96) 0%, rgba(150, 196, 252, 0.96) 100%);
+  }
+
+  .pronounce {
+    background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
+  }
+}
+
+/* ---- イラスト付きの体験入口（コース入口に置く独立した入口）---- */
+.trial-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.trial-entry__btn {
+  min-height: 44px;
+  font-weight: 700;
+}
+
+.trial-entry__note {
+  margin: 0;
+  text-align: center;
+}
+
+/* ---- 体験完了 ---- */
+.trial-done__badge {
+  margin: 0;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #0b4a7a;
+  border-radius: 999px;
+  background: rgba(214, 232, 245, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(26, 99, 166, 0.25);
+}
+
+.trial-done__lead {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-ink-soft);
 }

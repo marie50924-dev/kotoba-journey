@@ -182,10 +182,14 @@
  * こうすると帯だけが端まで届き、中の文字の位置は変わらない。
  */
 .screen--avatar-select .screen__header {
-  margin: calc(-1 * (var(--safe-top) + 8px)) calc(-1 * (var(--safe-right) + var(--gutter))) 0
+  margin: calc(-1 * (var(--safe-top) + var(--glow-room)))
+    calc(-1 * (var(--safe-right) + var(--gutter))) 0
     calc(-1 * (var(--safe-left) + var(--gutter)));
-  padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + var(--gutter)) 6px
+  /* 上は、もどるの光（最大 11px）が画面の縁で切られないだけ空ける。 */
+  padding: calc(var(--safe-top) + var(--glow-room)) calc(var(--safe-right) + var(--gutter)) 6px
     calc(var(--safe-left) + var(--gutter));
+  /* もどるの光が帯の外まで出られるようにする（帯は切らない）。 */
+  overflow: visible;
   background:
     radial-gradient(72% 150% at 50% 124%, rgba(120, 214, 255, 0.32) 0%, rgba(120, 214, 255, 0) 72%),
     linear-gradient(180deg, #0f3b64 0%, #14538c 62%, #1a63a6 100%);
@@ -223,21 +227,28 @@
 }
 
 /* 青い帯に載る「もどる」は、白い縁のガラス調にする。白文字で 5.3:1 ある。 */
-.screen--avatar-select .screen__header .btn--back {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.8);
-  color: #fff;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
+/*
+ * もどるの面・縁・光・文字色は base.css の青ガラス。
+ * 以前はこの画面だけ白い半透明のガラスにしていたが、
+ * 「もどるも同じ鮮やかな青」という指定にそろえて取り除いた。
+ */
 
 /*
  * 一覧に使える高さを増やすため、余白と行の高さを詰める。
  * 320x568 で「完全に見える人数」を増やすことが目的。
  */
+/*
+ * この画面の本文。
+ *
+ * .screen--fixed .screen__body は overflow: hidden なので、
+ * 中のボタンの光がこの箱の縁で直線に切られる。
+ * 光のぶんの余白を内側へ足し、同じだけ外へ引き戻す
+ * （位置と大きさは変わらない）。
+ */
 .screen--avatar-select .screen__body {
   gap: 8px;
-  padding: 8px 0 2px;
+  /* 逃げ場（左右と下）は .screen__body が持っている。上だけ詰める。 */
+  padding-top: 8px;
 }
 
 .screen--avatar-select .screen__lead {
@@ -252,9 +263,13 @@
 }
 
 
+/*
+ * 隣のタブの光と重ならない間隔にする。
+ * 選択中は白い光が 11px 出るので、両側ぶんの 22px を確保する。
+ */
 .avatar-tabs {
   display: flex;
-  gap: 4px;
+  gap: 22px;
 }
 
 /* 5つのタブを常に1行に収める。隠れて押せないタブを作らない。 */
@@ -263,39 +278,11 @@
   min-width: 0;
   min-height: var(--tap-min);
   padding: 6px 4px;
-  border: 1.5px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--radius);
-  /*
-   * 白いガラス。
-   *
-   * 表紙の副ボタンと同じ作りにしてある。白い塗りを重ねて色を作るのではなく、
-   * 塗りはごく薄くし、背後を backdrop-filter で少し明るくするだけにする。
-   * こうすると背後の模様がほとんどそのまま通り、板ではなくガラスに見える。
-   * 前の版は塗りが 0.56 あり、実質は白い板だった。
-   */
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
-  -webkit-backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
-  /*
-   * 内側の縁から白い光がにじむ。
-   *
-   * 外へ広げる光だけだと「縁が光っている板」に見える。
-   * 内側にも細い芯（inset 0 0 0 1px）と、そこから中へ溶ける光
-   * （inset 0 0 Npx）を置くと、ガラスの内側に光があるように見える。
-   * 白を中まで広げすぎると文字の地が明るくなって読みにくくなるので、
-   * 広がりは縁から 10〜14px までにとどめてある（実測で確かめている）。
-   */
-  box-shadow:
-    0 0 0 1px rgba(26, 99, 166, 0.2),
-    0 0 8px rgba(120, 180, 240, 0.18),
-    0 2px 5px rgba(12, 46, 84, 0.1),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
-    inset 0 0 10px rgba(255, 255, 255, 0.62),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  color: #234a68;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
+  /* 面・縁・光・文字色は base.css の青ガラス。以前の白いガラスは取り除いた。 */
 }
 
 /*
@@ -303,46 +290,21 @@
  * 白文字とのコントラストは 5.0:1（上端）〜6.4:1（中央）ある。
  */
 .avatar-tab[aria-selected='true'] {
-  border-color: rgba(186, 246, 255, 0.85);
   /*
-   * 青いガラス。面の青は残したまま透かす。
-   * そのままでは白文字が薄い地に負けるので、背後を brightness で落としてから
-   * 重ねる。明暗の模様は残るので、石畳や空の見え方は透けたまま。
-   */
-  /*
-   * 青いガラス。塗りは薄く、色はほとんど backdrop-filter で作る。
-   *   sepia      … 色みを1色にそろえる（明暗の模様はそのまま残る）
-   *   hue-rotate … その1色を青へ回す
-   *   saturate   … 青を濃くする
-   *   brightness … 白い文字が読める明るさまで落とす
-   * 不透明な塗りを足していないので、背後の濃淡は通ったまま残る。
-   */
-  /*
-   * 青いガラス。
+   * 選んでいるタブ。面の青は変えず、縁と外へ「白い光」を強く出す。
    *
-   * 順序が大事。明るい背景に sepia を先に掛けると白へ振り切れてしまい、
-   * そのあとで色を回しても灰色にしかならない（実際そうなっていた）。
-   * 先に brightness で暗くしてから彩度を上げると、背景の青がそのまま濃くなる。
-   * そのうえに薄い青を重ねて、元の面の色にそろえる。
+   * 青い光（--glass-glow-on）では未選択との差が弱かったので、
+   * 白い光（--glass-glow-white）にして一目で分かるようにした。
+   * 内側の白は縁ぎわまでにとどめ、文字とボタン面が白く飛ばないようにする。
+   * 色だけで伝えないよう、aria-selected でも示している。
    */
-  background: linear-gradient(180deg, rgba(46, 150, 252, 0.48) 0%, rgba(28, 108, 210, 0.56) 100%);
-  backdrop-filter: blur(5px) brightness(0.3) saturate(4.5);
-  -webkit-backdrop-filter: blur(5px) brightness(0.3) saturate(4.5);
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(4, 22, 44, 0.5);
-  /* 青いガラスも内側から光らせる。白文字が負けないよう、光は縁寄りに置く。 */
-  box-shadow:
-    0 0 0 1px rgba(186, 246, 255, 0.75),
-    0 0 12px rgba(24, 110, 210, 0.34),
-    0 3px 9px rgba(12, 46, 84, 0.24),
-    inset 0 0 0 1px rgba(222, 248, 255, 0.72),
-    inset 0 0 9px rgba(190, 238, 255, 0.4),
-    inset 0 1px 0 rgba(220, 246, 255, 0.6);
+  box-shadow: var(--glass-glow-white);
 }
 
+/* 隣のボタンの光（選択中は 11px）と重ならない間隔にする。 */
 .avatar-filter {
   display: flex;
-  gap: 6px;
+  gap: 22px;
 }
 
 .avatar-filter__btn {
@@ -350,31 +312,10 @@
   min-width: 0;
   min-height: var(--tap-min);
   padding: 6px 8px;
-  border: 1.5px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--radius);
-  /* 年代タブと同じ白いガラス。 */
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
-  -webkit-backdrop-filter: blur(7px) saturate(1.05) brightness(1.06);
-  /*
-   * 内側の縁から白い光がにじむ。
-   *
-   * 外へ広げる光だけだと「縁が光っている板」に見える。
-   * 内側にも細い芯（inset 0 0 0 1px）と、そこから中へ溶ける光
-   * （inset 0 0 Npx）を置くと、ガラスの内側に光があるように見える。
-   * 白を中まで広げすぎると文字の地が明るくなって読みにくくなるので、
-   * 広がりは縁から 10〜14px までにとどめてある（実測で確かめている）。
-   */
-  box-shadow:
-    0 0 0 1px rgba(26, 99, 166, 0.2),
-    0 0 8px rgba(120, 180, 240, 0.18),
-    0 2px 5px rgba(12, 46, 84, 0.1),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
-    inset 0 0 10px rgba(255, 255, 255, 0.62),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  color: #234a68;
   font-size: 13px;
   font-weight: 700;
+  /* 面・縁・光・文字色は base.css の青ガラス。 */
 }
 
 /*
@@ -382,19 +323,12 @@
  * 淡い青の地＋濃い青の文字（17.0:1）。青い塗りのタブと混同しない。
  */
 .avatar-filter__btn[aria-pressed='true'] {
-  border-color: rgba(29, 97, 162, 0.72);
-  /* 淡い青のガラス。塗りは薄く、背後を青へ振って明るさはほぼそのまま。 */
-  background: rgba(146, 198, 250, 0.3);
-  backdrop-filter: blur(6px) saturate(1.9) brightness(1.02);
-  -webkit-backdrop-filter: blur(6px) saturate(1.9) brightness(1.02);
-  color: #0f3b64;
-  box-shadow:
-    0 0 0 1px rgba(186, 246, 255, 0.8),
-    0 0 10px rgba(29, 97, 162, 0.22),
-    0 2px 5px rgba(12, 46, 84, 0.1),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.82),
-    inset 0 0 10px rgba(255, 255, 255, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  /*
+   * 押している状態。淡い面のまま、縁と外へ白い光を強く出す。
+   * 面の色は変えないので、未選択と同じ淡いブルーのまま光だけが変わる。
+   * aria-pressed でも示している。
+   */
+  box-shadow: var(--glass-glow-white);
 }
 
 /*
@@ -465,8 +399,13 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  /* 右端のカードが縦スクロールバーに重ならないだけの余白。 */
-  padding: 1px 3px 1px 1px;
+  /*
+   * 右端のカードが縦スクロールバーに重ならないだけの余白と、
+   * カードの淡い光が枠の線で切られないだけの余白。
+   * 足したぶんは外へ引き戻すので、カードの位置は変わらない。
+   */
+  padding: 5px 7px 5px 5px;
+  margin: -4px -4px -4px -4px;
 }
 
 .avatar-card {
@@ -482,14 +421,20 @@
   padding: 4px 3px;
   border: 1.5px solid rgba(255, 255, 255, 0.9);
   border-radius: var(--radius);
+  min-width: 0;
   /*
-   * 人物カードも選択ボタンなので、同じ白いガラスにする。
+   * 人物カードだけは白い半透明の面に戻す。
+   *
+   * 共通の青ガラス（base.css）を当てると、人物が濃い青の面の上に並ぶため、
+   * 顔と名前の見分けが弱くなっていた。面は白く透かし、
+   * 選んでいることは青い縁とチェック印で示す。
    * 面だけを透かす（opacity は使わない）。上に載る顔の画像と名前は
    * 不透明のままなので、鮮明さは変わらない。
    */
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.14) 100%);
   backdrop-filter: blur(6px) saturate(1.05) brightness(1.05);
   -webkit-backdrop-filter: blur(6px) saturate(1.05) brightness(1.05);
+  color: var(--c-ink);
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.16),
     0 0 9px rgba(120, 180, 240, 0.18),
@@ -497,7 +442,6 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.88),
     inset 0 0 14px rgba(255, 255, 255, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.96);
-  min-width: 0;
 }
 
 /*
@@ -505,7 +449,10 @@
  * そのすぐ外へ水色と青の光を広げる。地は淡い青。
  */
 .avatar-card[aria-selected='true'] {
-  /* 青い縁はそのまま。面は同じ淡い青を透かした青いガラスにする。 */
+  /*
+   * 選んでいる人。カード全面を濃い青にはしない。
+   * 青い縁とそのまわりの光、そしてチェック印で示す。
+   */
   border-color: #1268e0;
   background: linear-gradient(180deg, rgba(136, 190, 255, 0.32) 0%, rgba(110, 172, 252, 0.36) 100%);
   backdrop-filter: blur(6px) saturate(1.9) brightness(1.02);
@@ -567,6 +514,14 @@
   /* 画像は正方形。カード幅＝表示幅になる。 */
   aspect-ratio: 1 / 1;
   margin-top: calc(var(--avatar-head-shift, 0) * 1%);
+  /*
+   * 人物ごとの表示倍率。既定は 1 なので、指定のない人は何も変わらない。
+   * 上中央を基準に掛けるので、カードの幅・高さ・名前の位置は動かない
+   * （transform は見た目だけを変え、場所取りには影響しない）。
+   * 頭のてっぺんは --avatar-head-shift 側で引き算してそろえてある。
+   */
+  transform: scale(var(--avatar-scale, 1));
+  transform-origin: top center;
   /* 名前とチェック印より後ろ。 */
   z-index: 0;
 }
@@ -629,6 +584,13 @@
  * 選択中の青い縁（#1268e0）は要素にぴったり付くので、フォーカスは
  * 2px 離した濃紺の輪にして、色でも位置でも見分けられるようにする。
  * 以前の色（--c-sky-2 #2a6ea3）は選択中の青と近く、紛れやすかった。
+ */
+/*
+ * キーボードで選んでいる場所。
+ *
+ * 選択中は「白い光」が縁からにじむ。フォーカスはそれと見分けられるよう、
+ * 2px 離した濃紺の輪にする（光ではなく、はっきりした線）。
+ * 選択中かつフォーカス中でも、白い光の外に濃紺の線が出るので区別できる。
  */
 .avatar-card:focus-visible,
 .avatar-tab:focus-visible,
@@ -848,41 +810,31 @@
  * という作りにしてある。白いボタンは白いガラス、青いボタンは青いガラス。
  */
 
-/* 青いボタン（主操作）。白文字の読みやすさを保つため、背後を少し落としてから重ねる。 */
-.avatar-select__confirm .btn--primary,
-.screen--avatar-confirm .screen__footer .btn--primary {
-  background: linear-gradient(180deg, rgba(62, 176, 255, 0.5) 0%, rgba(34, 124, 228, 0.58) 100%);
-  border-color: rgba(200, 242, 255, 0.92);
-  /*
-   * 年代タブと同じ順序で、先に暗くしてから色を作る。
-   * ただしこのボタンの背後は下部の暖かい光なので、暗くしただけでは
-   * 茶色が濃くなるだけになる。hue-rotate で青へ回してから彩度を上げる。
-   */
-  backdrop-filter: blur(8px) brightness(0.34) hue-rotate(185deg) saturate(3.2);
-  -webkit-backdrop-filter: blur(8px) brightness(0.34) hue-rotate(185deg) saturate(3.2);
-  text-shadow: 0 1px 2px rgba(4, 22, 44, 0.5);
-  box-shadow:
-    0 0 0 1px rgba(186, 246, 255, 0.72),
-    0 0 14px rgba(24, 110, 210, 0.34),
-    0 6px 16px rgba(12, 46, 84, 0.24),
-    inset 0 0 0 1px rgba(224, 249, 255, 0.72),
-    inset 0 0 11px rgba(196, 240, 255, 0.42),
-    inset 0 1px 0 rgba(224, 249, 255, 0.62);
-}
+/*
+ * 青いボタン（主操作）。白文字の読みやすさを保つため、背後を少し落としてから重ねる。
+ *
+ * 主人公確認画面の決定ボタンは、ここではなく screens.css の
+ * 「旅のページデザイン」で、澄んだ明るい青のガラス（濃い文字）にしている。
+ * 背後を暗く沈めるこの作りは白文字が前提なので、あちらには掛けない。
+ */
+/*
+ * 以前はここに、この画面だけの青
+ *   linear-gradient(rgba(62,176,255,.5), rgba(34,124,228,.58))
+ *   backdrop-filter: brightness(.34) hue-rotate(185deg) saturate(3.2)
+ *   text-shadow: 0 1px 2px rgba(4,22,44,.5)
+ * を持っていた。いまは base.css の青ガラスにそろえてあるので、指定は無い。
+ */
 
-/* 白いボタン（「えらび直す」「旅するあなたを変える」）。白いガラスにする。 */
-.screen--avatar-confirm .screen__footer .btn:not(.btn--primary),
-.setting-row--avatar .btn {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px) saturate(1.05) brightness(1.07);
-  -webkit-backdrop-filter: blur(8px) saturate(1.05) brightness(1.07);
-  box-shadow:
-    0 0 0 1px rgba(26, 99, 166, 0.18),
-    0 0 10px rgba(120, 180, 240, 0.18),
-    0 3px 8px rgba(12, 46, 84, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-}
+/*
+ * 白いボタン（「旅するあなたを変える」）。白いガラスにする。
+ *
+ * 主人公確認画面の「えらび直す」は、screens.css の
+ * 「旅のページデザイン」で青いガラスにしているので、ここでは触らない。
+ */
+/*
+ * 「旅するあなたを変える」も、base.css の青ガラスにそろえる。
+ * 以前の白いガラスの指定は取り除いた。
+ */
 
 /*
  * 一覧の中の人物の見せ方。
@@ -990,13 +942,8 @@
  * この2つだけは、効かない環境では元の不透明な青へ戻す。
  * 透け感は失われるが、読めなくなるより良い。
  */
-@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
-  .avatar-tab[aria-selected='true'] {
-    background: linear-gradient(180deg, #2472ba 0%, #16508a 100%);
-  }
-
-  .avatar-select__confirm .btn--primary,
-  .screen--avatar-confirm .screen__footer .btn--primary {
-    background: linear-gradient(180deg, rgba(42, 126, 205, 0.94) 0%, rgba(20, 86, 170, 0.96) 100%);
-  }
-}
+/*
+ * 以前はここに「backdrop-filter が効かない環境への備え」があった。
+ * 青ガラスの面は不透明な塗りで作るようになり、ぼかしに頼っていないので、
+ * 効かない環境でも色とコントラストは変わらない。備えは不要になった。
+ */

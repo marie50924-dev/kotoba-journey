@@ -7,8 +7,12 @@
   min-height: 100dvh;
   width: 100%;
   background: var(--c-paper);
-  padding: calc(var(--safe-top) + 8px) calc(var(--safe-right) + var(--gutter))
-    calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + var(--gutter));
+  /*
+   * 上の余白は、もどるボタンの光（最大 11px）が画面の縁で
+   * 直線に切られないだけの高さにする。以前は 8px で、光が切れていた。
+   */
+  padding: calc(var(--safe-top) + var(--glow-room)) calc(var(--safe-right) + var(--gutter))
+    calc(var(--safe-bottom) + var(--glow-room)) calc(var(--safe-left) + var(--gutter));
 }
 
 /* 縦スクロールさせない画面。 */
@@ -43,12 +47,28 @@
   flex: 0 0 auto;
 }
 
+/*
+ * 画面の本文。
+ *
+ * ここには「光の逃げ場」を最初から持たせておく。
+ *
+ * 画面ごとの指定で本文に overflow（hidden / auto）を足すことがあり、
+ * そのたびに逃げ場を足し忘れると、中のボタンの外周と光が
+ * その箱の縁で直線に切られる。実際、国紹介（.screen--intro）は
+ * 本文に overflow-y: auto があるのに逃げ場が無く、
+ * 下部の「この国でことばを集める」の左右が余裕0pxで切られていた。
+ *
+ * 余白を内側へ足し、同じだけ外へ引き戻す。本文の中身の位置と幅は変わらない。
+ */
 .screen__body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 10px 0 4px;
+  padding: 10px var(--glow-room) var(--glow-room);
+  margin-left: calc(var(--glow-room) * -1);
+  margin-right: calc(var(--glow-room) * -1);
+  margin-bottom: calc(var(--glow-room) * -1);
   min-height: 0;
 }
 
@@ -75,7 +95,8 @@
 
 .button-row {
   display: flex;
-  gap: 8px;
+  /* 隣のボタンの光（最大 11px）と重ならない間隔。 */
+  gap: 20px;
 }
 
 .button-row .btn {
@@ -84,10 +105,24 @@
 }
 
 /* ---- 選択系 ---- */
+/*
+ * 選択カードの並び。
+ *
+ * overflow-y: auto があるので、この箱は縦だけでなく横も切る
+ *   （片方の軸を visible 以外にすると、もう片方も auto になる）。
+ * 箱の左右はカードの端とぴったり同じ位置にあったため、
+ * カードの光がその線で切られ、丸いボタンの背後に四角い面が見えていた。
+ *
+ * 光のぶんの余白を内側へ足し、同じだけ外へ引き戻す。
+ * カードの位置と大きさは変わらず、光だけが切られなくなる。
+ * カードどうしの間も、両側の光（最大 11px）が重ならない広さにする。
+ */
 .option-grid {
   display: grid;
-  gap: 10px;
+  gap: 24px;
   overflow-y: auto;
+  padding: var(--glow-room);
+  margin: calc(var(--glow-room) * -1);
 }
 
 .option-card {
@@ -98,26 +133,21 @@
   width: 100%;
   min-height: 64px;
   padding: 12px 14px;
-  border: 2px solid transparent;
   border-radius: var(--radius-lg);
-  background: var(--c-paper-2);
-  box-shadow: 0 2px 8px rgba(16, 36, 58, 0.08);
   text-align: left;
 }
 
-.option-card.is-selected {
-  border-color: var(--c-accent);
-  background: #fff3e8;
-}
+/* 選択中の見た目は、下の「選択表示」でまとめて指定する。 */
 
 .option-card__label {
   font-size: 17px;
   font-weight: 800;
+  color: #fff;
 }
 
 .option-card__detail {
   font-size: 12px;
-  color: var(--c-ink-soft);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .option-card__level {
@@ -125,7 +155,7 @@
   margin-top: -18px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--c-accent);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .course-group {
@@ -143,24 +173,18 @@
 .chip-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 8px;
+  /* 隣のチップの光（最大 11px）と重ならない間隔。 */
+  gap: 20px;
 }
 
 .option-chip {
   min-height: var(--tap-min);
   padding: 8px 6px;
   border-radius: var(--radius);
-  border: 2px solid var(--c-line);
-  background: var(--c-paper-2);
   font-weight: 700;
   font-size: 14px;
   word-break: keep-all;
-}
-
-.option-chip.is-selected {
-  border-color: var(--c-accent);
-  background: #fff3e8;
-  color: var(--c-accent);
+  color: #fff;
 }
 
 /* ---- 世界マップ ---- */
@@ -185,6 +209,10 @@
   background: rgba(255, 255, 255, 0.34);
 }
 
+/*
+ * 行き先の印も選択ボタンなので、共通の青ガラス（base.css）にそろえる。
+ * 以前は白い面＋橙の印で、選択中も橙の輪だった。
+ */
 .map-pin {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -195,22 +223,24 @@
   min-width: var(--tap-min);
   min-height: var(--tap-min);
   padding: 4px 8px;
-  border: none;
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.9);
   font-size: 12px;
   font-weight: 700;
 }
 
 .map-pin__dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: var(--c-ink-soft);
+  display: grid;
+  place-items: center;
+  /* 行けない場所は、面と同じ青に沈めて目立たせない。 */
+  background: rgba(255, 255, 255, 0.4);
 }
 
+/* 行ける場所の印は、縁と同じ明るいシアン。 */
 .map-pin--open .map-pin__dot {
-  background: var(--c-accent);
+  background: rgb(192, 252, 255);
 }
 
 .map-pin--locked {
@@ -220,19 +250,31 @@
 
 .map-pin__lock {
   font-size: 10px;
-  color: var(--c-ink-soft);
+  color: rgba(255, 255, 255, 0.88);
 }
 
+/*
+ * 選んでいる行き先。縁と光を強め、チェックも出す。
+ * 色だけで選択状態を伝えない。
+ */
 .map-pin.is-selected {
-  outline: 3px solid var(--c-accent);
-  box-shadow: 0 4px 12px rgba(16, 36, 58, 0.25);
+  box-shadow: var(--glass-glow-on);
+}
+
+.map-pin.is-selected .map-pin__dot::after {
+  content: '✓';
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  color: #1a4fd8;
 }
 
 /* ---- 結果・パスポート ---- */
+/* 逃げ場は .screen__body が持っている。ここでは下の余白だけ足す。 */
 .screen--result .screen__body,
 .screen--passport .screen__body {
   overflow-y: auto;
-  padding-bottom: 12px;
+  padding-bottom: calc(var(--glow-room) + 12px);
 }
 
 .stat-grid {
@@ -443,7 +485,11 @@
 /* 320x568 では装飾を減らし、操作部を優先する。 */
 @media (max-width: 340px) {
   :root {
-    --gutter: 10px;
+    /*
+     * 狭い画面でも、ボタンの光（最大 11px）が画面の縁で直線に切られないだけ
+     * 空ける。以前は 10px で、左右の光が 1px ぶん切れていた。
+     */
+    --gutter: 12px;
   }
 
   .option-card {
@@ -464,3 +510,206 @@
   }
 }
 
+
+/* ===========================================================================
+ * 旅のページデザイン（ChatGPT指定）
+ *
+ * 対象は4画面だけ：
+ *   主人公確認 / コース入口 / コース選択（学年別など） / 枚数選択
+ * すべての指定を、この4つの画面クラスの下へ閉じ込めてある。
+ * 共通の .btn を無条件に上書きはしない（カルタ・表紙・他ページは変わらない）。
+ *
+ * 面の考え方
+ *   操作するもの（ボタン・選択カード・もどる）… 澄んだ明るい青のガラス
+ *   情報を載せるだけの面（人物情報・NPCの帯）… 白ガラスのまま
+ *
+ * 透けるのは面だけ。文字とボタン全体の opacity は 1 のまま下げない。
+ * ======================================================================== */
+
+.screen--avatar-confirm,
+.screen--course-entry,
+.screen--course-list,
+.screen--card-count {
+  /* 青ガラスの色。ここだけで持ち、個々の指定からは変数で引く。 */
+  --glass-top: rgba(160, 225, 255, 0.42);
+  --glass-bottom: rgba(95, 190, 245, 0.48);
+  --glass-on-top: rgba(110, 210, 255, 0.6);
+  --glass-on-bottom: rgba(65, 170, 240, 0.68);
+  --glass-ink: #103b5c;
+  --glass-edge: rgba(255, 255, 255, 0.9);
+  --glass-edge-on: #319ddd;
+  /* 影は淡い青。暗い紺色のにじみは使わない。 */
+  --glass-shadow: 0 4px 14px rgba(80, 170, 230, 0.28);
+  --glass-shadow-on: 0 6px 18px rgba(60, 160, 225, 0.32);
+
+  /*
+   * 背景は装飾の層。画面そのものの背景として敷くので、
+   * 文字・人物の画像にフィルタは掛からない。
+   * URL は TS 側が base 付きで --travel-bg へ入れる。
+   */
+  background-color: var(--c-paper);
+  background-image: var(--travel-bg);
+  background-position: center bottom;
+  background-size: cover;
+  background-repeat: no-repeat;
+  color: var(--glass-ink);
+}
+
+/* 見出し。狭い画面では現行の大きさを保ち、広い画面でだけ仕様の大きさへ寄せる。 */
+.screen--avatar-confirm .screen__title,
+.screen--course-entry .screen__title,
+.screen--course-list .screen__title,
+.screen--card-count .screen__title {
+  font-size: clamp(17px, 5.2vw, 22px);
+  font-weight: 700;
+  color: var(--glass-ink);
+}
+
+.screen--avatar-confirm .screen__lead,
+.screen--course-entry .screen__lead,
+.screen--course-list .screen__lead,
+.screen--card-count .screen__lead {
+  font-size: 14px;
+  color: #45647b;
+}
+
+.screen--avatar-confirm .note,
+.screen--course-entry .note,
+.screen--course-list .note,
+.screen--card-count .note {
+  color: #45647b;
+}
+
+.screen--course-list .course-group__title {
+  color: #45647b;
+}
+
+/* カード間の空き。 */
+.screen--course-entry .option-grid,
+.screen--card-count .option-grid {
+  gap: 24px;
+}
+
+/* ---- 情報を載せるだけの面：白ガラスのまま ------------------------------- */
+
+.screen--avatar-confirm .avatar-confirm,
+.screen--course-entry .npc-bar,
+.screen--course-list .npc-bar,
+.screen--card-count .npc-bar {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 4px 14px rgba(16, 59, 92, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.screen--avatar-confirm .avatar-confirm {
+  padding: 18px 16px 20px;
+  margin-top: 4px;
+}
+
+.screen--avatar-confirm .avatar-confirm__name {
+  color: var(--glass-ink);
+}
+
+.screen--avatar-confirm .avatar-confirm__kana,
+.screen--avatar-confirm .avatar-confirm__roman {
+  color: #45647b;
+}
+
+/* ---- 操作するもの：共通の青ガラス（base.css）にまかせる --------------- */
+
+/*
+ * 面・縁・光は base.css の青ガラスが全画面に当たっている。
+ * ここには、この4画面だけの「置き方」と「選択表示」だけを残す。
+ *
+ * 以前はこの場所に、この4画面専用の淡い水色のガラス
+ *   --glass-top: rgba(160,225,255,.42) / --glass-bottom: rgba(95,190,245,.48)
+ *   文字 #103b5c
+ * を持っていた。画面ごとに別の青が残らないよう、すべて取り除いてある。
+ */
+
+/* 大きな面の角の丸み。小さな操作は今までの丸みのまま。 */
+.screen--avatar-confirm .screen__footer .btn,
+.screen--course-entry .option-card--category,
+.screen--course-entry .trial-entry__btn,
+.screen--card-count .option-card--count {
+  border-radius: 20px;
+}
+
+/* 面の上の文字。白い文字を面の青で支える（黒い帯や下地は置かない）。 */
+.screen--course-entry .option-card__label,
+.screen--card-count .option-card__label {
+  color: #fff;
+}
+
+.screen--course-entry .option-card__detail,
+.screen--card-count .option-card__detail,
+.screen--card-count .option-card__level {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.screen--course-entry .trial-entry__btn,
+.screen--course-entry .npc-bar__btn {
+  color: #fff;
+}
+
+/*
+ * 枚数の選択表示。色だけで伝えないよう、チェックも併用する。
+ * チェックは CSS の content で描くので、読み上げ名と textContent には混ざらない。
+ */
+.screen--card-count .option-card--count {
+  position: relative;
+  padding-right: 52px;
+}
+
+.screen--card-count .option-card--count::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translateY(-50%);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  color: transparent;
+}
+
+.screen--card-count .option-card--count.is-selected::after {
+  content: '✓';
+  border-color: #fff;
+  background: #fff;
+  color: #1a4fd8;
+}
+
+/* 学年などのコース選択。選択中は縁を強め、チェックも出す。 */
+.screen--course-list .option-chip.is-selected {
+  position: relative;
+  padding-right: 24px;
+}
+
+.screen--course-list .option-chip.is-selected::after {
+  content: '✓';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+}
+
+/* 選択中は、共通の「強めた縁と光」にする。面の色は変えない。 */
+.option-card.is-selected,
+.option-chip.is-selected {
+  box-shadow: var(--glass-glow-on);
+}

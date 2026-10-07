@@ -10,3 +10,5 @@ coverage/
 *.log
 npm-debug.log*
 .vite/
+# スマホ確認用の自己署名証明書（tools/lan-server.mjs --https が作る）
+.cert/

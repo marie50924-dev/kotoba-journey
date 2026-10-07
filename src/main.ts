@@ -10,6 +10,7 @@ import { createApp } from './app/router';
 import { createBrowserStore } from './storage/safeStorage';
 import { LearningRecordStore } from './storage/learningRecord';
 import { createAudioService } from './services/audioService';
+import { createEffectService } from './services/effectService';
 import { createEntitlementService } from './services/entitlementService';
 
 const root = document.querySelector<HTMLElement>('#app');
@@ -21,9 +22,44 @@ const records = new LearningRecordStore(createBrowserStore());
 const audio = createAudioService();
 audio.setEnabled(records.get().audioEnabled);
 
+// 効果音は発音とは別の設定で動く。音声コンテキストの準備は
+// 自動再生の制限があるため、最初のユーザー操作のときに行う。
+const effects = createEffectService();
+effects.setEnabled(records.get().sfxEnabled);
+
+/*
+ * 画面のどこでもよいので、最初のユーザー操作で音声を使える状態にしておく。
+ *
+ * 札をさわったときだけ用意していると、1枚目と2枚目を続けてさわる操作では
+ * 解除が間に合わず、最初の正解が無音になることがある。
+ * 表紙の「旅をはじめる」など、もっと早い操作で済ませておく。
+ * 効果音がOFFのときは音声を作らない（OFFから入れ直したときは、
+ * 切り替えそのものが操作なので、そちらで用意される）。
+ */
+function warmUpAudio(): void {
+  window.removeEventListener('pointerdown', warmUpAudio, true);
+  window.removeEventListener('keydown', warmUpAudio, true);
+  if (!effects.isEnabled()) return;
+  void effects.prepare();
+}
+window.addEventListener('pointerdown', warmUpAudio, true);
+window.addEventListener('keydown', warmUpAudio, true);
+
+/*
+ * 別のアプリへ移って戻ると、音声が止まったままになる端末がある。
+ * 画面が見える状態へ戻ったときに、もう一度動かし直す。
+ * ここでの失敗は無視される（端末が非対応とは扱わない）。
+ */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!effects.isEnabled()) return;
+  void effects.prepare();
+});
+
 createApp({
   root,
   records,
   audio,
+  effects,
   entitlements: createEntitlementService(),
 });

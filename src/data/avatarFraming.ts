@@ -37,7 +37,15 @@ export const AVATAR_HEAD_SHIFT: Readonly<Record<string, number>> = {
   'adult-m-08': 7.1,
   'elementary-f-01': 2.47,
   'elementary-f-02': 3.35,
-  'elementary-f-03': 5.26,
+  /*
+   * 陽菜は描き直しPNGへ差し替えたので測り直した。
+   *   新しい画像の頭のてっぺん = 3.19%（旧画像は 2.79%）
+   * さらに、この人だけ表示を 1.15 倍にしている（AVATAR_DISPLAY_SCALE）。
+   * 拡大は画像の上端を基準に掛かるので、頭のてっぺんも 1.15 倍の位置へ下がる。
+   * そのぶんを引いて、ほかの79人と同じ 8.05% の高さに頭がそろうようにする。
+   *   8.05 - 3.19 × 1.15 = 4.38
+   */
+  'elementary-f-03': 4.38,
   'elementary-f-04': 6.54,
   'elementary-f-05': 5.34,
   'elementary-f-06': 8.05,
@@ -100,6 +108,33 @@ export const AVATAR_HEAD_SHIFT: Readonly<Record<string, number>> = {
   'university-m-07': 5.42,
   'university-m-08': 4.94,
 };
+
+/**
+ * 一覧でだけ掛ける、人物ごとの表示倍率。
+ *
+ * 画像の中で人物が占める割合は1枚ずつ違う。同じ枠に並べると、
+ * 引きで描かれている人は顔が小さく見える。その差を表示側で埋める。
+ *
+ * 原本のPNGは変更しない。ここで指定するのは見せ方だけで、
+ * 拡大は「上中央を基準」に掛かる（頭のてっぺんの位置は
+ * AVATAR_HEAD_SHIFT 側で引き算して、ほかの人とそろえてある）。
+ *
+ * 表に無い人は 1（＝等倍）。いまの指定は陽菜1人だけで、
+ * ほかの79人の見え方は変わらない。
+ *
+ * elementary-f-03（百瀬陽菜／ひな）
+ *   差し替え後の画像は人物が小さめに写っており、並べると顔が小さく見える。
+ *   ChatGPT側のデザイン指定により 1.15 倍で表示する。
+ */
+export const AVATAR_DISPLAY_SCALE: Readonly<Record<string, number>> = {
+  'elementary-f-03': 1.15,
+};
+
+/** 画像キーに対する表示倍率。表に無ければ 1（＝等倍）。 */
+export function avatarDisplayScale(imageKey: string | null): number {
+  if (imageKey === null) return 1;
+  return AVATAR_DISPLAY_SCALE[imageKey] ?? 1;
+}
 
 /** 画像キーに対する下げ量。表に無ければ 0（＝下げない）。 */
 export function avatarHeadShift(imageKey: string | null): number {

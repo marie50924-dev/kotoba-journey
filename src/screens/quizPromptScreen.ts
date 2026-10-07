@@ -100,7 +100,7 @@ export function quizPromptScreen(ctx: AppContext): HTMLElement {
       el('p', { class: 'note', text: UI.quiz.promptDetail }),
       el('div', { class: 'screen__footer screen__footer--stack' }, [
         button(UI.actions.takeQuiz, takeQuiz, { class: 'btn btn--primary btn--large' }),
-        button(UI.actions.skipQuiz, skipQuiz, { class: 'btn' }),
+        button(UI.actions.skipQuiz, skipQuiz, { class: 'btn btn--soft' }),
       ]),
     ],
   );

@@ -77,7 +77,9 @@ export function waveQuizScreen(ctx: AppContext): HTMLElement {
     class: 'btn btn--primary btn--large quiz__next',
   });
 
-  const skipButton = button(UI.actions.skipQuiz, () => skipAll(), { class: 'btn quiz__skip' });
+  const skipButton = button(UI.actions.skipQuiz, () => skipAll(), {
+    class: 'btn quiz__skip btn--soft',
+  });
   // 回答を確定したあとは、進む操作を「つぎへ」1つに絞る。
   // 回答前と案内画面ではスキップできるままにする。
   const skipRow = el('div', { class: 'quiz__skip-row' }, [skipButton]);

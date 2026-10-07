@@ -8,6 +8,7 @@ import {
 } from '../data/avatars';
 import { avatarThumb } from '../components/avatarThumb';
 import { screenShell } from '../components/screenShell';
+import { withTravelBackdrop } from '../components/travelBackdrop';
 import type { AppContext } from '../app/state';
 
 /**
@@ -36,7 +37,7 @@ export function avatarConfirmScreen(ctx: AppContext): HTMLElement {
     ctx.navigate({ name: 'courseEntry' });
   }
 
-  return screenShell(
+  return withTravelBackdrop(screenShell(
     {
       title: UI.avatar.confirmHeading,
       lead: UI.avatar.confirmQuestion,
@@ -56,5 +57,5 @@ export function avatarConfirmScreen(ctx: AppContext): HTMLElement {
         button(UI.avatar.chooseAgain, () => ctx.navigate({ name: 'avatarSelect' }), { class: 'btn' }),
       ]),
     ],
-  );
+  ));
 }

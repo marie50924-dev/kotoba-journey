@@ -74,7 +74,16 @@ export interface LearningRecord {
   selectedCourseId: string | null;
   visitedCountryIds: string[];
   history: PlayHistoryEntry[];
+  /**
+   * 発音（英語の読み上げ）のON/OFF。
+   * 既存キーをそのまま使い続けるので、過去の保存データはこの値を引き継ぐ。
+   */
   audioEnabled: boolean;
+  /**
+   * 効果音（正解・不正解の短い音）のON/OFF。発音とは別の設定。
+   * この項目が無い過去の保存データは、既定の true で読み込む。
+   */
+  sfxEnabled: boolean;
 
   // ---- title-tour 版 version 2 由来 ----
   /**
@@ -119,6 +128,7 @@ export function createEmptyRecord(): LearningRecord {
     visitedCountryIds: [],
     history: [],
     audioEnabled: true,
+    sfxEnabled: true,
     characterAgeGroup: null,
     quizHistory: [],
     seenTravelIntros: [],
@@ -306,6 +316,8 @@ export function parseRecord(raw: string | null): LearningRecord {
     visitedCountryIds: asStringArray(data.visitedCountryIds),
     history: asHistory(data.history),
     audioEnabled: asBoolean(data.audioEnabled, empty.audioEnabled),
+    // 効果音の設定は後から足した項目。無ければ既定の ON で読む（後方互換）。
+    sfxEnabled: asBoolean(data.sfxEnabled, empty.sfxEnabled),
 
     // title-tour 版 version 2 のフィールド。v1 や avatar-chat 版には無いので初期値で補う。
     characterAgeGroup: isAgeGroup(data.characterAgeGroup) ? data.characterAgeGroup : null,
@@ -500,8 +512,14 @@ export class LearningRecordStore {
   clear(): LearningRecord {
     // 音声設定・選んだキャラクター・演出設定は端末の設定として残し、
     // 学習記録だけ初期化する。
-    const { audioEnabled, selectedAvatarId, skipTravelAnimation } = this.record;
-    this.record = { ...createEmptyRecord(), audioEnabled, selectedAvatarId, skipTravelAnimation };
+    const { audioEnabled, sfxEnabled, selectedAvatarId, skipTravelAnimation } = this.record;
+    this.record = {
+      ...createEmptyRecord(),
+      audioEnabled,
+      sfxEnabled,
+      selectedAvatarId,
+      skipTravelAnimation,
+    };
     this.persist();
     return this.record;
   }

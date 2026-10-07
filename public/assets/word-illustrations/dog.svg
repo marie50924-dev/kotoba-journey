@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-hidden="true">
+  <!-- 確認用イラスト：いぬ。簡潔な図形だけで描いている。 -->
+  <ellipse cx="26" cy="58" rx="12" ry="22" fill="#8a5a33"/>
+  <ellipse cx="94" cy="58" rx="12" ry="22" fill="#8a5a33"/>
+  <circle cx="60" cy="62" r="34" fill="#b67a44"/>
+  <ellipse cx="60" cy="82" rx="20" ry="14" fill="#e2c49c"/>
+  <circle cx="48" cy="56" r="5.5" fill="#2b1f14"/>
+  <circle cx="72" cy="56" r="5.5" fill="#2b1f14"/>
+  <ellipse cx="60" cy="76" rx="8" ry="6" fill="#2b1f14"/>
+  <path d="M60 82 v8 M60 90 q-8 6 -14 0 M60 90 q8 6 14 0" stroke="#2b1f14" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

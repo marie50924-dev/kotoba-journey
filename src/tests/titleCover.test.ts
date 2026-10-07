@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import titleCssInline from '../styles/title.css?inline';
+import baseCssInline from '../styles/base.css?inline';
 import titleScreenSource from '../screens/titleScreen.ts?raw';
 import titleIconsSource from '../components/titleIcons.ts?raw';
 import {
@@ -282,19 +283,49 @@ describe('表紙の CSS', () => {
     expect(primaryMin).toBeGreaterThan(44);
   });
 
-  it('副操作は採用見本と同じく、白い輪郭の透けたピル型', () => {
+  it('副操作もピル型のまま（寸法と並びは変えない）', () => {
+    /*
+     * 以前は「白い輪郭の透けたピル型（塗りは半透明、文字に影）」を求めていた。
+     * いまの指定で、副操作もほかの操作と同じ青ガラスにそろえる。
+     * 面・縁・光・文字色は base.css が持つので、ここでは形と寸法だけを見る。
+     */
     const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/);
     expect(sub, '.t-sub-btn の指定が無い').not.toBeNull();
-    // 中は透けて背景の絵が見える。白い輪郭と白い文字。
-    expect(sub![0]).toMatch(/border:\s*[\d.]+px solid rgba\(255, 255, 255/);
-    expect(sub![0]).toContain('color: #fff');
-    // 塗りの色はどれも半透明。不透明な色を1つでも置いたら落ちる。
-    const bg = sub![0].match(/background:[\s\S]*?;/)?.[0] ?? '';
-    const bgAlphas = [...bg.matchAll(/rgba\([^)]*?,\s*([\d.]+)\)/g)].map((m) => Number(m[1]));
-    expect(bgAlphas.length, '副ボタンの塗りに色が無い').toBeGreaterThan(0);
-    expect(Math.max(...bgAlphas), '副ボタンの塗りが濃すぎて背景が透けない').toBeLessThanOrEqual(0.4);
-    // 絵の上でも読めるよう、文字に影を付ける。
-    expect(sub![0]).toContain('text-shadow');
+    expect(sub![0], '丸い端でない').toContain('border-radius: 999px');
+    expect(sub![0], '高さの下限が無い').toContain('min-height: var(--sub-h)');
+    expect(sub![0], '文字が折り返す').toContain('white-space: nowrap');
+  });
+
+  /*
+   * ボタンの面・縁・光は base.css の共通の青ガラスが持つ。
+   * この画面の指定（title.css）は寸法と並びだけを持つ。
+   */
+  const baseCss = String(baseCssInline);
+  /** 共通の青ガラスの、変数の中身をまとめて1つの文字列にする。 */
+  const glassVar = (name: string): string => {
+    const m = baseCss.match(new RegExp(`--${name}:([\\s\\S]*?);`));
+    expect(m, `共通の青ガラスに --${name} が無い`).not.toBeNull();
+    return (m as RegExpMatchArray)[1];
+  };
+
+  it('表紙のボタンは、画面ごとの別の青を持たない（共通の青ガラスにそろえる）', () => {
+    /*
+     * 以前は表紙だけが
+     *   background-color: rgb(2,96,250) ＋ 5層のグラデーション
+     *   box-shadow 11段 / text-shadow 3段
+     * を持っていた。指定は base.css の1か所へ移してある。
+     */
+    for (const sel of ['.t-start', '.t-sub-btn']) {
+      const m = titleCss.match(new RegExp(`\\${sel}\\s*\\{[^}]*\\}`));
+      expect(m, `${sel} の指定が無い`).not.toBeNull();
+      const decls = (m as RegExpMatchArray)[0];
+      expect(decls, `${sel} に独自の面が残っている`).not.toMatch(/background(-color|-image)?:/);
+      expect(decls, `${sel} に独自の縁と光が残っている`).not.toMatch(/box-shadow:/);
+      expect(decls, `${sel} に文字の下の暗い影が残っている`).not.toMatch(/text-shadow:/);
+      expect(decls, `${sel} に独自の backdrop-filter が残っている`).not.toMatch(/backdrop-filter:/);
+      // 丸い端は保つ（基準画像のボタンは角丸が高さの半分）。
+      expect(decls, `${sel} が丸い端でない`).toContain('border-radius: 999px');
+    }
   });
 
   /*
@@ -335,7 +366,8 @@ describe('表紙の CSS', () => {
       );
 
     it('主ボタンの塗りは、赤がほとんど無い澄んだ青である', () => {
-      const bg = start().match(/background-color:[\s\S]*?;\s*background-image:[\s\S]*?;/)?.[0];
+      // 塗りは共通の青ガラス（--glass-base と --glass-face）が持つ。
+      const bg = `${glassVar('glass-base')};${glassVar('glass-face')}`;
       expect(bg, '主ボタンの塗りの指定が無い').toBeTruthy();
       // 不透明に近い色（a >= 0.5）だけを見る。淡い雲や水色の差し色は対象外。
       // 地の色だけを見る（淡い雲や差し色の半透明は対象外）。
@@ -350,7 +382,7 @@ describe('表紙の CSS', () => {
 
     it('主ボタンの下端を暗くしていない（見本は下も鮮やかなまま）', () => {
       // 地の色の縦のグラデーション。最後の色が真ん中の色より暗ければ落とす。
-      const base = start().match(/linear-gradient\(\s*180deg,([\s\S]*?)\)\s*;/)?.[1];
+      const base = glassVar('glass-face').match(/linear-gradient\(([\s\S]*)\)/)?.[1];
       expect(base, '主ボタンの地のグラデーションが無い').toBeTruthy();
       const stops = colors(base!);
       expect(stops.length, '地の色が少なすぎる').toBeGreaterThanOrEqual(3);
@@ -363,9 +395,10 @@ describe('表紙の CSS', () => {
     });
 
     it('主ボタンの縁は硬い白枠ではなく、水色の細い線である', () => {
-      const ring = start().match(/box-shadow:[\s\S]*?;/)?.[0].match(/0 0 0 ([\d.]+)px (rgba?\([^)]*\))/);
+      const ring = glassVar('glass-glow').match(/0 0 0 ([\d.]+)px (rgba?\([^)]*\))/);
       expect(ring, '主ボタンのいちばん外の輪が無い').not.toBeNull();
       expect(Number(ring![1]), '輪が太すぎて硬い枠に見える').toBeLessThanOrEqual(1.5);
+      expect(Number(ring![1]), '輪が細すぎて見えない').toBeGreaterThan(0);
       const [r, g, b] = colors(ring![2])[0];
       // 白 rgb(255,255,255) ではなく、青に寄った水色。
       expect(b, `縁 rgb(${r},${g},${b}) が水色でない`).toBeGreaterThanOrEqual(240);
@@ -373,13 +406,21 @@ describe('表紙の CSS', () => {
     });
 
     it('主ボタンの外へ広がる光は、白い靄ではなく青い光である', () => {
-      const shadow = start().match(/box-shadow:[\s\S]*?;/)?.[0] ?? '';
+      const shadow = glassVar('glass-glow');
       // inset を除いた、外へ広がる影のうち、ぼかしが 4px 以上のもの。
-      const outer = splitTop(shadow.replace(/^box-shadow:/, '').replace(/;$/, ''))
+      const outer = splitTop(shadow)
         .map((t) => t.replace(/\s+/g, ' ').trim())
         .filter((t) => !t.startsWith('inset') && /^0 0 [\d.]+px/.test(t));
-      const glows = outer.filter((t) => Number(t.match(/^0 0 ([\d.]+)px/)![1]) >= 4);
+      /*
+       * 光の広さは基準画像の実測（縁から 3〜4px が濃く、6px で消える）に
+       * 合わせて詰めてあるので、ぼけ幅 3px 以上のものを数える。
+       */
+      const glows = outer.filter((t) => Number(t.match(/^0 0 ([\d.]+)px/)![1]) >= 3);
       expect(glows.length, '外へ広がる光が無い').toBeGreaterThanOrEqual(3);
+      // 広げすぎない（広い光は親要素の縁で直線に切られ、四角く見える）。
+      for (const g of glows) {
+        expect(Number(g.match(/^0 0 ([\d.]+)px/)![1]), `外の光 ${g} が広すぎる`).toBeLessThanOrEqual(12);
+      }
       for (const g of glows) {
         const [r, gg, b] = colors(g)[0];
         expect(b - r, `外の光 rgb(${r},${gg},${b}) が青くない（白い靄になっている）`).toBeGreaterThanOrEqual(
@@ -388,8 +429,54 @@ describe('表紙の CSS', () => {
       }
     });
 
-    it('読みやすさは、塗りの濃さではなく文字の影とボタン直下の暗さで確保している', () => {
-      expect(start()).toContain('text-shadow');
+    /*
+     * 以前の指定は .t-start に
+     *   0 1px 2px rgba(2,16,52,.85) / 0 0 7px rgba(2,18,60,.62) / 0 0 14px rgba(2,18,60,.38)
+     * の3枚を重ね、白い文字の読みやすさをその影で確保していた。
+     *
+     * 1文字ずつなら輪郭の影でも、「旅をはじめる」のように字画の詰まった
+     * 和文が並ぶと、字と字のすきまで3枚が溶け合って一続きの暗い面になる。
+     * 影を消した描画との差を画素で測ると（Chromium・デバイス比2）、
+     *   393x852  x 133.4〜271.9 / y 682.1〜707.6 CSSpx（＝文字列の箱そのもの）
+     *   320x568  x 115.8〜213.3 / y 432.1〜451.6 CSSpx
+     * の長方形にぴったり収まり、最大で輝度 57.9〜58.3 ぶん暗かった。
+     * これが「文字の背後の黒い四角」。
+     *
+     * 白い文字の背後はボタン全体の青で支えるので、主ボタンには
+     * 暗い文字影を持たせない。地の青が文字の高さで 4.5:1 を満たすことは
+     * buttonTheme.test.ts が別に見ている。
+     */
+    it('主ボタンは文字の下に暗い面を敷かない（読みやすさは青の面で支える）', () => {
+      const shadow = start().match(/text-shadow:[\s\S]*?;/)?.[0] ?? '';
+      const darkInk = colors(shadow).filter(
+        (c) => 0.213 * c[0] + 0.715 * c[1] + 0.072 * c[2] < 110 && c[3] > 0.12,
+      );
+      expect(darkInk.length, `主ボタンに暗い文字影が残っている: ${shadow}`).toBe(0);
+    });
+
+    it('副ボタンも、文字の下に暗い面を敷かない（読みやすさは青の面で支える）', () => {
+      /*
+       * 以前は「文字の影とボタン直下の暗さで読みやすさを確保する」としていた。
+       * その影は、字間で溶け合って文字列の形の黒い四角になっていた
+       *   （393x852 実測 x 90.1〜322.6 / y 766.0〜783.5、最大 輝度 79.3）。
+       * いまは白い文字を面の青で支える。
+       */
+      const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/)![0];
+      expect(sub, '副ボタンに文字の影が残っている').not.toMatch(/text-shadow:/);
+      const glow = glassVar('glass-glow');
+      // 共通の青ガラスには、ボタン直下を締める影がある（縦のずれがあって暗い）。
+      const down = splitTop(glow)
+        .map((t) => t.replace(/\s+/g, ' ').trim())
+        .filter((t) => /^0 [\d.]+px [\d.]+px/.test(t) && !t.startsWith('inset'));
+      expect(down.length, 'ボタン直下を締める影が無い').toBeGreaterThan(0);
+      const dark = down.some((t) => {
+        const c = colors(t)[0];
+        return c && 0.213 * c[0] + 0.715 * c[1] + 0.072 * c[2] < 60 && c[3] >= 0.25;
+      });
+      expect(dark, 'ボタン直下の影が薄すぎる').toBe(true);
+    });
+
+    it.skip('副ボタンの読みやすさは、文字の影とボタン直下の暗さで確保している（旧指定・置き換え済み）', () => {
       const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/)![0];
       expect(sub).toContain('text-shadow');
       // 副ボタンの直下だけを暗くする影（縦のずれがあって、色が暗い）。
@@ -409,7 +496,20 @@ describe('表紙の CSS', () => {
       expect(dark, '副ボタンの直下の影が薄すぎる').toBe(true);
     });
 
-    it('副ボタンは背景を取り込んで青いガラスにする（塗りつぶさない）', () => {
+    it('画面ごとの別の青が、title.css に残っていない', () => {
+      /*
+       * 以前は副ボタンだけが backdrop-filter で背後を青へ振っていた。
+       * 面は共通の青ガラス1か所で持つので、ここに色の指定は残らない。
+       */
+      expect(titleCss, 'title.css にボタンの面の色が残っている').not.toMatch(
+        /\.t-(start|sub-btn)\s*\{[^}]*background/,
+      );
+      expect(titleCss, 'title.css にボタンの backdrop-filter が残っている').not.toMatch(
+        /\.t-(start|sub-btn)\s*\{[^}]*backdrop-filter/,
+      );
+    });
+
+    it.skip('副ボタンは背景を取り込んで青いガラスにする（旧指定・置き換え済み）', () => {
       const sub = titleCss.match(/\.t-sub-btn\s*\{[^}]*\}/)![0];
       expect(sub, 'backdrop-filter が無い').toContain('backdrop-filter:');
       expect(sub, '-webkit- の指定が無い').toContain('-webkit-backdrop-filter:');

@@ -17,12 +17,14 @@ import { passportScreen } from '../screens/passportScreen';
 import { settingsScreen } from '../screens/settingsScreen';
 import type { LearningRecordStore } from '../storage/learningRecord';
 import type { AudioService } from '../services/audioService';
+import type { EffectService } from '../services/effectService';
 import type { EntitlementService } from '../services/entitlementService';
 
 export interface AppDependencies {
   root: HTMLElement;
   records: LearningRecordStore;
   audio: AudioService;
+  effects: EffectService;
   entitlements: EntitlementService;
 }
 
@@ -38,6 +40,7 @@ export function createApp(deps: AppDependencies): AppContext {
   const ctx: AppContext = {
     records: deps.records,
     audio: deps.audio,
+    effects: deps.effects,
     entitlements: deps.entitlements,
     selection: createSelection(),
     lastResult: null,
@@ -102,6 +105,8 @@ function renderRoute(ctx: AppContext, route: Route): HTMLElement {
       return countryIntroScreen(ctx);
     case 'karta':
       return kartaScreen(ctx);
+    case 'trialKarta':
+      return kartaScreen(ctx, { trial: true });
     case 'result':
       return resultScreen(ctx);
     // 以下3画面は FEATURES.waveQuiz = false のため通常導線からは到達しない。

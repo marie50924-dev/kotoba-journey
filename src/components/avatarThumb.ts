@@ -1,5 +1,5 @@
 import { el } from '../app/dom';
-import { avatarHeadShift } from '../data/avatarFraming';
+import { avatarDisplayScale, avatarHeadShift } from '../data/avatarFraming';
 import {
   AGE_GROUP_COLOR,
   AGE_GROUP_IMAGE_BACKGROUND,
@@ -98,7 +98,12 @@ export function avatarThumb(
          * 画像そのものから測った値で、画像キーだけで決まる。
          * 使うのは一覧のCSSだけ。ほかの画面では読まれないので影響はない。
          */
-        `--avatar-head-shift:${avatarHeadShift(avatar.imageKey)}`,
+        `--avatar-head-shift:${avatarHeadShift(avatar.imageKey)};` +
+        /*
+         * 一覧でだけ掛ける表示倍率。画像キーだけで決まる。
+         * 既定は 1 なので、指定のない人の見え方は変わらない。
+         */
+        `--avatar-scale:${avatarDisplayScale(avatar.imageKey)}`,
     },
     [fallback],
   );

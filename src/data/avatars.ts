@@ -181,6 +181,24 @@ function assetUrl(path: string): string {
 }
 
 /**
+ * 固定の `<imageKey>.webp` ではなく、別のファイルを使う人の対応表。
+ *
+ * 全員ぶんの画像は `<imageKey>.webp` という同じ形で並んでいる。
+ * 描き直しを受け取った人だけを、ここで名指しして例外にする。
+ * ここに書かれていない人は、これまでどおり .webp を読む。
+ *
+ * elementary-f-03（百瀬陽菜／ひな）
+ *   ChatGPT側で描き直した透過画像を受け取ったので、この人だけ差し替える。
+ *   読むのは配信用の軽量版（512×512 の可逆WebP）。
+ *   原本の 1254×1254 PNG と、旧 elementary-f-03.webp は消さずに残してある。
+ *   名前・読み・ID・保存データは変更していない。
+ *   同じ区分の elementary-f-07（高橋小春／こはる）は対象外で、.webp のまま。
+ */
+const REPLACEMENT_IMAGE_FILES: Readonly<Record<string, string>> = {
+  'elementary-f-03': 'elementary-f-03-replacement-v1-light-v1.webp',
+};
+
+/**
  * 主人公の画像URL。
  *
  * imageKey が未設定（納品前）のときと、安全でないキーが入っているときは null を返す。
@@ -188,6 +206,8 @@ function assetUrl(path: string): string {
  */
 export function avatarImageUrl(avatar: Pick<AvatarDefinition, 'imageKey'>): string | null {
   if (!isSafeImageKey(avatar.imageKey)) return null;
+  const replacement = REPLACEMENT_IMAGE_FILES[avatar.imageKey];
+  if (replacement !== undefined) return assetUrl(`assets/avatars/${replacement}`);
   return assetUrl(`assets/avatars/${avatar.imageKey}.webp`);
 }
 

@@ -26,7 +26,9 @@ export function screenShell(options: ShellOptions, body: (HTMLElement | null)[])
   if (options.variant) classes.push(options.variant);
 
   const header = el('header', { class: 'screen__header' }, [
-    options.onBack ? button(UI.actions.back, options.onBack, { class: 'btn btn--ghost btn--back' }) : null,
+    options.onBack
+      ? button(UI.actions.back, options.onBack, { class: 'btn btn--ghost btn--back btn--soft' })
+      : null,
     options.title
       ? el(
           'h1',

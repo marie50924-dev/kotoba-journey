@@ -207,6 +207,24 @@ npm run build   # 型チェック + 本番ビルド（dist/ へ出力）
 npm run preview # ビルド結果の確認
 ```
 
+### スマートフォンで確認する
+
+同じWi-Fiにつないだスマートフォンから開いて確かめられます。
+インターネットへは公開せず、同じLANの中だけに配ります。
+
+```bash
+npm run build          # 先にビルドしておく
+npm run serve:phone    # 表示されたアドレスをスマホのブラウザに入力する
+```
+
+```bash
+npm run dev:phone        # 直したそばから反映したいとき（開発サーバーをLANへ出す）
+npm run serve:phone:https # https で試したいとき（自己署名の証明書をその場で作る）
+```
+
+手順のくわしい説明・つながらないときの確認・スマホで試すと良いところは
+[docs/SMARTPHONE_LOCAL.md](docs/SMARTPHONE_LOCAL.md) にまとめています。
+
 ### テスト方法
 
 ```bash

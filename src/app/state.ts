@@ -3,6 +3,7 @@ import type { CourseCategoryId } from '../data/courses';
 import type { QuizOutcome, QuizQuestion } from '../domain/waveQuiz';
 import type { LearningRecordStore } from '../storage/learningRecord';
 import type { AudioService } from '../services/audioService';
+import type { EffectService } from '../services/effectService';
 import type { EntitlementService } from '../services/entitlementService';
 
 /**
@@ -22,6 +23,11 @@ export type Route =
   | { name: 'travel' }
   | { name: 'countryIntro' }
   | { name: 'karta' }
+  /**
+   * イラスト付きの体験入口（ローカル確認版だけの独立した体験）。
+   * 通常のコース・語彙・出題範囲は変えない。学習記録も書き込まない。
+   */
+  | { name: 'trialKarta' }
   | { name: 'result' }
   | { name: 'quizPrompt' }
   | { name: 'quiz' }
@@ -59,6 +65,8 @@ export interface QuizContext {
 export interface AppContext {
   readonly records: LearningRecordStore;
   readonly audio: AudioService;
+  /** 効果音と振動。発音（audio）とは独立した設定で動く。 */
+  readonly effects: EffectService;
   readonly entitlements: EntitlementService;
   selection: PlaySelection;
   lastResult: PlayResult | null;

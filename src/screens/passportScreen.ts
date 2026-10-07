@@ -83,7 +83,9 @@ export function passportScreen(ctx: AppContext): HTMLElement {
       section(UI.passport.recentPlays, history),
       el('p', { class: 'note', text: UI.passport.privacy }),
       el('div', { class: 'screen__footer' }, [
-        button(UI.actions.settings, () => ctx.navigate({ name: 'settings' }), { class: 'btn' }),
+        button(UI.actions.settings, () => ctx.navigate({ name: 'settings' }), {
+          class: 'btn btn--soft',
+        }),
       ]),
     ],
   );

@@ -13,7 +13,9 @@ import type { AppContext } from '../app/state';
 export function settingsScreen(ctx: AppContext): HTMLElement {
   const status = el('p', { class: 'note', role: 'status' });
   const audioSupported = ctx.audio.isSupported();
+  const sfxSupported = ctx.effects.isSupported();
 
+  // 発音（英語の読み上げ）のON/OFF。効果音とは別のスイッチ。
   const toggle = el('button', {
     type: 'button',
     class: 'toggle',
@@ -32,9 +34,36 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
     const next = !ctx.records.get().audioEnabled;
     ctx.records.update((record) => ({ ...record, audioEnabled: next }));
     ctx.audio.setEnabled(next);
+    // OFF へ切り替えたら、読み上げ中の音声はその場で止める。
+    if (!next) ctx.audio.stop();
     renderToggle();
   });
   renderToggle();
+
+  // 効果音（正解・不正解の短い音）のON/OFF。発音とは独立して保存する。
+  const sfxToggle = el('button', {
+    type: 'button',
+    class: 'toggle',
+    'aria-pressed': String(ctx.records.get().sfxEnabled),
+    disabled: !sfxSupported,
+  });
+
+  function renderSfxToggle(): void {
+    const enabled = ctx.records.get().sfxEnabled;
+    sfxToggle.textContent = enabled ? UI.settings.audioOn : UI.settings.audioOff;
+    sfxToggle.classList.toggle('is-on', enabled);
+    sfxToggle.setAttribute('aria-pressed', String(enabled));
+  }
+
+  sfxToggle.addEventListener('click', () => {
+    const next = !ctx.records.get().sfxEnabled;
+    ctx.records.update((record) => ({ ...record, sfxEnabled: next }));
+    ctx.effects.setEnabled(next);
+    if (!next) ctx.effects.stop();
+    else void ctx.effects.prepare();
+    renderSfxToggle();
+  });
+  renderSfxToggle();
 
   const clearButton = button(
     UI.actions.clearRecord,
@@ -47,6 +76,7 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
       ctx.lastResult = null;
       status.textContent = UI.settings.cleared;
       renderToggle();
+      renderSfxToggle();
     },
     { class: 'btn btn--danger' },
   );
@@ -86,10 +116,15 @@ export function settingsScreen(ctx: AppContext): HTMLElement {
       button(UI.avatar.change, () => ctx.navigate({ name: 'avatarSelect' }), { class: 'btn' }),
     ]),
     el('div', { class: 'setting-row' }, [
-      el('span', { class: 'setting-row__label', text: UI.settings.audio }),
+      el('span', { class: 'setting-row__label', text: UI.settings.pronounce }),
       toggle,
     ]),
     !audioSupported ? el('p', { class: 'note', text: UI.settings.unsupportedAudio }) : null,
+    el('div', { class: 'setting-row' }, [
+      el('span', { class: 'setting-row__label', text: UI.settings.soundEffects }),
+      sfxToggle,
+    ]),
+    !sfxSupported ? el('p', { class: 'note', text: UI.settings.unsupportedSfx }) : null,
     el('div', { class: 'setting-row' }, [
       el('span', { class: 'setting-row__label', text: UI.settings.travelAnimation }),
       travelToggle,

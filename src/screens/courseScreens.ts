@@ -1,9 +1,10 @@
-import { el } from '../app/dom';
+import { el, button } from '../app/dom';
 import { UI } from '../data/strings';
 import { COURSE_CATEGORIES, categoryLabel, groupedCourses } from '../data/courses';
 import type { CourseCategoryId } from '../data/courses';
 import { screenShell } from '../components/screenShell';
 import { npcBar } from '../components/npcBar';
+import { withTravelBackdrop } from '../components/travelBackdrop';
 import type { AppContext } from '../app/state';
 
 /** コース入口。学年別 / ステップ別 / 社会人 の3分類。 */
@@ -27,18 +28,32 @@ export function courseEntryScreen(ctx: AppContext): HTMLElement {
     });
   });
 
-  return screenShell(
+  return withTravelBackdrop(screenShell(
     {
       title: UI.courseEntry.heading,
       lead: UI.courseEntry.lead,
       onBack: () => ctx.back(),
+      // 旅のページデザインを当てる画面。CSS をこの画面だけに限るために付ける。
+      variant: 'screen--course-entry',
     },
     [
       el('div', { class: 'option-grid' }, cards),
+      /*
+       * イラスト付きの体験入口。
+       * 通常のコース（学年別・ステップ別・社会人の3分類）とは別の独立した入口で、
+       * 語彙セットも出題範囲も変えない。学習記録にも書き込まない。
+       * 分類カード（.option-card--category）の数は3のままにしてある。
+       */
+      el('div', { class: 'trial-entry' }, [
+        button(UI.karta.trialHeading, () => ctx.navigate({ name: 'trialKarta' }), {
+          class: 'btn trial-entry__btn btn--soft',
+        }),
+        el('p', { class: 'trial-entry__note note', text: UI.karta.trialLead }),
+      ]),
       // NPC はここで挨拶する。会話は「はなしかける」で開く。
       npcBar(ctx, { screen: 'course', trigger: 'course' }),
     ],
-  );
+  ));
 }
 
 /**
@@ -76,16 +91,18 @@ export function courseListScreen(ctx: AppContext, categoryId: CourseCategoryId):
     ]);
   });
 
-  return screenShell(
+  return withTravelBackdrop(screenShell(
     {
       title: categoryLabel(categoryId),
+      // 旅のページデザインを当てる画面。CSS をこの画面だけに限るために付ける。
+      variant: 'screen--course-list',
       // ステップ別は、いまどのステップも同じことばを使う。先に伝えておく。
       // ほかの分類には出さない。
       lead: categoryId === 'exam' ? UI.courseList.stepsPreparing : undefined,
       onBack: () => ctx.back(),
     },
     groups,
-  );
+  ));
 }
 
 /** 枚数選択。選択中の項目がひと目で分かるようにする。 */
@@ -113,16 +130,18 @@ export function cardCountScreen(ctx: AppContext): HTMLElement {
     return node;
   });
 
-  return screenShell(
+  return withTravelBackdrop(screenShell(
     {
       title: UI.cardCount.heading,
       lead: UI.cardCount.lead,
       onBack: () => ctx.back(),
+      // 旅のページデザインを当てる画面。CSS をこの画面だけに限るために付ける。
+      variant: 'screen--card-count',
     },
     [
       el('div', { class: 'option-grid option-grid--counts' }, options),
       el('p', { class: 'note', text: UI.app.grayboxNote }),
     ],
-  );
+  ));
 }
 

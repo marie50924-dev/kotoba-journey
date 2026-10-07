@@ -227,6 +227,148 @@ async function shotWithCss(page, css) {
   return decodePng(buf);
 }
 
+/*
+ * 画像の準備完了待ち（この検査でのみ使う。画像準備待ちを変更した箇所／期限補修版）。
+ *
+ * 「80人の人物の見え方」は年代タブを押した直後に測っていたため、画像の取得が
+ * 終わる前に採寸してしまう余地があった。既存の 300ms はそのまま残し、そのあとで
+ * 準備完了を確かめる。class 付与・src・loading・decoding・CSS は一切変えない。
+ *
+ * 期限は「待機開始から」の capMs を class待ち / img.decode / document.fonts.ready /
+ * 描画2フレーム の全段階で共有する。各段階へ残り時間を渡し、残り時間が尽きたら
+ * タイマーでタイムアウトを返す。成功した段階のタイマーは必ず解除する。
+ * どこかで失敗したら後続の段階へは進まず、止まった段階名・人物ID・src・状態・
+ * 経過時間を返して検査を不合格にする。
+ */
+async function waitAvatarImagesReady(page, expectCards, capMs = 5000) {
+  const report = await page.evaluate(
+    async ({ expectCards, capMs }) => {
+      const t0 = performance.now();
+      const left = () => capMs - (performance.now() - t0);
+      /** 残り時間つきで待つ。期限が尽きたら { timedOut: true } を返し、タイマーは必ず解除する。 */
+      const withDeadline = (promise) => {
+        const remaining = left();
+        if (remaining <= 0) return Promise.resolve({ timedOut: true });
+        let timer = null;
+        const guard = new Promise((resolve) => {
+          timer = setTimeout(() => resolve({ timedOut: true }), remaining);
+        });
+        return Promise.race([
+          promise.then((value) => ({ timedOut: false, value }), (error) => ({ timedOut: false, error })),
+          guard,
+        ]).finally(() => { if (timer !== null) clearTimeout(timer); });
+      };
+      /** 元の顔の img を取る。soft 側の複製は選ばない。 */
+      const faceImg = (card) => {
+        const face = card.querySelector('.avatar-thumb__face');
+        if (!face) return null;
+        return (
+          [...face.querySelectorAll('.avatar-thumb__img')].find(
+            (img) => img.closest('.reference-v23-soft') === null,
+          ) || null
+        );
+      };
+      const read = () =>
+        [...document.querySelectorAll('.avatar-card')].map((card) => {
+          const face = card.querySelector('.avatar-thumb__face');
+          const img = faceImg(card);
+          return {
+            id: img ? (img.getAttribute('src') || '').split('/').pop() : null,
+            src: img ? img.getAttribute('src') : null,
+            complete: img ? img.complete : false,
+            nw: img ? img.naturalWidth : 0,
+            nh: img ? img.naturalHeight : 0,
+            hasImage: !!face && face.classList.contains('has-image'),
+            failed: !!face && face.classList.contains('image-failed'),
+          };
+        });
+      const ready = (s) =>
+        s.id !== null && s.complete && s.nw > 0 && s.nh > 0 && s.hasImage && !s.failed;
+      const allReady = () => {
+        const rows = read();
+        return rows.length === expectCards && rows.every(ready);
+      };
+      const stop = (stage, extra) => {
+        const rows = read();
+        return {
+          ok: false,
+          stage,
+          cardCount: rows.length,
+          classMs,
+          decodeMs,
+          fontsMs,
+          frameMs,
+          waitedMs: +(performance.now() - t0).toFixed(1),
+          notReady: rows.filter((s) => !ready(s)),
+          ...extra,
+        };
+      };
+      let classMs = null;
+      let decodeMs = null;
+      let fontsMs = null;
+      let frameMs = null;
+
+      // 段階1: complete / naturalWidth・Height / has-image / image-failed / カード16枚
+      const c0 = performance.now();
+      while (!allReady() && left() > 0) {
+        await new Promise((resolve) => { setTimeout(resolve, 25); });
+      }
+      classMs = +(performance.now() - c0).toFixed(1);
+      if (!allReady()) return stop('class', { timedOut: true });
+
+      // 段階2: 画像の decode
+      const d0 = performance.now();
+      const dec = await withDeadline(
+        Promise.all(
+          [...document.querySelectorAll('.avatar-card')]
+            .map(faceImg)
+            .filter(Boolean)
+            .map((img) => img.decode()),
+        ),
+      );
+      decodeMs = +(performance.now() - d0).toFixed(1);
+      if (dec.timedOut) return stop('decode', { timedOut: true });
+      if (dec.error !== undefined) {
+        return stop('decode', { timedOut: false, decodeError: String((dec.error && dec.error.message) || dec.error) });
+      }
+
+      // 段階3: フォント
+      const f0 = performance.now();
+      const fon = await withDeadline(document.fonts.ready);
+      fontsMs = +(performance.now() - f0).toFixed(1);
+      if (fon.timedOut) return stop('fonts', { timedOut: true });
+      if (fon.error !== undefined) {
+        return stop('fonts', { timedOut: false, fontsError: String((fon.error && fon.error.message) || fon.error) });
+      }
+
+      // 段階4: 描画2フレーム
+      const r0 = performance.now();
+      const fr = await withDeadline(
+        new Promise((resolve) => {
+          requestAnimationFrame(() => { requestAnimationFrame(resolve); });
+        }),
+      );
+      frameMs = +(performance.now() - r0).toFixed(1);
+      if (fr.timedOut) return stop('frame', { timedOut: true });
+
+      const rows = read();
+      return {
+        ok: true,
+        stage: 'done',
+        cardCount: rows.length,
+        classMs,
+        decodeMs,
+        fontsMs,
+        frameMs,
+        waitedMs: +(performance.now() - t0).toFixed(1),
+        notReady: rows.filter((s) => !ready(s)),
+      };
+    },
+    { expectCards, capMs },
+  );
+  return report;
+}
+
 async function clearBoard(page) {
   await page.waitForSelector('.card');
   while ((await page.locator('.card:not(.is-matched)').count()) > 0) {
@@ -1272,9 +1414,30 @@ ${screenBg('#ffffff')}
         let headSpread = 0;
         const headTops = [];
 
+        const readyLog = [];
         for (const age of AGES) {
           await page.locator('.avatar-tab', { hasText: age }).click();
           await page.waitForTimeout(300);
+
+          // 0) 画像の準備完了を待つ。満たせなければこのケースを不合格にする。
+          const ready = await waitAvatarImagesReady(page, 16);
+          readyLog.push({ age, ...ready });
+          check(
+            ready.ok,
+            `${age}: 画像の準備が整わないまま測ろうとした`
+              + `（止まった段階 ${ready.stage}・待ち合計 ${ready.waitedMs}ms`
+              + `・class ${ready.classMs}ms / decode ${ready.decodeMs}ms`
+              + ` / fonts ${ready.fontsMs}ms / frame ${ready.frameMs}ms`
+              + `・カード ${ready.cardCount}枚`
+              + `${ready.timedOut === true ? '・期限切れ' : ''}`
+              + `${ready.decodeError === undefined ? '' : `・decode失敗 ${ready.decodeError}`}`
+              + `${ready.fontsError === undefined ? '' : `・fonts失敗 ${ready.fontsError}`}`
+              + `・未準備 ${ready.notReady.length}件`
+              + `${ready.notReady.length === 0 ? '' : ` ${ready.notReady
+                  .map((s) => `${s.id || 'src無し'}[complete=${s.complete} nw=${s.nw}x${s.nh}`
+                    + ` has-image=${s.hasImage} image-failed=${s.failed}]`)
+                  .join(' / ')}`}）`,
+          );
 
           // 1) 寸法は画素を撮らずに読める。切り取り・引き伸ばし・はみ出しをここで見る。
           const geo = await page.evaluate(() => {
@@ -1367,7 +1530,12 @@ ${screenBg('#ffffff')}
           headSpread <= 3,
           `頭のてっぺんがそろっていない（ばらつき ${headSpread.toFixed(1)}px・3px 以内を期待）`,
         );
-        return `80人・切れ0件・頭のばらつき ${headSpread.toFixed(1)}px・名前の最小コントラスト ${worstContrast.toFixed(2)}`;
+        const waited = readyLog
+          .map((r) => `${r.age} 合計${r.waitedMs}（class${r.classMs}/decode${r.decodeMs}`
+            + `/fonts${r.fontsMs}/frame${r.frameMs}）ms`)
+          .join(' ');
+        return `80人・切れ0件・頭のばらつき ${headSpread.toFixed(1)}px・名前の最小コントラスト ${worstContrast.toFixed(2)}`
+          + `／画像準備待ち ${waited}`;
       } finally {
         await context.close();
       }

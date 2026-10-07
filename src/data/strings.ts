@@ -123,10 +123,16 @@ export const UI = {
      * 問いかけは、幅に余裕のある見出しの下の一文へ置く。
      */
     confirmHeading: '旅するあなた',
-    confirmQuestion: 'この人と旅をしますか？',
+    /*
+     * 選んだ人は「いっしょに旅する相手」ではなく、利用者が演じる本人。
+     * 「この人と旅をする」と書くと同行者に読めるので、
+     * 本人を選んでいることが分かる言い方にそろえる。
+     * 実際の同行者（NPC）との会話文はこことは別で、変更していない。
+     */
+    confirmQuestion: '旅するあなたは、この人でよいですか？',
     change: '旅するあなたを変える',
     current: '旅するあなた',
-    startWith: 'この人と旅をはじめる',
+    startWith: 'この人になって旅をはじめる',
     chooseAgain: 'えらび直す',
   },
 
@@ -176,11 +182,36 @@ export const UI = {
     pairsLabel: 'とったペア',
     mistakesLabel: 'まちがい',
     timeLabel: 'じかん',
-    hint: '日本語と英語のペアをさがそう',
+    hint: '日本語と英語のペアをさがそう。札をかさねても、タップでもえらべます',
     quit: 'やめる',
+    /** 札の言語を示す短いラベル。札の角に小さく置く。 */
+    jaBadge: 'あ',
+    enBadge: 'A',
+    /** 不正解のときに短く出す案内。音だけで正誤を伝えないために文字でも示す。 */
+    retry: 'もう一度',
+    /** 同じ言語同士を重ねたとき。採点はしない。 */
+    sameLanguage: 'ちがう言語とペアにしよう',
+    /** 音の設定。発音と効果音は別のスイッチ。 */
+    soundSettings: '音の設定',
+    soundSettingsOpen: '音設定',
+    soundSettingsClose: 'とじる',
+    pronounceLabel: '発音',
+    sfxLabel: '効果音',
+    /** イラスト付きの体験（ローカル確認版だけの独立した入口）。 */
+    trialBadge: '体験用',
+    trialHeading: 'まず3ペアで試す',
+    trialLead: 'りんご・ねこ・いぬの3ペアです。学習記録には残りません。',
+    trialDone: '体験完了',
+    trialDoneLead: '3ペアそろいました。通常のプレイでは全部のことばが出ます。',
+    trialToNormal: '通常のプレイへ',
   },
   pronunciation: {
     heading: '発音をきいてみよう',
+    /**
+     * 自動再生が端末にことわられたときの案内。
+     * 失敗を黙って成功扱いにはせず、手で聞ける場所を示す。
+     */
+    tapToPlay: '「もういちど聞く」でもう一度ならせます',
     unavailable: 'この端末では音声を再生できません',
     muted: '音声はオフになっています',
     failed: '音声を再生できませんでした',
@@ -219,6 +250,11 @@ export const UI = {
   settings: {
     heading: '設定',
     audio: '音声',
+    /** 発音（英語の読み上げ）。効果音とは別のスイッチ。 */
+    pronounce: '発音（英語の読み上げ）',
+    /** 効果音（正解・不正解の短い音）。発音とは別のスイッチ。 */
+    soundEffects: '効果音',
+    unsupportedSfx: 'この端末は効果音を鳴らせません',
     travelAnimation: '移動の演出',
     character: '表示キャラクター',
     characterHint: 'ステップ別のコースで使います',

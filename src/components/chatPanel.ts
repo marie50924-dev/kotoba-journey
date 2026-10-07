@@ -97,7 +97,7 @@ export function chatPanel(options: ChatPanelOptions): HTMLElement {
     for (const line of choice.reply) appendLine(line);
     // 台本は1往復で終わる。以降は閉じるだけ。
     choiceArea.replaceChildren(
-      button(UI.chat.close, close, { class: 'btn btn--primary chat__close' }),
+      button(UI.chat.close, close, { class: 'btn btn--primary chat__close btn--soft' }),
     );
     const only = choiceArea.querySelector('button');
     if (only instanceof HTMLElement) only.focus();
@@ -123,7 +123,10 @@ export function chatPanel(options: ChatPanelOptions): HTMLElement {
       el('div', { class: 'chat' }, [
         el('header', { class: 'chat__bar' }, [
           el('span', { class: 'chat__title', text: UI.chat.heading }),
-          button(UI.chat.close, close, { class: 'btn btn--ghost chat__x', ariaLabel: UI.chat.close }),
+          button(UI.chat.close, close, {
+            class: 'btn btn--ghost chat__x btn--soft',
+            ariaLabel: UI.chat.close,
+          }),
         ]),
         log,
         choiceArea,

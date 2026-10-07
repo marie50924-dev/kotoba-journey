@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-hidden="true">
+  <!-- 確認用イラスト：りんご。簡潔な図形だけで描いている。 -->
+  <circle cx="45" cy="72" r="30" fill="#e2573f"/>
+  <circle cx="75" cy="72" r="30" fill="#d9492f"/>
+  <path d="M60 44 C60 30 58 24 54 18" stroke="#6b4a2b" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <path d="M62 36 C74 26 86 28 90 32 C84 42 72 44 62 40 Z" fill="#4a9c56"/>
+  <ellipse cx="38" cy="60" rx="8" ry="5" fill="#ffffff" opacity="0.45" transform="rotate(-25 38 60)"/>
+</svg>

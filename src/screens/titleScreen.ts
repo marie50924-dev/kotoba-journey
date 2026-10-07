@@ -89,13 +89,13 @@ export function titleScreen(ctx: AppContext): HTMLElement {
   );
 
   const passportButton = button(UI.actions.passport, () => ctx.navigate({ name: 'passport' }), {
-    class: 'btn btn--ghost t-sub-btn',
+    class: 'btn btn--ghost t-sub-btn btn--soft',
   });
   passportButton.textContent = '';
   passportButton.append(passportIcon(), el('span', { class: 't-label', text: UI.actions.passport }));
 
   const settingsButton = button(UI.actions.settings, () => ctx.navigate({ name: 'settings' }), {
-    class: 'btn btn--ghost t-sub-btn',
+    class: 'btn btn--ghost t-sub-btn btn--soft',
   });
   settingsButton.textContent = '';
   settingsButton.append(gearIcon(), el('span', { class: 't-label', text: UI.actions.settings }));
