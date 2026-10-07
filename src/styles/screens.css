@@ -213,9 +213,46 @@
  * 行き先の印も選択ボタンなので、共通の青ガラス（base.css）にそろえる。
  * 以前は白い面＋橙の印で、選択中も橙の輪だった。
  */
+/*
+ * 元の場所を示す小さな輪と、そこから印へ引く短い線。
+ *
+ * 印を地理の位置からずらしたとき、どこの場所だったのかが分かるように出す。
+ * 押せる部品ではないので、操作も読み上げも持たせない。
+ */
+.map-anchor {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(26, 79, 216, 0.55);
+  pointer-events: none;
+}
+
+.map-leader {
+  position: absolute;
+  height: 2px;
+  width: var(--leader-len, 0px);
+  margin-top: -1px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 0 1px rgba(26, 79, 216, 0.4);
+  pointer-events: none;
+}
+
+/* 線は輪から印のほうへ伸ばす。印が左にあるときは左へ、右にあるときは右へ。 */
+.map-leader--left {
+  transform: translateX(-100%);
+}
+
 .map-pin {
   position: absolute;
-  transform: translate(-50%, -50%);
+  /*
+   * 割合で置いた位置から、--shift-x / --shift-y のぶんだけ px でずらす。
+   * ずらしぶんが px なので、画面が変わっても引出線の長さは変わらない。
+   */
+  transform: translate(-50%, -50%) translate(var(--shift-x, 0px), var(--shift-y, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;

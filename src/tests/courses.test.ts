@@ -192,4 +192,73 @@ describe('世界マップ', () => {
       expect(destination.position.y).toBeLessThan(1);
     }
   });
+
+  /*
+   * 印どうしが重ならないこと。
+   *
+   * 位置は枠に対する割合、印の箱は固定の px なので、枠が小さいほど
+   * 印の間隔だけが詰まる。いちばん不利なのは 320x568 のときで、
+   * そこでの実測値を使って確かめる。
+   *
+   *   枠の幅            296px（320x568・実測）
+   *   ロンドンの箱の幅    64px（実測）
+   *   パリの箱の幅        46px（実測）
+   *   → 中心どうしが (64 + 46) / 2 = 55px 以上 離れていれば、横で重ならない
+   *
+   * 縦の間隔は枠の高さに左右され、低い画面では足りなくなるため当てにしない。
+   * 横だけで離れていることを見る。
+   */
+  const NARROWEST_MAP_WIDTH = 296;
+  const MIN_PIN_GAP = 55;
+
+  function drawnX(id: string): number {
+    const d = DESTINATIONS.find((x) => x.id === id);
+    expect(d, `${id} が無い`).toBeTruthy();
+    const dest = d as (typeof DESTINATIONS)[number];
+    return dest.position.x * NARROWEST_MAP_WIDTH + (dest.displayOffset?.x ?? 0);
+  }
+
+  it('いちばん小さい画面でも、ロンドンとパリの印が横で離れている', () => {
+    const gap = Math.abs(drawnX('paris') - drawnX('london'));
+    expect(gap, `ロンドンとパリの間隔が ${gap.toFixed(1)}px しかない`).toBeGreaterThanOrEqual(
+      MIN_PIN_GAP,
+    );
+  });
+
+  it('いちばん小さい画面でも、日本とパリの印が横で離れている', () => {
+    // 日本の箱は 44px、パリは 46px なので、必要な間隔は (44 + 46) / 2 = 45px。
+    const gap = Math.abs(drawnX('japan') - drawnX('paris'));
+    expect(gap, `日本とパリの間隔が ${gap.toFixed(1)}px しかない`).toBeGreaterThanOrEqual(45);
+  });
+
+  it('印をずらしたものには、元の位置へ戻すためのずれ量がある', () => {
+    /*
+     * ずれは px で持つ。割合で持つと、画面が大きいほど引出線が長くなり
+     * 「短い引出線」でなくなる。
+     */
+    for (const destination of DESTINATIONS) {
+      if (!destination.displayOffset) continue;
+      expect(
+        Math.abs(destination.displayOffset.x) + Math.abs(destination.displayOffset.y),
+        `${destination.label} のずれが 0`,
+      ).toBeGreaterThan(0);
+      // 引出線が長くなりすぎないこと（元の位置が分かる範囲にとどめる）。
+      expect(Math.abs(destination.displayOffset.x), `${destination.label} の横のずれが大きい`).toBeLessThanOrEqual(48);
+      expect(Math.abs(destination.displayOffset.y), `${destination.label} の縦のずれが大きい`).toBeLessThanOrEqual(48);
+    }
+  });
+
+  it('ずらしても、位置関係は変わらない（ロンドンは西かつ北、日本はいちばん東）', () => {
+    const london = DESTINATIONS.find((d) => d.id === 'london');
+    const paris = DESTINATIONS.find((d) => d.id === 'paris');
+    expect(london && paris, 'ロンドンかパリが無い').toBeTruthy();
+    // 描く位置でも、ロンドンはパリより西（左）。
+    expect(drawnX('london'), 'ロンドンがパリより東にある').toBeLessThan(drawnX('paris'));
+    // 縦のずれは使っていないので、北（上）の関係はそのまま。
+    expect((london as (typeof DESTINATIONS)[number]).position.y).toBeLessThan(
+      (paris as (typeof DESTINATIONS)[number]).position.y,
+    );
+    // 日本はいちばん東（右）。
+    expect(drawnX('japan'), '日本がいちばん東にない').toBeGreaterThan(drawnX('paris'));
+  });
 });
