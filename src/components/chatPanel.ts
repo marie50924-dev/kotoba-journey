@@ -97,7 +97,13 @@ export function chatPanel(options: ChatPanelOptions): HTMLElement {
     for (const line of choice.reply) appendLine(line);
     // 台本は1往復で終わる。以降は閉じるだけ。
     choiceArea.replaceChildren(
-      button(UI.chat.close, close, { class: 'btn btn--primary chat__close btn--soft' }),
+      /*
+       * 会話の最後に出る、下いっぱいの「とじる」。
+       * ここは話を終える決定の操作なので、淡い青ガラスにはせず、
+       * ほかの決定ボタンと同じ通常の青ガラスのままにする。
+       * 右上の小さい「とじる」（chat__x）は淡いままで、役割が違う。
+       */
+      button(UI.chat.close, close, { class: 'btn btn--primary chat__close' }),
     );
     const only = choiceArea.querySelector('button');
     if (only instanceof HTMLElement) only.focus();

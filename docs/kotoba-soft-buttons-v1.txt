@@ -10,8 +10,7 @@
                       表紙                   設定           btn btn--ghost t-sub-btn btn--soft
 もどる                 全画面の見出し（screenShell）  もどる     btn btn--ghost btn--back btn--soft
 はなしかける            同行者の帯（npcBar）     はなしかける     btn npc-bar__btn btn--soft
-とじる                 会話パネル               とじる         btn btn--ghost chat__x btn--soft
-                      会話パネル（確認）         とじる         btn btn--primary chat__close btn--soft
+とじる                 会話パネル（右上の小さいもの） とじる       btn btn--ghost chat__x btn--soft
                       カルタの音設定            とじる         btn btn--primary karta__sound-close btn--soft
 今回はスキップ           テストの案内              今回はスキップ   btn btn--soft
                       ウェーブテスト            今回はスキップ   btn quiz__skip btn--soft
@@ -30,6 +29,9 @@
 一覧に無いが同じ文言・同じクラスを持つもの（対象にしていない）
 ------------------------------------------------------------
 ※ カルタの「やめる」は、最初の指定には無かったが、あとからご指示があり対象に加えた。
+※ 会話の下いっぱいの「とじる」は、一度淡くしたあと、ご指示により通常の青ガラスへ戻した。
+   会話の右上にある小さい「とじる」は淡いまま。同じ文言だが役割が違う。
+・会話の下いっぱいの「とじる」  btn btn--primary chat__close … あとからのご指示で、通常の青ガラスへ戻した
 ・移動中の「スキップ」       btn btn--ghost btn--back   … 「今回はスキップ」とは別のボタン
 ・国紹介の「とじる」         btn intro__more-toggle     … 「もっと知る」と交互に変わる見出しの開閉
 ・国紹介の出典の「とじる」     btn btn--ghost intro-sources__toggle … 同上

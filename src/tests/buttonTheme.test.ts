@@ -545,8 +545,17 @@ describe('淡い青ガラス（補助の操作）', () => {
     expect(body, '面が共通の変数から来ていない').toMatch(/background-image:[^;]*var\(--glass-face-soft\)/);
     // ボタン全体の opacity では調整しない。
     expect(body, 'ボタン全体の opacity で薄くしている').not.toMatch(/\n\s*opacity:/);
-    // 文字色を触らない（共通の白のまま）。
-    expect(body, '文字色を変えている').not.toMatch(/\n\s*color:/);
+    /*
+     * 明るい面なので、文字は白ではなく濃い色にする。
+     * 明るい面に白い文字を乗せると、どんな濃さにしても 4.5:1 に届かない
+     *   （実測：淡い面に白い文字で 1.8:1）。
+     * 文字を薄くしているのではなく、面の明るさに合わせて色を変えている。
+     */
+    expect(body, '文字色を指定していない').toMatch(/\n\s*color:\s*var\(--c-ink-deep\)/);
+    const inkHex = baseCss.match(/--c-ink-deep:\s*(#[0-9a-f]{6})/i)?.[1];
+    expect(inkHex, '--c-ink-deep が無い').toBeTruthy();
+    const ink = hexToRgb(inkHex as string);
+    expect(relativeLuminance(ink), '淡い面の文字が明るすぎる').toBeLessThan(0.05);
 
     const face = baseCss.match(/--glass-face-soft:([\s\S]*?);/);
     expect(face, '--glass-face-soft が無い').not.toBeNull();
@@ -557,43 +566,60 @@ describe('淡い青ガラス（補助の操作）', () => {
     for (const c of stops) {
       // 半透明であること（背景が透ける）。
       expect(c.a, `段 rgba(${c.r},${c.g},${c.b},${c.a}) が不透明`).toBeLessThan(1);
-      // 青であること。白濁した水色にしない。
-      expect(c.b - c.r, `段 rgb(${c.r},${c.g},${c.b}) の青みが足りない`).toBeGreaterThanOrEqual(150);
-      expect(c.g, `段 rgb(${c.r},${c.g},${c.b}) が白っぽい`).toBeLessThan(c.b - 60);
+      /*
+       * 青であること。白濁した水色にしない。
+       * ここは「鮮やかな青を薄くした色」なので、濃い青ガラスの面
+       *   （--glass-face。青み 150 以上は別の検査でそのまま確かめている）
+       * と同じ数値では測れない。薄い色は赤も緑も一緒に上がるため、
+       * 青みの差が縮む（例：いちばん明るい段 rgb(186,226,255) は青み 69）。
+       * そこで、薄くしても崩れない並び（青 > 緑 > 赤）と、
+       * 灰色へ寄っていないこと（青みと明るさが残っていること）で確かめる。
+       */
+      expect(c.b, `段 rgb(${c.r},${c.g},${c.b}) の青が緑より弱い`).toBeGreaterThan(c.g);
+      expect(c.g, `段 rgb(${c.r},${c.g},${c.b}) の緑が赤より弱い`).toBeGreaterThan(c.r);
+      expect(c.b - c.r, `段 rgb(${c.r},${c.g},${c.b}) が灰色に寄っている`).toBeGreaterThanOrEqual(60);
+      expect(c.b, `段 rgb(${c.r},${c.g},${c.b}) が明るい青でない`).toBeGreaterThanOrEqual(180);
     }
 
     /*
-     * いちばん明るい背景（白）に重ねても、白い文字が 4.5:1 を保つこと。
-     *
-     * 面の見え方は「塗りだけ」では決まらない。
-     *   1. backdrop-filter が背後を暗くする（brightness）
-     *   2. そのうえに薄い塗りが乗る
-     * の順に重なるので、同じ順で計算する。
-     * 塗りだけで判定すると、ぼかしで暗くしているぶんを見落とす。
+     * 背後は暗くしない。
+     * 暗くすると背後の暗さが混ざって面が灰色に寄る
+     *   （前の版は brightness(0.45) で、面が rgb(76,107,166)＝明度 65% だった。
+     *     いまの版は同じ場所で明度 99%）。
      */
     const backdrop = baseCss.match(/--glass-backdrop-soft:([^;]*);/);
     expect(backdrop, '--glass-backdrop-soft が無い').not.toBeNull();
-    const brightness = Number(
-      (backdrop as RegExpMatchArray)[1].match(/brightness\(([\d.]+)\)/)?.[1],
-    );
-    expect(Number.isFinite(brightness), 'backdrop-filter に brightness が無い').toBe(true);
-    expect(brightness, '背後を暗くしていない（白い文字が読めなくなる）').toBeLessThan(1);
+    expect(
+      (backdrop as RegExpMatchArray)[1],
+      '背後の明るさを変えている（面が灰色に寄る）',
+    ).not.toMatch(/brightness\(/);
 
+    /*
+     * いちばん暗い背景に重ねても、濃い文字が 4.5:1 を保つこと。
+     * 画面の中でいちばん暗いのは主人公選択の見出しの帯（#0f3b64）なので、
+     * そこへ重ねた色で計算する。
+     */
+    const darkest = hexToRgb('#0f3b64');
     const solid = stops.filter((_, i) => i >= 2 && i <= stops.length - 3);
     expect(solid.length, '文字の高さに当たる段が無い').toBeGreaterThan(0);
-    const dimmedWhite = 255 * brightness;
     for (const c of solid) {
       const eff = {
-        r: c.r * c.a + dimmedWhite * (1 - c.a),
-        g: c.g * c.a + dimmedWhite * (1 - c.a),
-        b: c.b * c.a + dimmedWhite * (1 - c.a),
+        r: c.r * c.a + darkest.r * (1 - c.a),
+        g: c.g * c.a + darkest.g * (1 - c.a),
+        b: c.b * c.a + darkest.b * (1 - c.a),
         a: 1,
       };
-      const value = contrast(eff, WHITE);
+      const value = contrast(eff, ink);
       expect(
         value,
-        `白い背景に重ねたとき rgb(${Math.round(eff.r)},${Math.round(eff.g)},${Math.round(eff.b)}) で ${value.toFixed(2)}:1`,
+        `暗い帯に重ねたとき rgb(${Math.round(eff.r)},${Math.round(eff.g)},${Math.round(eff.b)}) で ${value.toFixed(2)}:1`,
       ).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+    }
+
+    // 「鮮やかなブルーを薄くした色」であること（灰色に寄っていない）。
+    for (const c of solid) {
+      expect(c.b - c.r, `段 rgb(${c.r},${c.g},${c.b}) が灰色に寄っている`).toBeGreaterThanOrEqual(90);
+      expect(c.b, `段 rgb(${c.r},${c.g},${c.b}) が明るい青でない`).toBeGreaterThanOrEqual(180);
     }
   });
 
@@ -611,7 +637,10 @@ describe('淡い青ガラス（補助の操作）', () => {
     expect(body, '淡いボタンの備えが無い').toContain('.btn--soft');
     expect(body, '絞り込みの備えが無い').toContain('.avatar-filter__btn');
     // 戻す先は、不透明な通常の青ガラスの面。
-    expect(body, '戻す先が通常の面ではない').toMatch(/background-image:[^;]*var\(--glass-face\)/);
+    // 戻す先は、同じ明るい青を少し濃くした面（色みは変えない）。
+    const alphas = [...body.matchAll(/rgba\([^)]*,\s*([\d.]+)\)/g)].map((m) => Number(m[1]));
+    expect(alphas.length, '戻す先の色が読めない').toBeGreaterThan(0);
+    expect(Math.min(...alphas), '戻す先が薄すぎる').toBeGreaterThanOrEqual(0.9);
   });
 
   it('淡くするのは、指定された補助の操作だけ', () => {
@@ -661,12 +690,19 @@ describe('淡い青ガラス（補助の操作）', () => {
     for (const [name, pattern] of expected) {
       expect(pattern.test(all), `${name} に淡い青ガラスが当たっていない`).toBe(true);
     }
-    // 会話の「とじる」は2か所とも当てる。
-    const closes = [...chatPanelSource.matchAll(/UI\.chat\.close[\s\S]{0,200}?\}\)/g)];
-    expect(closes.length, '会話の「とじる」が見つからない').toBeGreaterThanOrEqual(2);
-    for (const m of closes) {
-      expect(m[0], '会話の「とじる」に淡い青ガラスが当たっていない').toContain('btn--soft');
-    }
+    /*
+     * 会話の「とじる」は2つある。役割が違うので扱いを分ける。
+     *   右上の小さい「とじる」（chat__x）     … 淡い青ガラス
+     *   下いっぱいの「とじる」（chat__close） … 話を終える決定なので通常の青ガラス
+     */
+    const x = chatPanelSource.match(/UI\.chat\.close[\s\S]{0,240}?chat__x[^']*'/);
+    expect(x, '会話の小さい「とじる」が見つからない').not.toBeNull();
+    expect((x as RegExpMatchArray)[0], '小さい「とじる」が淡くない').toContain('btn--soft');
+    const wide = chatPanelSource.match(/UI\.chat\.close[\s\S]{0,240}?chat__close[^']*'/);
+    expect(wide, '会話の下いっぱいの「とじる」が見つからない').not.toBeNull();
+    expect((wide as RegExpMatchArray)[0], '下いっぱいの「とじる」まで淡くしている').not.toContain(
+      'btn--soft',
+    );
   });
 });
 
