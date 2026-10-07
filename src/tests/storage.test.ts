@@ -197,6 +197,80 @@ describe('記録の更新', () => {
   });
 });
 
+/*
+ * 「練習中」（誤答1回）の扱いを、現在の仕様のまま書き留めておく検査。
+ * 仕様を変えるための検査ではなく、いまの保存内容を固定して
+ * あとから意図せず変わったら気づけるようにするためのもの。
+ *
+ * 現在の applyPlayResult は習得（誤答0回）と復習（誤答2回以上）だけを書き込み、
+ * 練習中は習得にも復習にも入れない。保存形式に誤答回数の項目も無い。
+ */
+describe('練習中（誤答1回）の保存内容', () => {
+  it('初めて出た語を1回間違えると、習得にも復習にも入らない', () => {
+    const record = applyPlayResult(
+      createEmptyRecord(),
+      result({ pairStats: [{ pairId: 39, mistakes: 1, answerTimeMs: 1200 }] }),
+      new Date('2026-10-07T10:00:00'),
+    );
+    expect(record.masteredPairIds).not.toContain(39);
+    expect(record.reviewPairIds).not.toContain(39);
+    // 保存データ全体を見ても、その pairId はどこにも残らない。
+    expect(JSON.stringify(record)).not.toContain('39');
+  });
+
+  it('習得済みの語を1回間違えても、習得のまま残り復習へ移らない', () => {
+    const before = { ...createEmptyRecord(), masteredPairIds: [70] };
+    const after = applyPlayResult(
+      before,
+      result({ pairStats: [{ pairId: 70, mistakes: 1, answerTimeMs: 1500 }] }),
+      new Date('2026-10-07T10:00:00'),
+    );
+    expect(after.masteredPairIds).toEqual([70]);
+    expect(after.reviewPairIds).toEqual([]);
+  });
+
+  it('習得済みの語を2回間違えると、習得から外れて復習へ移る', () => {
+    const before = { ...createEmptyRecord(), masteredPairIds: [41, 65] };
+    const after = applyPlayResult(
+      before,
+      result({
+        pairStats: [
+          { pairId: 41, mistakes: 2, answerTimeMs: 2500 },
+          { pairId: 65, mistakes: 1, answerTimeMs: 1100 },
+        ],
+      }),
+      new Date('2026-10-07T10:00:00'),
+    );
+    expect(after.masteredPairIds).toEqual([65]);
+    expect(after.reviewPairIds).toEqual([41]);
+  });
+
+  it('復習対象の語を誤答0回で取ると習得へ移る（今回の結果で上書きされる）', () => {
+    const before = { ...createEmptyRecord(), reviewPairIds: [40, 68] };
+    const after = applyPlayResult(
+      before,
+      result({ pairStats: [{ pairId: 40, mistakes: 0, answerTimeMs: 900 }] }),
+      new Date('2026-10-07T10:00:00'),
+    );
+    expect(after.masteredPairIds).toEqual([40]);
+    expect(after.reviewPairIds).toEqual([68]);
+  });
+
+  it('誤答回数は過去と足し合わされない（1回の誤答を2回繰り返しても復習へ入らない）', () => {
+    let record = createEmptyRecord();
+    for (let i = 0; i < 3; i += 1) {
+      record = applyPlayResult(
+        record,
+        result({ pairStats: [{ pairId: 39, mistakes: 1, answerTimeMs: 1200 }] }),
+        new Date('2026-10-07T10:00:00'),
+      );
+    }
+    expect(record.totalPlays).toBe(3);
+    expect(record.masteredPairIds).toEqual([]);
+    expect(record.reviewPairIds).toEqual([]);
+  });
+});
+
 describe('連続学習日数', () => {
   it('記録がなければ0', () => {
     expect(computeStreak([], '2026-09-19')).toBe(0);

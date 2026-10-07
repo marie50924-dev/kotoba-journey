@@ -58,7 +58,7 @@ export function resultScreen(ctx: AppContext): HTMLElement {
     [
       stats,
       el('section', { class: 'result-section' }, [
-        el('h2', { class: 'result-section__title', text: UI.result.learnedWords }),
+        el('h2', { class: 'result-section__title', text: UI.result.thisTimeWords }),
         el('div', { class: 'mastery-grid' }, masteryLists),
       ]),
       mistakenSection,

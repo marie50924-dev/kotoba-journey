@@ -222,6 +222,7 @@ export const UI = {
     clearTime: 'クリア時間',
     bestTime: '自己ベスト',
     learnedWords: '覚えたことば',
+    thisTimeWords: '今回のことば',
     mistakenWords: '間違えた単語',
     noMistakes: '間違いはありませんでした',
     newBest: '自己ベスト更新！',
