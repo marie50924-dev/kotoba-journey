@@ -242,10 +242,17 @@ export const UI = {
     totalPlays: '総プレイ回数',
     totalDays: '総学習日数',
     streak: '連続学習日数',
-    learnedCount: '覚えた単語数',
+    /*
+     * カルタで取れたことは「その場で正しく選べた」ことまでしか示さない。
+     * 結果画面と同じ理由で「覚えた」とは書かず、結果画面と同じ呼び方にそろえる。
+     */
+    learnedCount: 'まちがえずに正解',
+    /** 上の数値が何を数えているかを、タイルの中で一言そえる。 */
+    learnedCountNote: '過去にまちがいなく正解し、その後の復習対象になっていないことばの数',
     lifetimeAccuracy: '通算正解率',
     bestTime: 'ベストタイム',
-    reviewWords: '復習対象単語',
+    // 「単語」ではなく「ことば」。アプリ全体の呼び方にそろえる。
+    reviewWords: '復習することば',
     selectedCourse: '選択中コース',
     visitedCountries: '訪れた国',
     recentPlays: '最近のプレイ履歴',

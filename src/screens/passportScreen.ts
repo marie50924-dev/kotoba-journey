@@ -19,7 +19,11 @@ export function passportScreen(ctx: AppContext): HTMLElement {
     tile(UI.passport.totalPlays, `${record.totalPlays}${UI.units.times}`),
     tile(UI.passport.totalDays, `${record.playedDates.length}${UI.units.days}`),
     tile(UI.passport.streak, `${streak}${UI.units.days}`),
-    tile(UI.passport.learnedCount, `${record.masteredPairIds.length}${UI.units.words}`),
+    tile(
+      UI.passport.learnedCount,
+      `${record.masteredPairIds.length}${UI.units.words}`,
+      UI.passport.learnedCountNote,
+    ),
     tile(UI.passport.lifetimeAccuracy, `${lifetimeAccuracy(record)}${UI.units.percent}`),
     tile(UI.passport.bestTime, best === null ? '—' : formatDuration(best)),
   ]);
@@ -91,10 +95,15 @@ export function passportScreen(ctx: AppContext): HTMLElement {
   );
 }
 
-function tile(label: string, value: string): HTMLElement {
+/**
+ * 数値タイル。note を渡すと、数値の下に短い補足を出す。
+ * 補足は見出しと同じ文字の大きさで、狭い画面では折り返して収める。
+ */
+function tile(label: string, value: string, note?: string): HTMLElement {
   return el('div', { class: 'stat-tile' }, [
     el('span', { class: 'stat-tile__label', text: label }),
     el('strong', { class: 'stat-tile__value', text: value }),
+    note ? el('span', { class: 'stat-tile__note', text: note }) : null,
   ]);
 }
 

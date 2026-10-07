@@ -378,6 +378,18 @@
   font-weight: 800;
 }
 
+/*
+ * 数値タイルの補足。
+ * 見出しと同じ 11px のまま。狭い画面でも文字は小さくせず、折り返して収める。
+ * この指定を持つのはマイパスポートの1枚だけで、他の画面のタイルには影響しない。
+ */
+.stat-tile__note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--c-ink-soft);
+  margin-top: 2px;
+}
+
 .stat-tile__badge {
   font-size: 10px;
   font-weight: 800;
