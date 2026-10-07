@@ -74,7 +74,11 @@ export function chatPanel(options: ChatPanelOptions): HTMLElement {
             speak.dataset.result = 'failed';
           });
       },
-      { class: 'btn btn--ghost chat__speak', disabled: !audio.isSupported() },
+      /*
+       * 吹き出しの中の「きく」も、会話を進めずに音を鳴らすだけの補助の操作。
+       * 「もういちど聞く」と同じ扱いで淡い青ガラスにする。
+       */
+      { class: 'btn btn--ghost chat__speak btn--soft', disabled: !audio.isSupported() },
     );
     return el('div', { class: 'chat__english' }, [
       el('span', { class: 'chat__english-text', text: english }),

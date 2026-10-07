@@ -5,6 +5,7 @@ import screenShellSource from '../components/screenShell.ts?raw';
 import titleScreenSource from '../screens/titleScreen.ts?raw';
 import npcBarSource from '../components/npcBar.ts?raw';
 import chatPanelSource from '../components/chatPanel.ts?raw';
+import pronunciationSource from '../components/pronunciationPanel.ts?raw';
 import kartaScreenSource from '../screens/kartaScreen.ts?raw';
 import quizPromptSource from '../screens/quizPromptScreen.ts?raw';
 import waveQuizSource from '../screens/waveQuizScreen.ts?raw';
@@ -529,6 +530,7 @@ describe('淡い青ガラス（補助の操作）', () => {
     ['titleScreen.ts', titleScreenSource],
     ['npcBar.ts', npcBarSource],
     ['chatPanel.ts', chatPanelSource],
+    ['pronunciationPanel.ts', pronunciationSource],
     ['kartaScreen.ts', kartaScreenSource],
     ['quizPromptScreen.ts', quizPromptSource],
     ['waveQuizScreen.ts', waveQuizSource],
@@ -651,6 +653,19 @@ describe('淡い青ガラス（補助の操作）', () => {
      * カルタの「やめる」は、あとから指定に加わったので対象に入れてある
      * （下の「指定された補助の操作には、もれなく当たっている」で見る）。
      */
+    /*
+     * 発音確認のパネルには「もういちど聞く」と「つぎへ」が並ぶ。
+     * 音をもう一度鳴らすだけの前者は淡く、先へ進む後者は通常の青ガラスのまま。
+     */
+    const pronounceNext = pronunciationSource.match(
+      /const nextButton = button\([\s\S]{0,400}?\}\s*,\s*\);/,
+    );
+    expect(pronounceNext, '発音確認の「つぎへ」が見つからない').not.toBeNull();
+    expect(
+      (pronounceNext as RegExpMatchArray)[0],
+      '発音確認の「つぎへ」まで淡くしている',
+    ).not.toContain('btn--soft');
+
     const travelSkip = travelSource.match(/button\(UI\.actions\.skip[\s\S]{0,160}?\}\)/);
     expect(travelSkip, '移動中の「スキップ」が見つからない').not.toBeNull();
     expect((travelSkip as RegExpMatchArray)[0], '移動中の「スキップ」まで淡くしている').not.toContain(
@@ -685,6 +700,8 @@ describe('淡い青ガラス（補助の操作）', () => {
       ['記録の設定', /UI\.actions\.settings[\s\S]{0,200}?btn--soft/],
       ['まず3ペアで試す', /trial-entry__btn btn--soft/],
       ['カルタのやめる', /UI\.karta\.quit[\s\S]{0,200}?btn--soft/],
+      ['発音確認のもういちど聞く', /UI\.actions\.listenAgain[\s\S]{0,400}?btn--audio btn--soft/],
+      ['会話のきく', /UI\.chat\.listen[\s\S]{0,800}?chat__speak btn--soft/],
     ];
     const all = screenSources.map(([, src]) => src).join('\n');
     for (const [name, pattern] of expected) {

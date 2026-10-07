@@ -48,7 +48,11 @@ export function pronunciationPanel(options: PronunciationPanelOptions): HTMLElem
       cancelPendingSpeak();
       void play(true);
     },
-    { class: 'btn btn--ghost btn--audio', disabled: !speakable },
+    /*
+     * 「もういちど聞く」は、先へ進まずに音をもう一度鳴らすだけの補助の操作。
+     * 隣の「つぎへ」が進む操作なので、こちらだけ淡い青ガラスにして役割を分ける。
+     */
+    { class: 'btn btn--ghost btn--audio btn--soft', disabled: !speakable },
   );
 
   const nextButton = button(
