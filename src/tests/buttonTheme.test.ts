@@ -617,14 +617,11 @@ describe('淡い青ガラス（補助の操作）', () => {
   it('淡くするのは、指定された補助の操作だけ', () => {
     /*
      * 同じクラスを持つが指定に無いボタンへ、まとめて当てていないこと。
-     *   カルタの「やめる」   … もどると同じ btn--back
      *   移動中の「スキップ」  … 「今回はスキップ」とは別のボタン
+     *
+     * カルタの「やめる」は、あとから指定に加わったので対象に入れてある
+     * （下の「指定された補助の操作には、もれなく当たっている」で見る）。
      */
-    const quit = kartaScreenSource.match(/button\(UI\.karta\.quit[\s\S]{0,200}?\}\)/);
-    expect(quit, 'カルタの「やめる」が見つからない').not.toBeNull();
-    expect((quit as RegExpMatchArray)[0], 'カルタの「やめる」まで淡くしている').not.toContain(
-      'btn--soft',
-    );
     const travelSkip = travelSource.match(/button\(UI\.actions\.skip[\s\S]{0,160}?\}\)/);
     expect(travelSkip, '移動中の「スキップ」が見つからない').not.toBeNull();
     expect((travelSkip as RegExpMatchArray)[0], '移動中の「スキップ」まで淡くしている').not.toContain(
@@ -658,6 +655,7 @@ describe('淡い青ガラス（補助の操作）', () => {
       ['結果のマイパスポート', /UI\.actions\.passport[\s\S]{0,200}?btn--soft/],
       ['記録の設定', /UI\.actions\.settings[\s\S]{0,200}?btn--soft/],
       ['まず3ペアで試す', /trial-entry__btn btn--soft/],
+      ['カルタのやめる', /UI\.karta\.quit[\s\S]{0,200}?btn--soft/],
     ];
     const all = screenSources.map(([, src]) => src).join('\n');
     for (const [name, pattern] of expected) {

@@ -327,7 +327,7 @@ export function kartaScreen(ctx: AppContext, options: KartaScreenOptions = {}): 
   const header = el('div', { class: 'karta__head karta__stats' }, [
     el('div', { class: 'karta__bar karta__bar--main' }, [
       button(UI.karta.quit, () => ctx.navigate({ name: trial ? 'courseEntry' : 'worldMap' }), {
-        class: 'btn btn--ghost btn--back',
+        class: 'btn btn--ghost btn--back btn--soft',
       }),
       el('span', { class: 'karta__stat karta__stat--pairs' }, [
         el('span', { class: 'karta__stat-label', text: UI.karta.pairsLabel }),
