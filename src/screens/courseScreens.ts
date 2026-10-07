@@ -70,7 +70,12 @@ export function courseListScreen(ctx: AppContext, categoryId: CourseCategoryId):
         {
           type: 'button',
           class: `option-chip${course.id === selectedId ? ' is-selected' : ''}`,
-          'aria-pressed': course.id === selectedId,
+          /*
+           * 真偽値のまま渡すと、el() が true を aria-pressed="" にし、
+           * false のときは属性ごと落としてしまう。どちらも読み上げに
+           * 選択状態が伝わらないので、必ず "true" / "false" の文字列で渡す。
+           */
+          'aria-pressed': String(course.id === selectedId),
         },
         [el('span', { text: course.label })],
       );
@@ -115,7 +120,8 @@ export function cardCountScreen(ctx: AppContext): HTMLElement {
       {
         type: 'button',
         class: `option-card option-card--count${ctx.selection.cardCount === count ? ' is-selected' : ''}`,
-        'aria-pressed': ctx.selection.cardCount === count,
+        // 上と同じ理由で、文字列にして渡す。
+        'aria-pressed': String(ctx.selection.cardCount === count),
       },
       [
         el('span', { class: 'option-card__label', text: text.title }),
