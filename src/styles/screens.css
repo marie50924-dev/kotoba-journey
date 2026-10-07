@@ -600,8 +600,14 @@
   border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 20px;
   box-shadow: 0 4px 14px rgba(16, 59, 92, 0.12);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /*
+   * この帯には backdrop-filter を掛けない。
+   *
+   * backdrop-filter を持つ要素は「背後の基準」をそこで区切ってしまうため、
+   * 中に入っている淡いボタン（はなしかける）が背後を取り込めなくなる。
+   * 実際、掛けていたときは面が白けて、白い文字が 3.43:1 まで落ちていた。
+   * 帯そのものは半透明の白なので、掛けなくても見え方はほとんど変わらない。
+   */
 }
 
 .screen--avatar-confirm .avatar-confirm {

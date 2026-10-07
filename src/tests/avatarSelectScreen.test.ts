@@ -1001,9 +1001,28 @@ describe('選択ボタンのガラス調', () => {
         /backdrop-filter:[^;]*(sepia|hue-rotate)/,
       );
     }
+    /*
+     * base.css では、補助の操作（.btn--soft / 絞り込み）だけが
+     * backdrop-filter で背後を取り込む。背後がはっきり透けるガラスにするため、
+     * 塗りを薄くしたぶんを「背後を暗くする」ことで補っている。
+     * 効かない環境では読める濃さへ戻す備えがあること
+     *   （決まりは buttonTheme.test.ts の「ぼかしが効かない環境では…」）。
+     * それ以外のボタンは、いまも色をぼかしに頼っていない。
+     */
     const base = withoutComments(String(baseCssInline));
-    expect(base, 'base.css に色を作る backdrop-filter が残っている').not.toMatch(
-      /backdrop-filter:[^;]*(brightness|saturate|sepia|hue-rotate)/,
+    const resolved = base.replace(
+      /var\(--glass-backdrop-soft\)/g,
+      base.match(/--glass-backdrop-soft:([^;]*);/)?.[1] ?? '',
+    );
+    for (const m of resolved.matchAll(/([^{}]*)\{([^}]*backdrop-filter:[^;]*(?:brightness|saturate|sepia|hue-rotate)[^;]*;[^}]*)\}/g)) {
+      const head = m[1].trim().replace(/\s+/g, ' ');
+      expect(
+        head.includes('.btn--soft') || head.includes('.avatar-filter__btn'),
+        `base.css の「${head}」が色をぼかしで作っている`,
+      ).toBe(true);
+    }
+    expect(base, 'ぼかしが効かない環境への備えが無い').toContain(
+      '@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px)))',
     );
   });
 

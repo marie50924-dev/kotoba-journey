@@ -564,17 +564,29 @@ describe('淡い青ガラス（補助の操作）', () => {
 
     /*
      * いちばん明るい背景（白）に重ねても、白い文字が 4.5:1 を保つこと。
-     * 文字が乗る高さ（縁から10px内側）で確かめる。
+     *
+     * 面の見え方は「塗りだけ」では決まらない。
+     *   1. backdrop-filter が背後を暗くする（brightness）
+     *   2. そのうえに薄い塗りが乗る
+     * の順に重なるので、同じ順で計算する。
+     * 塗りだけで判定すると、ぼかしで暗くしているぶんを見落とす。
      */
+    const backdrop = baseCss.match(/--glass-backdrop-soft:([^;]*);/);
+    expect(backdrop, '--glass-backdrop-soft が無い').not.toBeNull();
+    const brightness = Number(
+      (backdrop as RegExpMatchArray)[1].match(/brightness\(([\d.]+)\)/)?.[1],
+    );
+    expect(Number.isFinite(brightness), 'backdrop-filter に brightness が無い').toBe(true);
+    expect(brightness, '背後を暗くしていない（白い文字が読めなくなる）').toBeLessThan(1);
+
     const solid = stops.filter((_, i) => i >= 2 && i <= stops.length - 3);
     expect(solid.length, '文字の高さに当たる段が無い').toBeGreaterThan(0);
+    const dimmedWhite = 255 * brightness;
     for (const c of solid) {
-      const over = (bg: number): number => c.a * 0 + bg; // 型のための無害な参照
-      void over;
       const eff = {
-        r: c.r * c.a + 255 * (1 - c.a),
-        g: c.g * c.a + 255 * (1 - c.a),
-        b: c.b * c.a + 255 * (1 - c.a),
+        r: c.r * c.a + dimmedWhite * (1 - c.a),
+        g: c.g * c.a + dimmedWhite * (1 - c.a),
+        b: c.b * c.a + dimmedWhite * (1 - c.a),
         a: 1,
       };
       const value = contrast(eff, WHITE);
@@ -583,6 +595,23 @@ describe('淡い青ガラス（補助の操作）', () => {
         `白い背景に重ねたとき rgb(${Math.round(eff.r)},${Math.round(eff.g)},${Math.round(eff.b)}) で ${value.toFixed(2)}:1`,
       ).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
     }
+  });
+
+  it('ぼかしが効かない環境では、読める濃さの面へ戻す', () => {
+    /*
+     * 面の青さと暗さは背後のぼかしで作っているので、効かない環境では
+     * 薄い塗りだけが残り、明るい画面で白い文字が読めなくなる。
+     * その環境だけ、通常の青ガラスの面（不透明）へ戻す。
+     */
+    const m = baseCss.match(
+      /@supports not \(\(backdrop-filter: blur\(2px\)\) or \(-webkit-backdrop-filter: blur\(2px\)\)\)\s*\{([\s\S]*?)\n\}/,
+    );
+    expect(m, 'ぼかしが効かない環境向けの指定が見つからない').not.toBeNull();
+    const body = (m as RegExpMatchArray)[1];
+    expect(body, '淡いボタンの備えが無い').toContain('.btn--soft');
+    expect(body, '絞り込みの備えが無い').toContain('.avatar-filter__btn');
+    // 戻す先は、不透明な通常の青ガラスの面。
+    expect(body, '戻す先が通常の面ではない').toMatch(/background-image:[^;]*var\(--glass-face\)/);
   });
 
   it('淡くするのは、指定された補助の操作だけ', () => {

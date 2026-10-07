@@ -137,8 +137,11 @@
   border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.84) 100%);
-  backdrop-filter: blur(10px) saturate(1.05) brightness(1.06);
-  -webkit-backdrop-filter: blur(10px) saturate(1.05) brightness(1.06);
+  /*
+   * このパネルには backdrop-filter を掛けない。
+   * 掛けると「背後の基準」をここで区切ってしまい、中の淡いボタン（とじる）が
+   * 背後を取り込めなくなる（面が白けて白い文字が読みにくくなる）。
+   */
   box-shadow:
     0 0 0 1px rgba(26, 99, 166, 0.16),
     0 10px 24px rgba(9, 32, 54, 0.26),
