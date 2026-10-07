@@ -343,6 +343,50 @@ describe('世界マップ', () => {
     expect(find('london').position.y).toBeLessThan(find('paris').position.y);
   });
 
+  /*
+   * 北海道・本州・四国・九州が、札と光で隠れないこと。
+   *
+   * 四島の外接箱は、採用した絵（world-map-v2）の陸の画素から取った値。
+   *   画素 x 1174〜1296 / y 385〜531（1536x1024 のキャンバス上）
+   * 絵を差し替えたら、この値も取り直す必要がある。
+   */
+  const MAIN_ISLANDS = { x0: 1174, x1: 1296, y0: 385, y1: 531 };
+  const CANVAS = { w: 1536, h: 1024 };
+  const ISLAND_CLEAR = 6; // 光の外に、さらにこれだけ離す
+
+  it('どの画面でも、札と光が日本列島（四島）にかからない', () => {
+    for (const fw of MAP_WIDTHS) {
+      const k = fw / CANVAS.w; // 絵の画素 → 画面の px
+      const island = {
+        x0: MAIN_ISLANDS.x0 * k,
+        y0: MAIN_ISLANDS.y0 * k,
+        x1: MAIN_ISLANDS.x1 * k,
+        y1: MAIN_ISLANDS.y1 * k,
+      };
+      for (const id of IDS) {
+        const b = placed(id, fw).box;
+        const pad = GLOW + ISLAND_CLEAR;
+        const area = { x0: b.x0 - pad, y0: b.y0 - pad, x1: b.x1 + pad, y1: b.y1 + pad };
+        const overX = Math.min(area.x1, island.x1) - Math.max(area.x0, island.x0);
+        const overY = Math.min(area.y1, island.y1) - Math.max(area.y0, island.y0);
+        expect(
+          overX > 0 && overY > 0,
+          `枠幅 ${fw}：${id} の札が日本列島にかかる（横 ${overX.toFixed(1)} 縦 ${overY.toFixed(1)}）`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('日本の札は、列島の東から右下の海へ逃がしてある', () => {
+    const japan = find('japan');
+    expect(japan.displayOffset, '日本にずれ量が無い').toBeTruthy();
+    const { x, y } = japan.displayOffset as { x: number; y: number };
+    // 東へ（右へ）寄せる。
+    expect(x, '日本の札が西へずれている').toBeGreaterThan(0);
+    // 東だけでは収まらないぶんを、下へ逃がす。
+    expect(y, '日本の札が上へずれている').toBeGreaterThan(0);
+  });
+
   it('座標は、採用した地図の絵から読み取った値', () => {
     /*
      * 盤面に敷く絵（world-map-v2）の上で、海岸線を手がかりに読み取った推定位置。
