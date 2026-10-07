@@ -221,14 +221,19 @@ export const UI = {
     accuracy: '正解率',
     clearTime: 'クリア時間',
     bestTime: '自己ベスト',
-    learnedWords: '覚えたことば',
+    /*
+     * カルタで取れたことは「その場で正しく選べた」ことまでしか示さない。
+     * 記憶の定着までは確かめられないので、「覚えた」とは書かない。
+     */
+    noMistakeWords: 'まちがえずに正解',
     thisTimeWords: '今回のことば',
     mistakenWords: '間違えた単語',
     noMistakes: '間違いはありませんでした',
     newBest: '自己ベスト更新！',
   },
   mastery: {
-    mastered: '習得',
+    // 誤答0回を指す。同じ理由で「習得」とは書かない。
+    mastered: 'まちがいなし',
     practicing: '練習中',
     review: '復習',
   },

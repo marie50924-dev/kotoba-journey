@@ -28,7 +28,7 @@ export function resultScreen(ctx: AppContext): HTMLElement {
       bestTime === undefined ? '—' : formatDuration(bestTime),
       ctx.lastResultWasBest ? UI.result.newBest : undefined,
     ),
-    statTile(UI.result.learnedWords, `${grouped.mastered.length}${UI.units.words}`),
+    statTile(UI.result.noMistakeWords, `${grouped.mastered.length}${UI.units.words}`),
   ]);
 
   const levels: MasteryLevel[] = ['mastered', 'practicing', 'review'];
