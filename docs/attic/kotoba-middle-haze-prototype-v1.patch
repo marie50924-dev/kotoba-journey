@@ -1,0 +1,302 @@
+diff --git a/src/components/avatarThumb.ts b/src/components/avatarThumb.ts
+index 4db34fd..e92c132 100644
+--- a/src/components/avatarThumb.ts
++++ b/src/components/avatarThumb.ts
+@@ -47,6 +47,13 @@ export interface AvatarThumbOptions {
+    * 空文字のときは role ごと外して aria-hidden にする。
+    */
+   label?: string;
++  /**
++   * 人物の後ろに、白く半透明のくもりを敷くか（試作）。
++   *
++   * いまは主人公選択の一覧の中学生だけで true にしている。
++   * 見た目の値は CSS 側にあり、ここでは敷くかどうかだけを決める。
++   */
++  haze?: boolean;
+ }
+ 
+ /** 下の名前の先頭1文字。色だけに頼らないための手がかり。 */
+@@ -87,27 +94,34 @@ export function avatarThumb(
+       role: decorative ? undefined : 'img',
+       'aria-hidden': decorative ? 'true' : undefined,
+       'aria-label': decorative ? undefined : label,
+-      // --age-color は仮サムネイルの地色、--age-image-bg は実画像の透過部分から
+-      // 見える淡色。どちらも年代（avatar.ageGroup）だけで決まり、名前や並び順には
+-      // 依存しない。色の値はデータ側の1か所で定義している。
+-      style:
+-        `--age-color:${AGE_GROUP_COLOR[avatar.ageGroup]};` +
+-        `--age-image-bg:${AGE_GROUP_IMAGE_BACKGROUND[avatar.ageGroup]};` +
+-        /*
+-         * 一覧で頭のてっぺんをそろえるための下げ量（カード幅に対する%）。
+-         * 画像そのものから測った値で、画像キーだけで決まる。
+-         * 使うのは一覧のCSSだけ。ほかの画面では読まれないので影響はない。
+-         */
+-        `--avatar-head-shift:${avatarHeadShift(avatar.imageKey)};` +
+-        /*
+-         * 一覧でだけ掛ける表示倍率。画像キーだけで決まる。
+-         * 既定は 1 なので、指定のない人の見え方は変わらない。
+-         */
+-        `--avatar-scale:${avatarDisplayScale(avatar.imageKey)}`,
+     },
+     [fallback],
+   );
+ 
++  /*
++   * 年代ごとの色と、一覧での置きかたを決める値。
++   *
++   * --age-color は仮サムネイルの地色、--age-image-bg は実画像の透過部分から
++   * 見える淡色。どちらも年代（avatar.ageGroup）だけで決まり、名前や並び順には
++   * 依存しない。色の値はデータ側の1か所で定義している。
++   *
++   * --avatar-head-shift は一覧で頭のてっぺんをそろえるための下げ量
++   * （カード幅に対する%）、--avatar-scale は一覧でだけ掛ける表示倍率。
++   * どちらも画像そのものから測った値で、画像キーだけで決まる。
++   * 既定は 0 と 1 なので、指定のない人の見え方は変わらない。
++   *
++   * 外側の箱に置いてあるのは、顔と、その後ろに敷くくもりの両方へ
++   * 同じ値を届けるため（変数は子へ受け継がれる）。
++   */
++  const framing =
++    `--age-color:${AGE_GROUP_COLOR[avatar.ageGroup]};` +
++    `--age-image-bg:${AGE_GROUP_IMAGE_BACKGROUND[avatar.ageGroup]};` +
++    `--avatar-head-shift:${avatarHeadShift(avatar.imageKey)};` +
++    `--avatar-scale:${avatarDisplayScale(avatar.imageKey)}`;
++
++  // 人物の後ろに敷くくもり（作る場合だけ。下の分岐の中で作る）。
++  let haze: HTMLElement | null = null;
++
+   if (imageUrl !== null) {
+     const image = el('img', {
+       class: 'avatar-thumb__img',
+@@ -128,7 +142,11 @@ export function avatarThumb(
+     });
+ 
+     // 成功したときだけ前面へ出す。失敗したら画像だけを消す。
+-    const succeed = (): void => face.classList.add('has-image');
++    const succeed = (): void => {
++      face.classList.add('has-image');
++      // くもりは、人物が描けたときだけ出す。
++      haze?.classList.add('is-on');
++    };
+     const fail = (): void => face.classList.add('image-failed');
+ 
+     image.addEventListener('load', succeed);
+@@ -141,14 +159,37 @@ export function avatarThumb(
+     }
+ 
+     face.append(image);
++
++    /*
++     * 人物の周りのくもり（試作・中学生の一覧だけ）。
++     *
++     * 同じ画像をもう一枚、白一色にしてぼかしたものを人物の後ろへ敷く。
++     * 形は人物の輪郭そのものなので、肩や服のでこぼこに沿って不均一に広がる。
++     * 円や楕円の地色ではなく、一定幅の縁取りでもない。
++     * 人物そのものには一切掛けない（後ろに置くだけ）ので、顔・目・髪は
++     * そのまま鮮明に残り、人物全体が白く薄まることもない。
++     * 見た目の値（広がり・濃さ・消えかた）は CSS 側にある。
++     *
++     * 画像ではなく背景として敷いているので、読み上げには出ない。
++     * 画像が読めたときだけ出す（is-on）。
++     */
++    if (options.haze === true) {
++      haze = el('span', {
++        class: 'avatar-thumb__haze',
++        'aria-hidden': 'true',
++        style: `background-image:url("${imageUrl}")`,
++      });
++    }
+   }
+ 
+   return el(
+     'span',
+     {
+       class: ['avatar-thumb', `avatar-thumb--${size}`, options.class].filter(Boolean).join(' '),
++      style: framing,
+     },
+     [
++      haze,
+       face,
+       options.withName
+         ? el('span', { class: 'avatar-thumb__name', text: displayName(avatar) })
+diff --git a/src/screens/avatarSelectScreen.ts b/src/screens/avatarSelectScreen.ts
+index 7f8ad46..e7f9a8c 100644
+--- a/src/screens/avatarSelectScreen.ts
++++ b/src/screens/avatarSelectScreen.ts
+@@ -128,11 +128,21 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
+             role: 'option',
+             'aria-selected': String(selected),
+             'data-avatar-id': avatar.id,
++            /*
++             * 年代をカードにも持たせる。年代ごとに見せ方を変える指定を
++             * CSS から書けるようにするため（いまは中学生のくもりだけ）。
++             * 画面に出る文字ではなく、並び順や名前にも影響しない。
++             */
++            'data-age': avatar.ageGroup,
+           },
+           [
+             // 選択中は枠の色だけでなくチェック記号でも示す。
+             el('span', { class: 'avatar-card__check', text: '✓', 'aria-hidden': 'true' }),
+-            avatarThumb(avatar, { size: 'md', label: '' }),
++            /*
++             * 人物の後ろのくもりは、いまは中学生だけの試作。
++             * ほかの年代と、ほかの画面の丸いサムネイルには出さない。
++             */
++            avatarThumb(avatar, { size: 'md', label: '', haze: avatar.ageGroup === 'middle' }),
+             el('span', { class: 'avatar-thumb__name', text: displayName(avatar) }),
+           ],
+         );
+diff --git a/src/styles/avatar.css b/src/styles/avatar.css
+index a3cc68b..372f9f7 100644
+--- a/src/styles/avatar.css
++++ b/src/styles/avatar.css
+@@ -1009,3 +1009,102 @@
+     --avatar-fade-y: calc(84% / var(--avatar-scale, 1));
+   }
+ }
++
++/*
++ * ---- 中学生の一覧だけ：人物の周りの白いくもり（試作） ----
++ *
++ * 見本（IMG_5361(1).jpeg）の仕上がりに寄せる。範囲の参考は IMG_5360(2).jpeg の
++ * ピンクで、ピンク色そのものは実装しない。
++ *
++ * やり方
++ *   同じ人物画像をもう一枚、白一色にして（brightness(0) invert(1)）ぼかし、
++ *   人物の後ろへ敷く。形は人物の輪郭そのものなので、肩や服のでこぼこに沿って
++ *   不均一に広がり、外へ行くほど薄れてカードの淡い面へ溶ける。
++ *   円・楕円の地色ではなく、一定幅の縁取りでも、輪郭を囲む光の輪でもない。
++ *
++ * 守っていること
++ *   ・人物そのものには何も掛けない（後ろに敷くだけ）。顔・目・髪は鮮明なまま。
++ *   ・人物全体を白く薄めない。白が見えるのは、人物の外側と、
++ *     もともと半透明に落としてある肩・服の外縁だけ。
++ *   ・名前はこのくもりより手前（z-index 2）にあり、ぼかさない。
++ *   ・元画像・人物の大きさ・位置・カードの寸法は変えていない。
++ *   ・中学生のカード（data-age="middle"）の一覧だけ。ほかの年代と、
++ *     ほかの画面の丸いサムネイルには出さない（既定は display: none）。
++ */
++.avatar-thumb__haze {
++  display: none;
++}
++
++.avatar-list .avatar-card[data-age='middle'] .avatar-thumb__haze.is-on {
++  display: block;
++  /*
++   * 置きかたは人物の顔（.avatar-thumb__face.has-image）と同じ。
++   * 同じ変数を使うので、頭のてっぺんの位置も表示倍率もぴったり重なる。
++   */
++  position: absolute;
++  left: 0;
++  right: 0;
++  top: 0;
++  aspect-ratio: 1 / 1;
++  margin-top: calc(var(--avatar-head-shift, 0) * 1%);
++  transform: scale(var(--avatar-scale, 1));
++  transform-origin: top center;
++  /* 重なり順は、人物より前・名前（z-index 2）より後ろ。 */
++  z-index: 1;
++  pointer-events: none;
++  /*
++   * 顔・目・髪の中心には、くもりを掛けない。
++   *
++   * 顔を中心にした縦長の楕円の内側を抜いてある。中心から外へ出るほど強くなり、
++   * 肩の外側・服の左右と下端・人物の外側で全面に掛かる。
++   * 胸の中心（赤いリボン）も抜ける位置に合わせてある。
++   *
++   * このなじませは外側の要素に置き、ぼかしは中の要素（::before）に置く。
++   * 同じ要素にまとめると、ぼかしが先に掛かって抜いた穴を埋めてしまう。
++   */
++  -webkit-mask-image: radial-gradient(
++    42% 62% at 50% 40%,
++    rgba(0, 0, 0, 0) 0%,
++    rgba(0, 0, 0, 0) 66%,
++    rgba(0, 0, 0, 0.18) 80%,
++    rgba(0, 0, 0, 0.55) 93%,
++    rgba(0, 0, 0, 0.8) 100%
++  );
++  mask-image: radial-gradient(
++    42% 62% at 50% 40%,
++    rgba(0, 0, 0, 0) 0%,
++    rgba(0, 0, 0, 0) 66%,
++    rgba(0, 0, 0, 0.18) 80%,
++    rgba(0, 0, 0, 0.55) 93%,
++    rgba(0, 0, 0, 0.8) 100%
++  );
++  -webkit-mask-repeat: no-repeat;
++  mask-repeat: no-repeat;
++}
++
++/*
++ * くもりそのもの。人物の画像を白一色にして、ぼかしと白い影を重ねる。
++ *   blur        … 輪郭のすぐ外に、濃いめのくもり
++ *   drop-shadow … その外側へ、薄いくもりを2段で広げる
++ * 影は「ぼかしたあとの白い形」から作られるので、人物の形のまま広がる。
++ * 太さは場所ごとに変わり、一定幅の縁取りや光の輪にはならない。
++ */
++.avatar-list .avatar-card[data-age='middle'] .avatar-thumb__haze.is-on::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  /* 親に置いた url（人物の画像）をそのまま受け継ぐ。 */
++  background-image: inherit;
++  background-repeat: no-repeat;
++  background-position: center top;
++  background-size: contain;
++  /* ぼかしで外へ広がるぶんを見込んで、少しだけ小さく敷く。 */
++  transform: scale(0.96);
++  transform-origin: top center;
++  filter:
++    brightness(0) invert(1) blur(5px)
++    drop-shadow(0 0 5px rgba(255, 255, 255, 0.95))
++    drop-shadow(0 1px 10px rgba(255, 255, 255, 0.8));
++  opacity: 0.85;
++}
++
+diff --git a/src/tests/avatarSelectScreen.test.ts b/src/tests/avatarSelectScreen.test.ts
+index 1032412..20cb534 100644
+--- a/src/tests/avatarSelectScreen.test.ts
++++ b/src/tests/avatarSelectScreen.test.ts
+@@ -1187,7 +1187,41 @@ describe('主人公選択 一覧と決定バー', () => {
+   });
+ 
+   it('80人の顔と名前は、これまでの部品のまま出す', () => {
+-    expect(screen).toContain("avatarThumb(avatar, { size: 'md', label: '' })");
++    // 部品も大きさも読み上げの扱いも変えない。足したのはくもりの有無だけ。
++    expect(screen).toContain("avatarThumb(avatar, { size: 'md', label: ''");
+     expect(screen).toContain("class: 'avatar-thumb__name', text: displayName(avatar)");
+   });
++
++  it('人物の後ろのくもりは、中学生のカードだけに付ける（試作）', () => {
++    // 画面側：くもりを頼むのは中学生のときだけ。
++    expect(screen, 'くもりを年代で分けていない').toContain(
++      "haze: avatar.ageGroup === 'middle'",
++    );
++    // 画面側：年代をカードにも持たせる（CSS から中学生だけを選ぶため）。
++    expect(screen, 'カードに年代の目印が無い').toContain("'data-age': avatar.ageGroup");
++
++    // CSS：既定は出さない。中学生のカードの一覧でだけ出す。
++    expect(block('.avatar-thumb__haze'), '既定で出ない指定になっていない')
++      .toMatch(/display:\s*none/);
++    const on = css.match(
++      /\.avatar-list \.avatar-card\[data-age='middle'\] \.avatar-thumb__haze\.is-on\s*\{([^}]*)\}/,
++    );
++    expect(on, '中学生のカードだけに出す指定が無い').not.toBeNull();
++    const decls = (on as RegExpMatchArray)[1];
++    // 白一色にしてぼかす（人物の形のまま広がる）。
++    expect(decls, '白くしてぼかす指定が無い').toMatch(
++      /filter:\s*brightness\(0\) invert\(1\) blur\([\d.]+px\)/,
++    );
++    // 置きかたは人物と同じ変数を使う（頭の位置と倍率がずれない）。
++    expect(decls).toMatch(/margin-top:\s*calc\(var\(--avatar-head-shift/);
++    expect(decls).toMatch(/transform:\s*scale\(var\(--avatar-scale/);
++    // 名前（z-index 2）より後ろ。
++    const z = decls.match(/z-index:\s*(\d+)/);
++    expect(z, 'くもりの重なり順が読めない').not.toBeNull();
++    expect(Number((z as RegExpMatchArray)[1])).toBeLessThan(2);
++    // 人物そのものを薄くしたりぼかしたりしない（くもりは後ろに敷くだけ）。
++    const person = block('.avatar-list .avatar-card .avatar-thumb__face.has-image .avatar-thumb__img');
++    expect(person, '人物にぼかしを掛けている').not.toMatch(/filter:/);
++    expect(person, '人物を薄くしている').not.toMatch(/opacity:\s*0?\.\d/);
++  });
+ });
