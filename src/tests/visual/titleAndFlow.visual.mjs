@@ -641,6 +641,16 @@ const WALKWAYS = {
     far: { y: 0.7, left: 0.2, right: 0.786 },
     near: { y: 0.85, left: 0.045, right: 0.95 },
   },
+  /*
+   * 配信している軽量版。絵も寸法（853x1844）も上と同じで、
+   * 圧縮を強めただけなので、比率で書いたこの実測値はそのまま使える。
+   * 軽量化する前のファイルも残してあるので、両方を書いておく。
+   */
+  'background-walkway-candidate-q85.webp': {
+    top: 0.555,
+    far: { y: 0.7, left: 0.2, right: 0.786 },
+    near: { y: 0.85, left: 0.045, right: 0.95 },
+  },
   // 歩道が 71.5% から始まり、その上は川と欄干。
   'background-reference-exact.webp': {
     top: 0.715,
