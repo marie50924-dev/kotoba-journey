@@ -9,12 +9,57 @@ import {
 import { SAMPLE_PAIRS, findPair } from '../data/wordPairs';
 import { VOCABULARY_SETS } from '../data/vocabularySets';
 
+/*
+ * ファイルの列挙は Vite の glob で行う（node:fs は @types/node が無いので使えない）。
+ * 配信するのは画面が読む WebP だけ。元のPNGと仮のSVG、説明文は
+ * 配信物に入れず assets-source/ に保管する。消してはいない。
+ */
+const PUBLIC_FILES = import.meta.glob('../../public/assets/word-illustrations/*');
+const SOURCE_FILES = import.meta.glob('../../assets-source/word-illustrations/*');
+
+function baseNames(files: Record<string, unknown>): string[] {
+  return Object.keys(files)
+    .map((path) => path.slice(path.lastIndexOf('/') + 1))
+    .sort();
+}
+
 /**
  * 単語イラストの紐付けと、イラスト付き体験で使う3ペアの確認。
  *
  * ここで守りたいのは「イラストを足しても語彙が動かない」こと。
  * 語・訳・pairId・コースの語彙セットは、この対応表からは一切変えない。
  */
+describe('ことばの絵の置き場所', () => {
+  it('配信するのは画面が読む WebP の3枚だけ', () => {
+    expect(baseNames(PUBLIC_FILES)).toEqual([
+      'apple-light-v1.webp',
+      'cat-light-v1.webp',
+      'dog-light-v1.webp',
+    ]);
+  });
+
+  it('配信物に、元のPNG・仮のSVG・説明文を混ぜない', () => {
+    for (const name of baseNames(PUBLIC_FILES)) {
+      expect(name, `${name} は配信物に入れない`).toMatch(/\.webp$/);
+    }
+  });
+
+  it('元のPNG・仮のSVG・説明文は、消さずに保管してある', () => {
+    for (const name of [
+      'apple.png', 'cat.png', 'dog.png',
+      'apple.svg', 'cat.svg', 'dog.svg',
+      'README.txt',
+    ]) {
+      expect(baseNames(SOURCE_FILES), `${name} が保管されていない`).toContain(name);
+    }
+  });
+
+  it('配信している WebP は、対応表が指すファイル名と一致する', () => {
+    const 指している = WORD_ILLUSTRATIONS.map((x) => x.file).sort();
+    expect(baseNames(PUBLIC_FILES)).toEqual(指している);
+  });
+});
+
 describe('単語イラストの紐付け', () => {
   it('紐付けは pairId の昇順で、重複が無い', () => {
     const ids = WORD_ILLUSTRATIONS.map((item) => item.pairId);

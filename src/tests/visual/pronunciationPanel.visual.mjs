@@ -73,7 +73,7 @@ async function openPronunciationPanel(page, baseUrl) {
   if ((await page.locator('.screen--avatar-select').count()) > 0) {
     await page.locator('.avatar-card').first().click();
     await page.getByRole('button', { name: 'この人を選ぶ' }).click();
-    await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+    await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
   }
   await page.getByRole('button', { name: /学年別/ }).click();
   await page.getByRole('button', { name: '小学生' }).click();

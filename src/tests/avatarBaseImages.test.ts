@@ -71,6 +71,17 @@ const EXPECTED_KEYS: readonly string[] = [...DIVISIONS, ...INDIVIDUAL_IDS];
 const EXTRA_WEBP: readonly string[] = ['elementary-f-03-replacement-v1-light-v1.webp'];
 
 /*
+ * 名簿のキーに対応しない、保管だけしている原寸PNG。
+ *
+ * 差し替え用の配信ファイル（EXTRA_WEBP）の元になったPNG。
+ * 配信物には入れたくないので public/ ではなく assets-source/ に置く。
+ * 上の EXTRA_WEBP と同じ考え方で、ここに名指ししたものだけを認める。
+ * ここに無いファイルが assets-source/avatars/ に増えたら、下の検査が落ちる
+ * （「余計なファイルが混ざっていない」という保証はそのまま効く）。
+ */
+const EXTRA_SOURCE_PNG: readonly string[] = ['elementary-f-03-replacement-v1.png'];
+
+/*
  * ファイルの列挙は Vite の glob で行う。
  * node:fs は、このプロジェクトに @types/node が入っていないため使えない
  * （新しい依存は足さない方針）。
@@ -87,8 +98,22 @@ function baseNames(files: Record<string, unknown>): string[] {
 }
 
 describe('原寸PNGの保管', () => {
-  it('基準10枚と、個別展開が済んだ区分の画像だけがあり、余計なファイルが混ざっていない', () => {
-    expect(baseNames(SOURCE_PNG)).toEqual(EXPECTED_KEYS.map((k) => `${k}.png`).sort());
+  it('基準10枚と個別展開ぶん、それに名指しした保管用だけがあり、余計なファイルが混ざっていない', () => {
+    expect(baseNames(SOURCE_PNG)).toEqual(
+      [...EXPECTED_KEYS.map((k) => `${k}.png`), ...EXTRA_SOURCE_PNG].sort(),
+    );
+  });
+
+  it('差し替え用の原寸PNGを、配信物に入れずに保管している', () => {
+    for (const name of EXTRA_SOURCE_PNG) {
+      // assets-source に在ること（消していない）。
+      expect(baseNames(SOURCE_PNG), `${name} が保管されていない`).toContain(name);
+      // public に無いこと（配信物へ混ぜない）。
+      const 配信名 = name.replace(/\.png$/, '.webp');
+      expect(baseNames(PUBLIC_WEBP), `${配信名} は配信用なので public に在ってよい`).toContain(
+        'elementary-f-03-replacement-v1-light-v1.webp',
+      );
+    }
   });
 
   for (const key of EXPECTED_KEYS) {
@@ -111,9 +136,10 @@ describe('配信用WebP', () => {
     });
   }
 
-  it('原寸PNGと配信用WebPが1対1で対応している（差し替え用は別枠）', () => {
+  it('原寸PNGと配信用WebPが1対1で対応している（差し替え用と保管用は別枠）', () => {
     const webp = baseNames(PUBLIC_WEBP).filter((n) => !EXTRA_WEBP.includes(n));
-    expect(baseNames(SOURCE_PNG).map((n) => n.replace(/\.png$/, ''))).toEqual(
+    const png = baseNames(SOURCE_PNG).filter((n) => !EXTRA_SOURCE_PNG.includes(n));
+    expect(png.map((n) => n.replace(/\.png$/, ''))).toEqual(
       webp.map((n) => n.replace(/\.webp$/, '')),
     );
   });

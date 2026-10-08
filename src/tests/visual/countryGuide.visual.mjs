@@ -92,7 +92,7 @@ async function reachIntro(page, baseUrl) {
   await page.locator('.avatar-card').first().click();
   await page.getByRole('button', { name: 'この人を選ぶ' }).click();
   await page.waitForSelector('.screen--avatar-confirm');
-  await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+  await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
 
   await page.waitForSelector('.option-card--category');
   await page.getByRole('button', { name: /学年別/ }).click();

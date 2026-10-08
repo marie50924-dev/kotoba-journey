@@ -1501,7 +1501,7 @@ try {
         await page.getByRole('button', { name: 'この人を選ぶ' }).click();
 
         await page.waitForSelector('.screen--avatar-confirm');
-        await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+        await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
 
         await page.waitForSelector('.option-card--category');
 
@@ -1733,7 +1733,7 @@ try {
         await page.locator('.avatar-card').first().click();
         await page.getByRole('button', { name: 'この人を選ぶ' }).click();
         await page.waitForSelector('.screen--avatar-confirm');
-        await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+        await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
         await page.getByRole('button', { name: /学年別/ }).click();
         await page.getByRole('button', { name: '小学生' }).click();
         await page.getByRole('button', { name: /^6枚/ }).click();
@@ -1810,7 +1810,7 @@ try {
           await page.locator('.avatar-card').first().click();
           await page.getByRole('button', { name: 'この人を選ぶ' }).click();
           await page.waitForSelector('.screen--avatar-confirm');
-          await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+          await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
           await page.waitForSelector('.option-card--category');
           // 日常英会話は共通の105語を使うので、74 を盤面へ出せる。
           await page.getByRole('button', { name: /社会人/ }).click();

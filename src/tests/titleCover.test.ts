@@ -67,6 +67,10 @@ const RESTORE_SOURCE = import.meta.glob('../../assets-source/title/restore-refer
 const GROUNDING_WEBP = import.meta.glob('../../public/assets/title/grounding-v1/*.webp');
 /** 配信している軽量版。絵は受領物のままで、圧縮と（ロゴだけ）縮小をしたもの。 */
 const LIGHT_WEBP = import.meta.glob('../../public/assets/title/lightweight-v1/*.webp');
+/** 配信する軽量版のフォルダに置いてあるもの全部（WebP 以外が混ざっていないか見る）。 */
+const LIGHT_ALL = import.meta.glob('../../public/assets/title/lightweight-v1/*');
+/** 軽量版の候補と説明文の保管先。配信物には入れない。 */
+const LIGHT_SOURCE = import.meta.glob('../../assets-source/title/lightweight-v1/*');
 const GROUNDING_SOURCE = import.meta.glob('../../assets-source/title/grounding-v1/*');
 
 function baseNames(map: Record<string, unknown>): string[] {
@@ -156,6 +160,11 @@ describe('表紙の分離素材', () => {
     for (const url of Object.values(TITLE_LAYERS)) {
       expect(url).toContain('lightweight-v1/');
     }
+    // 配信するのは画像だけ。説明文は配信物に混ぜず、保管先に残す。
+    for (const name of baseNames(LIGHT_ALL)) {
+      expect(name, `${name} は配信物に入れない`).toMatch(/\.webp$/);
+    }
+    expect(baseNames(LIGHT_SOURCE), '説明文が保管されていない').toContain('README.txt');
   });
 
   it('表紙の素材を国の絵として使い回していない', () => {

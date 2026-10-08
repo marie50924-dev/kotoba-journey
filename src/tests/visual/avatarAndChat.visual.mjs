@@ -476,15 +476,15 @@ try {
         );
         await record('キャラクター確認');
 
-        // 「この人と旅をはじめる」も1行・44px以上・横あふれなし。
-        const startBtn = await buttonLines(page, 'この人と旅をはじめる');
-        check(startBtn !== null, `${label}: 「この人と旅をはじめる」が見つからない`);
-        check(startBtn?.lines === 1, `${label}: 「この人と旅をはじめる」が${startBtn?.lines}行になっている`);
+        // 「この人になって旅をはじめる」も1行・44px以上・横あふれなし。
+        const startBtn = await buttonLines(page, 'この人になって旅をはじめる');
+        check(startBtn !== null, `${label}: 「この人になって旅をはじめる」が見つからない`);
+        check(startBtn?.lines === 1, `${label}: 「この人になって旅をはじめる」が${startBtn?.lines}行になっている`);
         check(
           startBtn?.height >= 44,
-          `${label}: 「この人と旅をはじめる」が44px未満（${startBtn?.height.toFixed(1)}）`,
+          `${label}: 「この人になって旅をはじめる」が44px未満（${startBtn?.height.toFixed(1)}）`,
         );
-        check(!startBtn?.overflow, `${label}: 「この人と旅をはじめる」が横にあふれている`);
+        check(!startBtn?.overflow, `${label}: 「この人になって旅をはじめる」が横にあふれている`);
 
         const notesOnConfirm = await forbiddenNotesOnScreen(page);
         check(
@@ -492,7 +492,7 @@ try {
           `${label}: 確認画面に開発者向けの説明が残っている（${notesOnConfirm.join(' / ')}）`,
         );
 
-        await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+        await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
 
         check(
           (await page.locator('.option-card--category').count()) === 3,
@@ -668,7 +668,7 @@ try {
           .locator('.avatar-card[aria-selected="true"]')
           .getAttribute('data-avatar-id');
         await page.getByRole('button', { name: 'この人を選ぶ' }).click();
-        await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+        await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
         const changed = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
         check(changed.selectedAvatarId === changedId, `${label}: 設定からの変更が保存されない`);
         check(changed.selectedAvatarId !== chosenId, `${label}: 変更が反映されていない`);
@@ -1663,7 +1663,7 @@ ${screenBg('#ffffff')}
         await page.getByRole('button', { name: '旅をはじめる' }).click();
         await page.locator('.avatar-card').first().click();
         await page.getByRole('button', { name: 'この人を選ぶ' }).click();
-        await page.getByRole('button', { name: 'この人と旅をはじめる' }).click();
+        await page.getByRole('button', { name: 'この人になって旅をはじめる' }).click();
         await page.getByRole('button', { name: 'はなしかける' }).click();
         await page.waitForSelector('.chat');
         const text = await page.locator('.chat__text').first().textContent();
