@@ -65,6 +65,8 @@ const BG2_SOURCE = import.meta.glob('../../assets-source/title/background-v2/*')
 const RESTORE_WEBP = import.meta.glob('../../public/assets/title/restore-reference/*.webp');
 const RESTORE_SOURCE = import.meta.glob('../../assets-source/title/restore-reference/*');
 const GROUNDING_WEBP = import.meta.glob('../../public/assets/title/grounding-v1/*.webp');
+/** 配信している軽量版。絵は受領物のままで、圧縮と（ロゴだけ）縮小をしたもの。 */
+const LIGHT_WEBP = import.meta.glob('../../public/assets/title/lightweight-v1/*.webp');
 const GROUNDING_SOURCE = import.meta.glob('../../assets-source/title/grounding-v1/*');
 
 function baseNames(map: Record<string, unknown>): string[] {
@@ -97,11 +99,17 @@ describe('表紙の分離素材', () => {
   });
 
   it('画像URLが配信先を指していて、3点が別物である', () => {
-    // ロゴと人物は最初の受領物のまま。背景は使っている候補を指す。
+    /*
+     * 3枚とも軽量版（lightweight-v1）を配信している。
+     * 絵は受領物のままで、圧縮と（ロゴだけ）縮小をしただけ。
+     * 軽量化する前のファイルは元の場所に残してある（別の検査で確認する）。
+     */
+    const 配信 = {
+      logo: 'lightweight-v1/logo-1400w-q85.webp',
+      characters: 'lightweight-v1/characters-q85.webp',
+    } as const;
     for (const key of ['logo', 'characters'] as const) {
-      expect(TITLE_LAYERS[key]).toBe(
-        `${import.meta.env.BASE_URL}assets/title/layered-v1/${key}.webp`,
-      );
+      expect(TITLE_LAYERS[key]).toBe(`${import.meta.env.BASE_URL}assets/title/${配信[key]}`);
     }
     expect(TITLE_LAYERS.background).toBe(TITLE_BACKGROUNDS[TITLE_BACKGROUND_VARIANT]);
     for (const url of Object.values(TITLE_LAYERS)) {
@@ -116,7 +124,8 @@ describe('表紙の分離素材', () => {
     );
     expect(TITLE_BACKGROUND_SIZES.v1).toEqual({ width: 852, height: 1846 });
     expect(TITLE_BACKGROUND_SIZES.restore).toEqual({ width: 709, height: 1536 });
-    expect(TITLE_LAYER_SIZES.logo).toEqual({ width: 1997, height: 788 });
+    // ロゴだけ、配信する軽量版が縦横比そのままの 1400px 幅。
+    expect(TITLE_LAYER_SIZES.logo).toEqual({ width: 1400, height: 552 });
     expect(TITLE_LAYER_SIZES.characters).toEqual({ width: 1024, height: 1536 });
   });
 
@@ -129,6 +138,23 @@ describe('表紙の分離素材', () => {
       'suitcase-mascot.webp',
     ]) {
       expect(baseNames(TITLE_WEBP)).toContain(name);
+    }
+  });
+
+  it('軽量版を配信していて、軽量化する前のファイルも残っている', () => {
+    // 配信しているのは軽量版の3枚。
+    expect(baseNames(LIGHT_WEBP)).toEqual([
+      'background-walkway-candidate-q85.webp',
+      'characters-q85.webp',
+      'logo-1400w-q85.webp',
+    ]);
+    // 軽量化する前のファイルは、元の場所にそのまま残す（戻せるように）。
+    expect(baseNames(GROUNDING_WEBP)).toContain('background-walkway-candidate.webp');
+    expect(baseNames(LAYER_WEBP)).toContain('logo.webp');
+    expect(baseNames(LAYER_WEBP)).toContain('characters.webp');
+    // 表紙が参照しているのは軽量版のほうだけ。
+    for (const url of Object.values(TITLE_LAYERS)) {
+      expect(url).toContain('lightweight-v1/');
     }
   });
 
@@ -933,7 +959,10 @@ describe('接地の材料', () => {
 
   it('いま仮組みしているのは歩道つきの候補', () => {
     expect(TITLE_BACKGROUND_VARIANT).toBe('walkway');
-    expect(TITLE_LAYERS.background).toContain('grounding-v1/background-walkway-candidate.webp');
+    // 歩道つきの候補を、軽量版で配信している。
+    expect(TITLE_LAYERS.background).toContain(
+      'lightweight-v1/background-walkway-candidate-q85.webp',
+    );
     expect(TITLE_BACKGROUND_LANDMARKS).toEqual(TITLE_BACKGROUND_WALKWAY.landmarks);
   });
 

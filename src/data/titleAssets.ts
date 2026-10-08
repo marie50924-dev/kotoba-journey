@@ -88,7 +88,12 @@ export const TITLE_BACKGROUNDS = {
   v1: assetUrl('assets/title/layered-v1/background.webp'),
   v2: assetUrl('assets/title/background-v2/background-large-globe-center-light.webp'),
   restore: assetUrl('assets/title/restore-reference/background-reference-exact.webp'),
-  walkway: assetUrl('assets/title/grounding-v1/background-walkway-candidate.webp'),
+  /*
+   * 配信しているのは軽量版（lightweight-v1）。
+   * 絵は元のPNGと同じで、圧縮を強めただけ。寸法も 853x1844 のまま。
+   * 軽量化する前の grounding-v1/background-walkway-candidate.webp も残してある。
+   */
+  walkway: assetUrl('assets/title/lightweight-v1/background-walkway-candidate-q85.webp'),
 } as const;
 
 /**
@@ -102,12 +107,20 @@ export const TITLE_BACKGROUNDS = {
 export const TITLE_LOGO_VARIANT: 'v1' | 'glow' = 'v1';
 
 export const TITLE_LOGOS = {
-  v1: assetUrl('assets/title/layered-v1/logo.webp'),
+  /*
+   * 配信しているのは軽量版（lightweight-v1）。
+   * 絵は元のPNGと同じで、縦横比そのままで 1400px 幅へ縮めただけ。
+   * 画面に出る大きさは CSS が決めるので、素材の画素数が変わっても
+   * 表示寸法・縦横比・位置は変わらない（TITLE_LOGO_PLACEMENT の仕組み）。
+   * 軽量化する前の layered-v1/logo.webp も残してある。
+   */
+  v1: assetUrl('assets/title/lightweight-v1/logo-1400w-q85.webp'),
   glow: assetUrl('assets/title/grounding-v1/logo-glow-candidate.webp'),
 } as const;
 
 export const TITLE_LOGO_SIZES = {
-  v1: { width: 1997, height: 788 },
+  // 軽量版の実寸。<img> の width / height に出して、読み込み中のずれを防ぐ。
+  v1: { width: 1400, height: 552 },
   glow: { width: 1997, height: 787 },
 } as const;
 
@@ -130,7 +143,9 @@ export const TITLE_LOGO_PLACEMENT = { artWidth: 0.747, artTop: 0.079 } as const;
 export const TITLE_LAYERS = {
   background: TITLE_BACKGROUNDS[TITLE_BACKGROUND_VARIANT],
   logo: TITLE_LOGOS[TITLE_LOGO_VARIANT],
-  characters: assetUrl('assets/title/layered-v1/characters.webp'),
+  // 配信しているのは軽量版。絵も寸法（1024x1536）も変えていない。
+  // 軽量化する前の layered-v1/characters.webp も残してある。
+  characters: assetUrl('assets/title/lightweight-v1/characters-q85.webp'),
 } as const;
 
 /** 背景ごとの画素数。<img> の width / height に出して、読み込み中のずれを防ぐ。 */
