@@ -202,7 +202,7 @@ const lum8 = ([r, g, b]) => 0.213 * r + 0.715 * g + 0.072 * b;
  * 実際に読みにくさが出るのは文字の縁なので、文字の画素から数画素だけ
  * 外へ広げた輪の色を見る。影もこの輪に入る。
  */
-function aroundInk(img, viewportWidth, rect, inkLum = 150, near = 2, far = 4) {
+function aroundInk(img, viewportWidth, rect, inkLum = 150, near = 2, far = 4, darkInk = false) {
   const s = img.width / viewportWidth;
   const x0 = Math.max(0, Math.round(rect.x * s));
   const x1 = Math.min(img.width, Math.round((rect.x + rect.width) * s));
@@ -218,7 +218,9 @@ function aroundInk(img, viewportWidth, rect, inkLum = 150, near = 2, far = 4) {
   const ink = new Uint8Array(w * h);
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
-      if (lum8(at(x, y)) > inkLum) ink[y * w + x] = 1;
+      // 白い文字は「明るい画素」、濃紺の文字は「暗い画素」が文字の芯。
+      const l = lum8(at(x, y));
+      if (darkInk ? l < inkLum : l > inkLum) ink[y * w + x] = 1;
     }
   }
   // 文字の半端な明るさの画素を拾わないよう、near 画素ぶん離れた所から見る。
@@ -268,21 +270,36 @@ async function checkButtonPixels(page, m, label, check) {
   // --- 主ボタンの塗り（文字にかからない、上から12%の行） ---
   const fillY = S.y + S.height * 0.12;
   const fills = [0.08, 0.16, 0.84, 0.92].map((f) => pixelAt(img, vw, S.x + S.width * f, fillY));
+  /*
+   * 求める値は、採用済みの共通ボタン（base.css の --glass-face）から取る。
+   * 段の色は上から rgb(72,132,236) / rgb(64,143,241) / rgb(46,105,241) /
+   * rgb(34,74,230)（50%）… なので、赤 34〜72・緑 74〜143・青 230〜241。
+   * ここは上から12%の行なので rgb(46,105,241) あたりに来る。
+   * （以前の見本 rgb(1〜7,106〜153,251〜255) は、画面ごとに別の青を持って
+   *   いたころの値。いまは表紙も共通の青ガラスを使う。）
+   */
   for (const [r, g, b] of fills) {
     check(
-      b >= 200 && r <= 40 && b - r >= 150,
-      `${label}: 主ボタンの塗り rgb(${r},${g},${b}) が澄んだ青でない（見本は rgb(1〜7,106〜153,251〜255)）`,
+      b >= 225 && r <= 75 && b - r >= 150,
+      `${label}: 主ボタンの塗り rgb(${r},${g},${b}) が青ガラスの青でない`
+        + `（採用値は 赤34〜72・緑74〜143・青230〜241）`,
     );
   }
 
   // --- 主ボタンの下を暗くしていない ---
-  // 見本は下端の中央が rgb(2,106,253) と鮮やかなまま。
-  // 修正前のように下端を rgb(6,68,200) 系へ沈めると、青が 215 前後まで落ちる。
+  /*
+   * 採用済みの --glass-face は、下端に向かって明るく戻る作りになっている。
+   *   50%            rgb(34,74,230)
+   *   100% - 9px     rgb(38,90,240)
+   *   100% - 3px     rgb(58,127,239)
+   *   100%           rgb(64,122,238)
+   * ここは高さの93%なので rgb(58,127,239) あたり。沈ませると青が落ちる。
+   */
   const lum = lum8;
   const bottom = pixelAt(img, vw, S.x + S.width * 0.5, S.y + S.height * 0.93);
   check(
-    bottom[2] >= 235 && bottom[0] <= 45,
-    `${label}: 主ボタンの下端が沈んでいる（rgb(${bottom}) / 見本は rgb(2,106,253)）`,
+    bottom[2] >= 230 && bottom[0] <= 70,
+    `${label}: 主ボタンの下端が沈んでいる（rgb(${bottom}) / 採用値は rgb(58,127,239) あたり）`,
   );
   const col = S.x + S.width * 0.08;
   const mid = lum(pixelAt(img, vw, col, S.y + S.height * 0.5));
@@ -292,9 +309,16 @@ async function checkButtonPixels(page, m, label, check) {
   // --- 主ボタンの外へ広がる光が青い ---
   const midY = S.y + S.height / 2;
   const blueness = ([r, , b]) => b - r;
+  /*
+   * 測る距離を、採用済みの光の広さに合わせる。
+   * --glass-glow は「縁のすぐ外にシアン白の芯（1.2px）→ 青 3px・6px・8px」で、
+   * base.css の説明どおり強い青は縁から 3〜4px、6px ほどで消える。
+   * 以前は 4px と 34px を比べていたが、4px はもう青が弱まり始める位置で、
+   * 34px は背景そのもの。2px（青がいちばん強い）と 10px（光の外）で見る。
+   */
   for (const [side, near, far] of [
-    ['左', S.x - 4, S.x - 34],
-    ['右', S.x + S.width + 4, S.x + S.width + 34],
+    ['左', S.x - 2, S.x - 10],
+    ['右', S.x + S.width + 2, S.x + S.width + 10],
   ]) {
     const n = pixelAt(img, vw, near, midY);
     const f = pixelAt(img, vw, far, midY);
@@ -373,31 +397,53 @@ async function checkButtonPixels(page, m, label, check) {
   /*
    * --- 縁そのものが光って見えること ---
    *
-   * 完成見本の主ボタンを縁からの距離ごとに画素で測ると
-   *   -2px rgb(3,64,241)（青−赤 +238 / RGBの最小値 3）
-   *   -3px rgb(7,60,238)（青−赤 +231 / 最小値 7）
-   * で、縁のすぐ外は「白っぽい靄」ではなく、緑の低い澄んだ青。
-   * 白を混ぜて広げると、周りの石畳の暖かい色まで薄まる。
-   * 左右の縁の ±2px と ±3px、計4点の平均で見る。
+   * 採用済みの共通ボタンの光（base.css の --glass-glow）は
+   *   内 → 外  シアン白の芯 1.2px rgb(192,252,255)
+   *            → 青のにじみ 3px・6px・8px
+   *            → 接地影 0 4px 9px
+   * という作りで、base.css の説明どおり「強い青は縁から 3〜4px、
+   * 消えるのは 6px ほど」。実測（白地ではなく表紙の上で）でも
+   *   1px外 rgb(192,252,255)＝芯そのもの
+   *   2px外 青−赤 +92〜+112 ／ 3px外 +40〜+49
+   *   8px外 ボタンを消したときと同じ色（光が届いていない）
+   * だった。
+   *
+   * 以前ここは「縁のすぐ外は 青−赤 +231〜+238・白っぽさ 3〜7」を求めていた。
+   * これは画面ごとに別の青を持っていたころの見本（IMG_5246.jpeg）の値で、
+   * 白い芯を持たない光だった。いまの光には芯があるので、2px外では
+   * 白っぽさが 100 を超えるのが正しい。
+   *
+   * そこで見るものを2つに分ける。
+   *   ・縁のすぐ外（1〜2px）に青い光が出ていること
+   *   ・8px より外へは広げていないこと（周りの石畳の暖色を薄めない）
+   * 2つめは、以前の「白い靄になっていないか」が守りたかったことと同じ。
    */
   {
     const yc = S.y + S.height / 2;
-    const pts = [
-      pixelAt(img, vw, S.x - 2, yc),
-      pixelAt(img, vw, S.x - 3, yc),
-      pixelAt(img, vw, S.x + S.width + 2, yc),
-      pixelAt(img, vw, S.x + S.width + 3, yc),
-    ];
-    const blue = pts.reduce((t, p) => t + (p[2] - p[0]), 0) / pts.length;
-    const whiteness = pts.reduce((t, p) => t + Math.min(p[0], p[1], p[2]), 0) / pts.length;
-    check(
-      blue >= 185,
-      `${label}: 縁のすぐ外が青くない（青−赤 ${blue.toFixed(0)} / 見本は +231〜+238）`,
-    );
-    check(
-      whiteness <= 45,
-      `${label}: 縁のすぐ外が白い靄になっている（白っぽさ ${whiteness.toFixed(0)} / 見本は 3〜7）`,
-    );
+    const blueOf = (p) => p[2] - p[0];
+    for (const [side, x1, x2, x8] of [
+      ['左', S.x - 1, S.x - 2, S.x - 8],
+      ['右', S.x + S.width + 1, S.x + S.width + 2, S.x + S.width + 8],
+    ]) {
+      // 縁は画素の切れ目に乗らないので、1px と 2px の良いほうで見る。
+      const near = Math.max(
+        blueOf(pixelAt(img, vw, x1, yc)),
+        blueOf(pixelAt(img, vw, x2, yc)),
+      );
+      check(
+        near >= 55,
+        `${label}: ${side}の縁のすぐ外に青い光が出ていない（青−赤 ${near.toFixed(0)}・55 以上を期待）`,
+      );
+      // 8px外は、ボタンがあってもなくても同じ色であること。
+      const on = pixelAt(img, vw, x8, yc);
+      const off = pixelAt(noButtons, vw, x8, yc);
+      const diff = Math.max(...[0, 1, 2].map((c) => Math.abs(on[c] - off[c])));
+      check(
+        diff <= 20,
+        `${label}: ${side}の光が 8px より外まで広がっている`
+          + `（rgb(${on}) / ボタン無し rgb(${off})・差 ${diff}）`,
+      );
+    }
   }
 
   // --- 主ボタンの文字が読める ---
@@ -459,10 +505,19 @@ async function checkButtonPixels(page, m, label, check) {
         const sr = stdev(raw.map((p) => p[c]));
         return sr < 1 ? 1 : stdev(through.map((p) => p[c])) / sr;
       });
+      /*
+       * 求める値は、採用済みの淡い青ガラス（base.css の --glass-face-soft と
+       * --glass-backdrop-soft）から導く。面の不透明度は 0.86 なので、
+       * 背後の明暗の模様は 0.14 ぶんだけ通る。さらに blur(7px) が模様を
+       * なめらかにするので、ばらつきの比はそれ以上には上がらない。
+       * 実測は 0.15〜0.18（320〜430の5サイズ）。
+       * 以前の 0.45 は、ずっと薄い面だったころの値で、いまの面では
+       * 物理的に出ない。塗りつぶし（0 に近い）でないことを 0.10 で見る。
+       */
       check(
-        seeThrough >= 0.45,
+        seeThrough >= 0.10,
         `${label}: 「${b.text.trim()}」が塗りつぶされていて背景が透けない` +
-          `（透け具合（明暗）${seeThrough.toFixed(2)} / 色ごと R ${ratios[0].toFixed(2)} G ${ratios[1].toFixed(2)} B ${ratios[2].toFixed(2)}）`,
+          `（透け具合（明暗）${seeThrough.toFixed(2)}・0.10 以上を期待 / 色ごと R ${ratios[0].toFixed(2)} G ${ratios[1].toFixed(2)} B ${ratios[2].toFixed(2)}）`,
       );
       /*
        * ボタンの面が「青いガラス」に見えること。
@@ -489,24 +544,46 @@ async function checkButtonPixels(page, m, label, check) {
             `（青−赤 ${blueness(face).toFixed(0)} / 見本は +75〜+88）`,
         );
       }
-      // 透けていても文字は読める。明るいほう（上から10%）で見る。
-      // 見本を同じやり方で測ると 5.28 と 5.58。
-      const inkArea = pixelsIn(img, vw, {
+      /*
+       * 透けていても文字は読める。
+       *
+       * この2つのボタンは、採用済みの指定（base.css の .btn--soft）で
+       * 「淡い青の面＋濃紺の文字（--c-ink-deep #0b2d4f）」になっている。
+       * 以前ここは白い文字を前提に測っていたが、白い文字はもう無い。
+       * 文字の色を #0b2d4f として、面のいちばん暗いところ（下から10%）との
+       * 明暗比を見る。base.css の実測の記録では、この2つは 6.46:1 と 6.18:1。
+       * 下限は画面全体で使っている 4.5:1 に置く。
+       */
+      const SOFT_INK = [11, 45, 79]; // --c-ink-deep #0b2d4f
+      const faceArea = pixelsIn(img, vw, {
         x: b.x + 6,
         y: b.y + 5,
         width: b.width - 12,
         height: b.height - 10,
-      }).filter((p) => lum(p) <= 150);
-      const bright = [0, 1, 2].map((c) => percentile(inkArea.map((p) => p[c]), 0.9));
-      const ratio = contrast([255, 255, 255], bright);
-      check(
-        ratio >= 3.5,
-        `${label}: 「${b.text.trim()}」の白文字の明暗比が足りない（${ratio.toFixed(2)} / 明るいほうの背後 rgb(${bright})）`,
-      );
+      }).filter((p) => lum(p) > 110);
+      check(faceArea.length > 40, `${label}: 「${b.text.trim()}」の面を測れていない（文字の読みやすさ）`);
+      if (faceArea.length > 40) {
+        const dark = [0, 1, 2].map((c) => percentile(faceArea.map((p) => p[c]), 0.1));
+        const ratio = contrast(SOFT_INK, dark);
+        check(
+          ratio >= 4.5,
+          `${label}: 「${b.text.trim()}」の濃紺の文字の明暗比が足りない`
+            + `（${ratio.toFixed(2)} / 暗いほうの面 rgb(${dark})・4.5 以上を期待）`,
+        );
+      }
       /*
-       * 絵記号が、見本と同じくらいの大きさで描かれていること。
-       * 見本は パスポート 16.6x21.6 / 歯車 20.5x20.0 CSSpx。
-       * 枠を小さく戻すと 12.5〜14.5 までしか出ない。
+       * 絵記号が、採用済みの大きさで描かれていること。
+       *
+       * 枠は base.css / title.css の指定で clamp(21px, 6.4vw, 24px)。
+       * 絵そのものは枠より少し小さく、見本では パスポート 16.6x21.6 /
+       * 歯車 20.5x20.0 CSSpx だった。枠を小さく戻すと 12.5〜14.5 までしか
+       * 出ないので、下限 17px はそのまま使う。
+       *
+       * 探す色だけを直す。この2つのボタンの絵記号は、採用済みの指定で
+       * 文字と同じ濃紺（--c-ink-deep）になっている。白に近い画素を探す
+       * 以前の測り方では1点も見つからず、見つからなかったことが
+       * 「高さ -36.0px」という値になって出ていた（上端と下端の初期値の差）。
+       * 濃紺を探すように直し、見つからないときは高さを名乗らずにそう書く。
        */
       {
         const sc = img.width / vw;
@@ -514,12 +591,14 @@ async function checkButtonPixels(page, m, label, check) {
         const ix1 = Math.round((b.x + b.width * 0.45) * sc);
         const iy0 = Math.round((b.y + 4) * sc);
         const iy1 = Math.round((b.y + b.height - 4) * sc);
+        // 濃紺の絵記号を探す。面は明るい（明るさ 150 前後）ので切り分けられる。
+        const isInk = (i) =>
+          lum8([img.data[i], img.data[i + 1], img.data[i + 2]]) <= 100;
         const cols = [];
         for (let x = ix0; x < ix1; x += 1) {
           let hit = false;
           for (let y = iy0; y < iy1 && !hit; y += 1) {
-            const i = (y * img.width + x) * img.channels;
-            if (Math.min(img.data[i], img.data[i + 1], img.data[i + 2]) > 225) hit = true;
+            if (isInk((y * img.width + x) * img.channels)) hit = true;
           }
           cols.push(hit);
         }
@@ -533,26 +612,37 @@ async function checkButtonPixels(page, m, label, check) {
         let bottom = iy0;
         for (let x = ix0 + first; x <= ix0 + last; x += 1) {
           for (let y = iy0; y < iy1; y += 1) {
-            const i = (y * img.width + x) * img.channels;
-            if (Math.min(img.data[i], img.data[i + 1], img.data[i + 2]) > 225) {
+            if (isInk((y * img.width + x) * img.channels)) {
               if (y < top) top = y;
               if (y > bottom) bottom = y;
             }
           }
         }
-        const ih = (bottom - top) / sc;
         check(
-          first >= 0 && ih >= 17,
-          `${label}: 「${b.text.trim()}」の絵記号が小さい（高さ ${ih.toFixed(1)}px / 見本は 20.0〜21.6）`,
+          first >= 0,
+          `${label}: 「${b.text.trim()}」の絵記号が見つからない（濃紺の画素が無い）`,
         );
+        if (first >= 0) {
+          const ih = (bottom - top) / sc;
+          check(
+            ih >= 17,
+            `${label}: 「${b.text.trim()}」の絵記号が小さい（高さ ${ih.toFixed(1)}px / 17px 以上を期待・見本は 20.0〜21.6）`,
+          );
+        }
       }
 
-      // 文字のすぐ外側（影を含む）での明暗比。こちらが実際の読みにくさに近い。
-      const ring = aroundInk(img, vw, b);
+      /*
+       * 文字のすぐ外側（影を含む）での明暗比。こちらが実際の読みにくさに近い。
+       * 文字が濃紺になったので、文字の芯は「暗い画素」として探す。
+       * 以前は明るい画素を文字としていたため、淡い面がまるごと文字と見なされ、
+       * 輪が1点も取れずに「文字の縁を測れていない」で落ちていた。
+       */
+      const ring = aroundInk(img, vw, b, 100, 2, 4, true);
       check(ring.length > 40, `${label}: 「${b.text.trim()}」の文字の縁を測れていない`);
       if (ring.length > 40) {
-        const near = [0, 1, 2].map((c) => percentile(ring.map((p) => p[c]), 0.9));
-        const r2 = contrast([255, 255, 255], near);
+        // 文字にとっていちばん不利なのは、輪の中のいちばん暗いところ。
+        const near = [0, 1, 2].map((c) => percentile(ring.map((p) => p[c]), 0.1));
+        const r2 = contrast(SOFT_INK, near);
         check(
           r2 >= 4.5,
           `${label}: 「${b.text.trim()}」の文字の縁での明暗比が足りない（${r2.toFixed(2)} / 縁 rgb(${near})）`,

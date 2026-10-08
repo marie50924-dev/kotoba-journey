@@ -58,6 +58,17 @@ function serveDist() {
 
 const { check, runCase, finish } = createSuite('Phase 1 統合 キャラクター・会話テスト');
 
+/*
+ * 一覧でだけ掛ける、人物ごとの表示倍率。
+ * src/data/avatarFraming.ts の AVATAR_DISPLAY_SCALE と同じ値を、配信している
+ * ファイル名で引けるようにしたもの（この検査は .ts を読み込めないため）。
+ * 表に無い人は 1（＝等倍）。
+ */
+const DISPLAY_SCALE = {
+  // 百瀬陽菜（elementary-f-03）。ChatGPT側のデザイン指定で 1.15 倍。
+  'elementary-f-03-replacement-v1-light-v1.webp': 1.15,
+};
+
 /**
  * 横スクロールと、押せないボタンを測る。
  *
@@ -84,12 +95,50 @@ function overflowMetrics() {
     if (!reachable) offscreen.push(el.textContent.trim().slice(0, 14));
   }
 
+  /*
+   * 押せる大きさは、縁の内側（border box）の寸法だけでなく、
+   * 「実際に押せる範囲」でも測る。
+   *
+   * 縁の外へ当たり判定を広げている要素（擬似要素など）があると、寸法だけを
+   * 見る測り方では実際より小さく出る。そこで中心から上下左右へ 1px ずつ
+   * elementFromPoint で当てていき、そのボタン（またはその子孫）に当たり
+   * 続ける範囲を測る。擬似要素に当たった場合は、その持ち主の要素が返る。
+   *
+   * 会話やダイアログが上に重なっている間は、中心に当てても覆いが返る。
+   * そのときは「押せる範囲」を測れないので、寸法で測る（この検査が見るのは
+   * 大きさで、覆われているかどうかは別の検査で見ている）。
+   */
+  const hitSize = (el) => {
+    // 直前に別のボタンを表示させた影響で画面外にいることがあるので、入れ直す。
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    const r = el.getBoundingClientRect();
+    const cx = Math.round(r.left + r.width / 2);
+    const cy = Math.round(r.top + r.height / 2);
+    const hits = (x, y) => {
+      if (x < 0 || y < 0 || x > window.innerWidth - 1 || y > window.innerHeight - 1) return false;
+      const t = document.elementFromPoint(x, y);
+      return t !== null && (t === el || el.contains(t));
+    };
+    if (!hits(cx, cy)) return { width: r.width, height: r.height, probed: false };
+    const reach = (dx, dy) => {
+      let n = 0;
+      while (n < 80 && hits(cx + dx * (n + 1), cy + dy * (n + 1))) n += 1;
+      return n;
+    };
+    return {
+      width: reach(-1, 0) + reach(1, 0) + 1,
+      height: reach(0, -1) + reach(0, 1) + 1,
+      probed: true,
+    };
+  };
+
   const small = buttons
-    .filter((el) => {
-      const r = el.getBoundingClientRect();
-      return r.width < 44 || r.height < 44;
-    })
-    .map((el) => el.textContent.trim().slice(0, 14));
+    .map((el) => ({ el, hit: hitSize(el) }))
+    .filter(({ hit }) => hit.width < 44 || hit.height < 44)
+    .map(({ el, hit }) =>
+      `${el.textContent.trim().slice(0, 14)}`
+        + `[${hit.probed ? '押せる範囲' : '寸法'} ${hit.width.toFixed(1)}x${hit.height.toFixed(1)}]`,
+    );
 
   return {
     // ページ自体の横スクロールは許さない。
@@ -958,26 +1007,38 @@ try {
         await page.waitForTimeout(500);
 
         /*
-         * name          … 報告に出す呼び名
-         * selector      … 測る要素
-         * minPass       … 求める透過率の下限
-         * family        … 'white'（白系）か 'blue'（青系）か
+         * name      … 報告に出す呼び名
+         * selector  … 測る要素
+         * pass      … 求める透過率の範囲 [下限, 上限]
+         * minBlue   … 青系として求める「青−赤」の下限（白系は null）
          *
-         * 青い面の下限が低いのは、明るい背景の上で白文字を 4.5:1 以上に
-         * 保つと、通せる明るさがその分だけ減るため。物理的な上限がある。
+         * 求める値は、採用済みの指定から1つずつ導いてある。
+         *
+         * 1) 年代タブ・この人を選ぶ … base.css の共通の青ガラス
+         *    background-color: var(--glass-base)（rgb(37,84,236)・不透明）に
+         *    不透明なグラデーション2枚を重ねる作りなので、背後は通らない。
+         *    透過率は 0 が正しい（実測 0.00）。0.05 までを許す。
+         *    以前の 0.6 / 0.12 は、白いガラスだったころの値。
+         *
+         * 2) 絞り込み … base.css の .btn--soft（淡い青）
+         *    --glass-face-soft の不透明度は 0.86 なので、通るのは 0.14。
+         *    さらに blur(7px) が模様をならすので、これ以上には上がらない
+         *    （実測 0.14）。0.10〜0.25 を求める。
+         *    以前の 0.6 / 0.5 は、ずっと薄い面だったころの値。
+         *
+         * 3) 人物カード … avatar.css の白い半透明の面
+         *    rgba(255,255,255,0.24〜0.14) + blur(6px)。よく通る（実測で合格）。
+         *    ここは変えていない。
          */
         const TARGETS = [
-          { name: '年代タブ 未選択', selector: '.avatar-tab:not([aria-selected="true"])', minPass: 0.6, minBlue: null },
-          // 白い文字を載せる濃い青は、明るい背景の上で 4.5:1 を保つと
-          // 通せる明るさが限られる。ここだけ下限が低いのはそのため。
-          { name: '年代タブ 選択中', selector: ".avatar-tab[aria-selected='true']", minPass: 0.12, minBlue: 80 },
-          { name: '絞り込み 未押下', selector: '.avatar-filter__btn:not([aria-pressed="true"])', minPass: 0.6, minBlue: null },
-          // 押している絞り込みは、もともと淡い青（#e2f0fc）なので青みの幅は小さい。
-          { name: '絞り込み 押している', selector: ".avatar-filter__btn[aria-pressed='true']", minPass: 0.5, minBlue: 18 },
-          { name: '人物カード 未選択', selector: '.avatar-card:not([aria-selected="true"])', minPass: 0.5, minBlue: null },
+          { name: '年代タブ 未選択', selector: '.avatar-tab:not([aria-selected="true"])', pass: [0, 0.05], minBlue: 80 },
+          { name: '年代タブ 選択中', selector: ".avatar-tab[aria-selected='true']", pass: [0, 0.05], minBlue: 80 },
+          { name: '絞り込み 未押下', selector: '.avatar-filter__btn:not([aria-pressed="true"])', pass: [0.10, 0.25], minBlue: 55 },
+          { name: '絞り込み 押している', selector: ".avatar-filter__btn[aria-pressed='true']", pass: [0.10, 0.25], minBlue: 55 },
+          { name: '人物カード 未選択', selector: '.avatar-card:not([aria-selected="true"])', pass: [0.5, 1], minBlue: null },
           // 選択中のカードも淡い青。濃い青に塗り替えない。
-          { name: '人物カード 選択中', selector: ".avatar-card[aria-selected='true']", minPass: 0.45, minBlue: 18 },
-          { name: 'この人を選ぶ', selector: '.avatar-select__confirm .btn--primary', minPass: 0.12, minBlue: 80 },
+          { name: '人物カード 選択中', selector: ".avatar-card[aria-selected='true']", pass: [0.45, 1], minBlue: 18 },
+          { name: 'この人を選ぶ', selector: '.avatar-select__confirm .btn--primary', pass: [0, 0.05], minBlue: 80 },
         ];
 
         const boxes = await page.evaluate((sels) => {
@@ -997,7 +1058,13 @@ try {
          * 隠す。隠さないと、狭い画面では顔やチェック印の画素を拾ってしまい、
          * 面の色として読めない。中身を隠しても面の指定は変わらない。
          */
-        const bare = `${TARGETS.map((t) => `${t.selector} > *`).join(',')}{visibility:hidden !important;}`;
+        const bare = `${TARGETS.map((t) => `${t.selector} > *`).join(',')}{visibility:hidden !important;}`
+          /*
+           * 年代タブと絞り込みの文字は、要素の子ではなく直接の文字なので
+           * 「> * を隠す」では消えない。面の色と内側の光を測るときに白い文字を
+           * 拾ってしまうので、文字の色だけ透明にする。面の指定は変わらない。
+           */
+          + ` ${TARGETS.map((t) => t.selector).join(',')}{color:transparent !important;}`;
         const normal = await shotWithCss(page, '');
         const bareShot = await shotWithCss(page, bare);
         const onWhite = await shotWithCss(page, `${screenBg('#ffffff')} ${bare}`);
@@ -1011,8 +1078,9 @@ try {
           const pass = (lum8(faceColour(onWhite, box, 2)) - lum8(faceColour(onBlack, box, 2))) / 255;
           const col = faceColour(bareShot, box, 2);
           check(
-            pass >= t.minPass,
-            `${label}: ${t.name} が透けていない（透過率 ${pass.toFixed(2)}・${t.minPass} 以上を期待）`,
+            pass >= t.pass[0] && pass <= t.pass[1],
+            `${label}: ${t.name} の透過率が採用済みの面と合わない`
+              + `（透過率 ${pass.toFixed(2)}・${t.pass[0]}〜${t.pass[1]} を期待）`,
           );
           if (t.minBlue === null) {
             /*
@@ -1210,16 +1278,38 @@ ${screenBg('#ffffff')}
            *    画面の地を白と黒に変えて、その場所の明るさがどれだけ動くかを測る。
            */
           if (faceBox) {
-            const onW = await shotWithCss(page, screenBg('#ffffff'));
-            const onK = await shotWithCss(page, screenBg('#000000'));
+            /*
+             * 名前とチェック印は隠して撮る。
+             *
+             * ここで測るのは「人物のなじませの途中で背後が見えるか」。
+             * 名前は人物と重なる位置にある別の要素で、文字は透けない。
+             * 狭い画面ではカードが低く、名前が人物の下のほうへ食い込むため、
+             * 測る帯に文字が入って透過率が下がっていた（320x568 で 0.20、
+             * 393x852 では入らないので合格、という測り方のぶれ）。
+             * 名前そのものの読みやすさは、別のところで測っている。
+             */
+            const hideName = '.avatar-thumb__name,.avatar-card__check'
+              + '{visibility:hidden !important;}';
+            const onW = await shotWithCss(page, `${screenBg('#ffffff')} ${hideName}`);
+            const onK = await shotWithCss(page, `${screenBg('#000000')} ${hideName}`);
+            /*
+             * 測る窓は、画素数ではなく箱に対する割合で取る。
+             *
+             * ±2画素の窓にしていたときは、箱の大きさで窓の相対的な広さが変わり
+             * （320x568 では箱の 3.9%、393x852 では 3.1%）、なじませが急に変わる
+             * 高さでは同じ場所を測ったことにならなかった。
+             * 求める値（0.3）は変えずに、窓を割合で取り直す。
+             */
             const seeAt = (fx, fy) => {
               let sw = 0;
               let sk = 0;
               let n = 0;
-              const cx = Math.round((faceBox.l + faceBox.w * fx) * 2);
-              const cy = Math.round((faceBox.t + faceBox.h * fy) * 2);
-              for (let y = cy - 2; y <= cy + 2; y += 1) {
-                for (let x = cx - 2; x <= cx + 2; x += 1) {
+              const x0 = Math.round((faceBox.l + faceBox.w * (fx - 0.08)) * 2);
+              const x1 = Math.round((faceBox.l + faceBox.w * (fx + 0.08)) * 2);
+              const y0 = Math.round((faceBox.t + faceBox.h * (fy - 0.03)) * 2);
+              const y1 = Math.round((faceBox.t + faceBox.h * (fy + 0.03)) * 2);
+              for (let y = y0; y <= y1; y += 1) {
+                for (let x = x0; x <= x1; x += 1) {
                   sw += lum8(pixelAt(onW, x, y));
                   sk += lum8(pixelAt(onK, x, y));
                   n += 1;
@@ -1446,16 +1536,71 @@ ${screenBg('#ffffff')}
               const cr = card.getBoundingClientRect();
               const ir = img.getBoundingClientRect();
               const cs = getComputedStyle(img);
+              /*
+               * カードが絵を切り取る境界は、縁の内側（padding box）。
+               * 縁の太さは画素密度で丸められるので、計算済みの値から引く。
+               */
+              const cc = getComputedStyle(card);
+              const box = {
+                left: cr.left + parseFloat(cc.borderLeftWidth),
+                right: cr.right - parseFloat(cc.borderRightWidth),
+                top: cr.top + parseFloat(cc.borderTopWidth),
+                bottom: cr.bottom - parseFloat(cc.borderBottomWidth),
+              };
+              /*
+               * 「人物が切れていないか」は、画像の箱ではなく人物そのもので見る。
+               *
+               * 画像は背景のない切り抜きで、左右と上下に透明な余白がある。
+               * 表示倍率を掛けている人（AVATAR_DISPLAY_SCALE）は箱がカードより
+               * 大きくなり、カードの overflow: hidden で両端が落ちるが、落ちるのが
+               * 透明な余白だけなら人物は切れていない。そこで、その場で画像を
+               * canvas へ描いて α>127 の画素が占める範囲を測り、それを画面上の
+               * 位置へ直してカードの中に収まっているかを見る。
+               * 画像は同じ場所から配信しているので canvas は汚染されない。
+               */
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+              let oL = canvas.width;
+              let oR = -1;
+              let oT = canvas.height;
+              let oB = -1;
+              for (let y = 0; y < canvas.height; y += 1) {
+                for (let x = 0; x < canvas.width; x += 1) {
+                  if (px[(y * canvas.width + x) * 4 + 3] > 127) {
+                    if (x < oL) oL = x;
+                    if (x > oR) oR = x;
+                    if (y < oT) oT = y;
+                    if (y > oB) oB = y;
+                  }
+                }
+              }
+              // 正方形の画像を正方形の箱へ contain で置くので、箱＝表示範囲。
+              const sx = (ir.right - ir.left) / canvas.width;
+              const sy = (ir.bottom - ir.top) / canvas.height;
+              const person = {
+                left: ir.left + oL * sx,
+                right: ir.left + (oR + 1) * sx,
+                top: ir.top + oT * sy,
+                bottom: ir.top + (oB + 1) * sy,
+              };
               return {
                 id: (img.getAttribute('src') || '').split('/').pop(),
                 fit: cs.objectFit,
                 square: img.naturalWidth === img.naturalHeight,
-                widthRatio: (ir.right - ir.left) / (cr.right - cr.left),
-                inside:
-                  ir.left >= cr.left - 0.6 &&
-                  ir.right <= cr.right + 0.6 &&
-                  ir.top >= cr.top - 0.6 &&
-                  ir.bottom <= cr.bottom + 0.6,
+                // 縁の内側の幅に対する、画像の表示幅の比（＝掛かっている表示倍率）。
+                widthRatio: (ir.right - ir.left) / (box.right - box.left),
+                opaque: oR >= 0,
+                // 人物の不透明な画素が、切り取り境界の外へどれだけ出ているか（px）。
+                outside: {
+                  left: box.left - person.left,
+                  right: person.right - box.right,
+                  top: box.top - person.top,
+                  bottom: person.bottom - box.bottom,
+                },
               };
             });
           });
@@ -1464,11 +1609,31 @@ ${screenBg('#ffffff')}
             seen.add(g.id);
             check(g.fit === 'contain', `${g.id}: 切り取る指定になっている（${g.fit}）`);
             check(g.square, `${g.id}: 画像が正方形ではない（引き伸ばしの恐れ）`);
+            check(g.opaque, `${g.id}: 不透明な画素が無い（画像が読めていない恐れ）`);
+            /*
+             * 表示倍率は、採用済みの指定（src/data/avatarFraming.ts の
+             * AVATAR_DISPLAY_SCALE）どおりかを1人ずつ見る。表に無い人は等倍。
+             * 等倍の人がカード幅より小さく出たら、広がっていないということ。
+             */
+            const want = DISPLAY_SCALE[g.id] ?? 1;
             check(
-              g.widthRatio >= 0.95,
-              `${g.id}: 人物がカード幅まで広がっていない（${(g.widthRatio * 100).toFixed(0)}%）`,
+              g.widthRatio >= want - 0.03,
+              `${g.id}: 人物がカード幅まで広がっていない`
+                + `（${(g.widthRatio * 100).toFixed(0)}%・期待 ${(want * 100).toFixed(0)}%）`,
             );
-            check(g.inside, `${g.id}: 人物がカードからはみ出していて、切れている`);
+            check(
+              g.widthRatio <= want + 0.03,
+              `${g.id}: 表示倍率が採用済みの指定より大きい`
+                + `（${(g.widthRatio * 100).toFixed(0)}%・期待 ${(want * 100).toFixed(0)}%）`,
+            );
+            for (const [dir, over] of Object.entries(g.outside)) {
+              check(
+                over <= 0.6,
+                `${g.id}: 人物がカードの${
+                  { left: '左', right: '右', top: '上', bottom: '下' }[dir]
+                }へ ${over.toFixed(1)}px 出ていて、切れている`,
+              );
+            }
           }
 
           /*
@@ -1539,6 +1704,127 @@ ${screenBg('#ffffff')}
       } finally {
         await context.close();
       }
+    });
+  }
+
+  /*
+   * ---- 13-C. カードの切り取りで、見えている絵が落ちていないか ----
+   *
+   * 一覧のカードは overflow: hidden で角丸の外を切り取る。人物の画像はカードの
+   * 幅いっぱいに置いてあり、1人だけ表示倍率（1.15倍）が掛かっているので、
+   * 画像の箱はカードの外へ出る。出ているのが透明な余白や、なじませ（mask）で
+   * 消えきった部分であれば、人物は切れていない。箱の位置だけを見ても、
+   * 画像のアルファ値だけを見ても、そこは分からない。
+   *
+   * そこで「切り取りあり」と「切り取りなし（overflow: visible）」で撮り比べる。
+   * 差が出た画素＝切り取りで消えた画素で、なじませを含んだ実際の描画で測れる。
+   *
+   * 角丸と画素の端では必ず差が出る（実測：境界から 1px 以内・最大 19/255）。
+   * 見るのは「縁の内側より 1px 以上外で消えた画素」で、ここに差が出るのは
+   * 絵そのものが落ちたときだけ。実際にこの測り方で、375x667 で陽菜の服のすそが
+   * 3.6px ぶん横一文字に切れていること（836点・最大の差 91/255）を見つけた。
+   *
+   * 測るのは画面の高さが低い2サイズ。カードの高さに余裕がないので、絵の下端が
+   * 切り取り線を越えるのはここで起きる（393x852 では絵の下端が切り取り線より
+   * 31px 内側にある）。
+   */
+  {
+    await runCase('カードの切り取りで絵が落ちていない', async () => {
+      const PLAIN = `.screen{background:#ffffff !important;background-image:none !important;}
+         .avatar-list,.avatar-card{background:none !important;backdrop-filter:none !important;
+           -webkit-backdrop-filter:none !important;box-shadow:none !important;
+           border-color:transparent !important;}
+         .avatar-thumb__name,.avatar-card__check{visibility:hidden !important;}`;
+      const notes = [];
+      for (const [w, h] of [[375, 667], [320, 568]]) {
+        const context = await browser.newContext({
+          viewport: { width: w, height: h },
+          deviceScaleFactor: 2,
+        });
+        try {
+          const page = await context.newPage();
+          await page.goto(baseUrl, { waitUntil: 'networkidle' });
+          await page.getByRole('button', { name: '旅をはじめる' }).click();
+          await page.waitForSelector('.avatar-grid');
+
+          let worstOutside = 0;
+          let worstCorner = 0;
+          for (const age of ['小学生', '中学生', '高校生', '大学生', '大人']) {
+            await page.locator('.avatar-tab', { hasText: age }).click();
+            await page.waitForTimeout(300);
+            const ready = await waitAvatarImagesReady(page, 16);
+            check(ready.ok, `${w}x${h}/${age}: 画像の準備が整わないまま測ろうとした`);
+
+            // 切り取りの境界は、縁の内側（padding box）。縁の太さは丸められる。
+            const cards = await page.evaluate(() =>
+              [...document.querySelectorAll('.avatar-card')].map((card) => {
+                const r = card.getBoundingClientRect();
+                const cc = getComputedStyle(card);
+                const img = card.querySelector('.avatar-thumb__img');
+                return {
+                  id: (img.getAttribute('src') || '').split('/').pop(),
+                  l: r.left + parseFloat(cc.borderLeftWidth),
+                  r: r.right - parseFloat(cc.borderRightWidth),
+                  t: r.top + parseFloat(cc.borderTopWidth),
+                  b: r.bottom - parseFloat(cc.borderBottomWidth),
+                };
+              }),
+            );
+
+            const withClip = await shotWithCss(page, PLAIN);
+            const noClip = await shotWithCss(
+              page,
+              `${PLAIN} .avatar-list .avatar-card{overflow:visible !important;}`,
+            );
+
+            let bad = null;
+            let badCount = 0;
+            for (let y = 0; y < Math.min(withClip.h, noClip.h); y += 1) {
+              for (let x = 0; x < Math.min(withClip.w, noClip.w); x += 1) {
+                const i = (y * withClip.w + x) * 4;
+                const d = Math.max(
+                  Math.abs(withClip.data[i] - noClip.data[i]),
+                  Math.abs(withClip.data[i + 1] - noClip.data[i + 1]),
+                  Math.abs(withClip.data[i + 2] - noClip.data[i + 2]),
+                );
+                // 8/255 以下は、画素の端の丸めと見分けがつかない。
+                if (d <= 8) continue;
+                // 画素密度2倍で撮っているので、CSS の座標へ戻す。
+                const cx = x / 2;
+                const cy = y / 2;
+                let near = Infinity;
+                let nearId = '';
+                for (const c of cards) {
+                  const dx = Math.max(c.l - cx, 0, cx - c.r);
+                  const dy = Math.max(c.t - cy, 0, cy - c.b);
+                  const dist = Math.hypot(dx, dy);
+                  if (dist < near) { near = dist; nearId = c.id; }
+                }
+                if (near <= 1) {
+                  worstCorner = Math.max(worstCorner, d);
+                  continue;
+                }
+                worstOutside = Math.max(worstOutside, d);
+                badCount += 1;
+                // いちばん差が大きかった画素を、場所つきで覚えておく。
+                if (bad === null || d > bad.d) {
+                  bad = { d, near: +near.toFixed(1), id: nearId };
+                }
+              }
+            }
+            check(
+              bad === null,
+              `${w}x${h}/${age}: 切り取りで人物の絵が落ちている`
+                + `${bad === null ? '' : `（${bad.id}・${badCount}点・最大の差 ${bad.d}/255`
+                  + `・縁の内側から ${bad.near}px 外）`}`,
+            );
+          }
+          notes.push(`${w}x${h} 外側の最大 ${worstOutside}/255・角丸の最大 ${worstCorner}/255`);
+        } finally {
+          await context.close();
+        }
+      }
+      return ` ${notes.join(' / ')}（いずれも 1px 以上外で 8/255 超は0点を期待）`;
     });
   }
 
