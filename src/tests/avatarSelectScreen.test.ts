@@ -719,19 +719,27 @@ describe('選択ボタンのガラス調', () => {
       expect(decls, 'mask-composite に頼っている').not.toMatch(/mask-composite/);
     }
 
+    /*
+     * 縦の半径は変数（--avatar-fade-y）で、既定は 84%。
+     * 画面が低いときだけ、下の別の検査で見ている上書きが効く。
+     */
+    const radius = String.raw`([\d.]+)% (?:([\d.]+)%|var\(--avatar-fade-y, ([\d.]+)%\))`;
+
     // 楕円の中心は上寄り。ここが下へ動くと、顔と髪まで落ちてしまう。
-    const at = img.match(/mask-image:\s*radial-gradient\(\s*[\d.]+% [\d.]+% at [\d.]+% ([\d.]+)%/);
+    const at = img.match(new RegExp(String.raw`mask-image:\s*radial-gradient\(\s*${radius} at [\d.]+% ([\d.]+)%`));
     expect(at, '楕円の中心が読めない').not.toBeNull();
-    expect(Number((at as RegExpMatchArray)[1]), '楕円の中心が下がりすぎ').toBeLessThanOrEqual(30);
+    expect(Number((at as RegExpMatchArray)[4]), '楕円の中心が下がりすぎ').toBeLessThanOrEqual(30);
 
     // 横より縦の半径が小さい。これがあるので、下の左右の角がいちばん先に消える。
-    const r = img.match(/mask-image:\s*radial-gradient\(\s*([\d.]+)% ([\d.]+)%/);
+    const r = img.match(new RegExp(String.raw`mask-image:\s*radial-gradient\(\s*${radius}`));
     expect(r, '楕円の半径が読めない').not.toBeNull();
-    const [, rx, ry] = r as RegExpMatchArray;
-    expect(Number(ry), '縦横が同じだと角から消えない').toBeLessThan(Number(rx));
+    const [, rx, ryPlain, ryVar] = r as RegExpMatchArray;
+    expect(ryPlain ?? ryVar, '縦の半径が読めない').toBeDefined();
+    expect(Number(ryPlain ?? ryVar), '縦横が同じだと角から消えない').toBeLessThan(Number(rx));
 
     // 顔と髪のある内側は触らない（最初の区切りが 55% 以降）。
-    const m = img.match(/mask-image:\s*radial-gradient\([^)]*?#000 0%,\s*#000 (\d+)%/);
+    // 半径に var(...) が入るので、丸括弧をまたいで読める書き方にする。
+    const m = img.match(/mask-image:\s*radial-gradient\([\s\S]*?#000 0%,\s*#000 (\d+)%/);
     expect(m, 'なじませの始まりが読めない').not.toBeNull();
     expect(Number((m as RegExpMatchArray)[1])).toBeGreaterThanOrEqual(55);
 
@@ -1089,6 +1097,74 @@ describe('主人公選択 一覧と決定バー', () => {
     expect(tall, '縦に余裕のある画面の指定が見つからない').not.toBeNull();
     const tallMin = (tall as RegExpMatchArray)[1].match(/width:\s*clamp\(\s*([\d.]+)px/);
     expect(Number((tallMin as RegExpMatchArray)[1])).toBeGreaterThanOrEqual(50);
+  });
+
+  it('狭い画面でも、年代タブの押せる範囲は 44px 以上になる', () => {
+    /*
+     * 320px 幅では、5つのタブを1行に収めると1つ分の幅が 41.6px になり、
+     * 44px に 2.4px 足りない（実ブラウザで実測）。使える幅 296px に対し、
+     * 44×5 と「隣の光と重ならない間隔」22×4 で 308px 必要なので、
+     * 1行のままでは幅そのものを足せない。
+     * そこで何も描かない擬似要素を左右へ 3px はみ出させて、押せる範囲だけを
+     * 広げている。色・光・文字の大きさは変えない。
+     */
+    const narrow = css.match(/@media \(max-width: 340px\)\s*\{([\s\S]*?)\n\}/);
+    expect(narrow, '狭い画面の指定が見つからない').not.toBeNull();
+    const narrowCss = (narrow as RegExpMatchArray)[1];
+    const after = narrowCss.match(/\.avatar-tab::after\s*\{([^}]*)\}/);
+    expect(after, '押せる範囲を広げる擬似要素が無い').not.toBeNull();
+    const decls = (after as RegExpMatchArray)[1];
+    expect(decls, '擬似要素の中身が空だと描かれない').toMatch(/content:\s*''/);
+    expect(decls, '絶対位置にしないと縁の外へ出せない').toMatch(/position:\s*absolute/);
+    const inset = decls.match(/inset:\s*0 (-[\d.]+)px/);
+    expect(inset, '左右へのはみ出しが読めない').not.toBeNull();
+    const out = -Number((inset as RegExpMatchArray)[1]);
+    // 41.6px + 左右 out ぶんで 44px 以上になること。
+    expect(41.6 + out * 2, '押せる範囲が 44px に届かない').toBeGreaterThanOrEqual(44);
+    // 隣の押せる範囲とくっつかないこと（間隔 22px の内側に収める）。
+    expect(out * 2, '隣の押せる範囲と重なる').toBeLessThan(22);
+    // 見た目は変えない。色や文字の指定を持たせない。
+    const backgrounds = [...decls.matchAll(/background[^:]*:\s*([^;]+);/g)].map((x) => x[1].trim());
+    expect(backgrounds, '擬似要素が色を塗っている').toEqual(backgrounds.map(() => 'none'));
+    expect(decls, '擬似要素に影や光がある').not.toMatch(/box-shadow/);
+    // タブ自体は、はみ出しの基準になる position: relative を持つ。
+    // 同じセレクタの指定が2か所に分かれているので、全部つないで見る。
+    const tabDecls = [...narrowCss.matchAll(/\.avatar-tab\s*\{([^}]*)\}/g)]
+      .map((x) => x[1])
+      .join('\n');
+    expect(tabDecls, 'はみ出しの基準になる position が無い').toMatch(/position:\s*relative/);
+    // 色・文字の大きさは、この修正では変えていない（文字は 11px のまま）。
+    expect(tabDecls).toMatch(/font-size:\s*11px/);
+  });
+
+  it('画面が低いときは、人物のなじませがカードの中で終わる', () => {
+    /*
+     * カードは「幅＝人物の表示幅」で、高さは別に決まる。画面の高さが 700px 未満
+     * だとカードが低くなり、表示倍率（--avatar-scale）を掛けている人は絵の下端が
+     * 切り取り線より下へ出る。実測（375x667・陽菜）では 9.9px 下へ出ていて、
+     * なじませが消えきる前の位置で切られ、服のすそが横一文字に切れていた。
+     * そこで倍率を掛けた人だけ、楕円の縦の半径を倍率で割る。
+     *   下げ量 + 倍率 ×（16% + 84% ÷ 倍率）= 下げ量 + 16% × 倍率 + 84%
+     * となり、375x667 の「カード内側の高さ ÷ 幅 = 1.063」に収まる。
+     * 倍率 1 の79人は 84% のままなので、見え方は変わらない。
+     */
+    const low = css.match(
+      /@media \(max-height: 699px\) and \(min-width: 341px\)\s*\{([\s\S]*?)\n\}/,
+    );
+    expect(low, '画面が低いときの指定が見つからない').not.toBeNull();
+    const decls = (low as RegExpMatchArray)[1];
+    expect(decls, '対象が一覧の中の人物画像でない')
+      .toContain('.avatar-list .avatar-card .avatar-thumb__face.has-image .avatar-thumb__img');
+    const m = decls.match(/--avatar-fade-y:\s*calc\(\s*([\d.]+)%\s*\/\s*var\(--avatar-scale, 1\)\s*\)/);
+    expect(m, 'なじませの縦半径を倍率で割っていない').not.toBeNull();
+    // 既定（倍率1）と同じ値を割るので、倍率を掛けていない人は変わらない。
+    const base = (css.match(/radial-gradient\(\s*[\d.]+% var\(--avatar-fade-y, ([\d.]+)%\)/) as RegExpMatchArray)[1];
+    expect(Number((m as RegExpMatchArray)[1]), '既定の半径と値が合っていない').toBe(Number(base));
+    // 収まることを式でも確かめる（375x667 の実測値を使う）。
+    const scale = avatarDisplayScale('elementary-f-03');
+    const endPercent = Number(base) / 100 + 0.16 * scale; // カード幅に対する割合
+    // 375x667 の実測：カードの縁の内側 幅 76.3px / 高さ 81.1px
+    expect(endPercent, 'なじませがカードの内側で終わらない').toBeLessThanOrEqual(81.1 / 76.3);
   });
 
   it('顔の大きさを変えるのは一覧の中だけ（共有サムネイルは触らない）', () => {
