@@ -1,4 +1,8 @@
 import { el, button } from '../app/dom';
+// 七海（middle-f-01）の実機確認用候補：v23 の人物合成を載せる。
+import { attachCardReferenceV23 } from '../components/attachReferenceV23';
+// 合成座標の候補 fit-v3。七海だけに当てる。
+import { fitNanamiV3 } from '../components/fitNanamiV3';
 import { UI } from '../data/strings';
 import {
   AGE_GROUP_LABEL,
@@ -38,6 +42,8 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
     ?? AVATAR_AGE_GROUPS[0];
   let filter: PresentationFilter = 'all';
   let pendingId: string | null = ctx.records.get().selectedAvatarId;
+  // fit-v3 が返す解除関数の置き場。カードを作り直すときと画面を捨てるときに呼ぶ。
+  const fitTeardowns: Array<() => void> = [];
 
   const grid = el('div', { class: 'avatar-grid', role: 'listbox', 'aria-label': UI.avatar.selectHeading });
   const chosenLine = el('div', { class: 'avatar-select__chosen' });
@@ -112,6 +118,9 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
   }
 
   function renderGrid(): void {
+    // 作り直す前に、前のカードの監視を解除する（積み上がらないようにする）。
+    for (const off of fitTeardowns) off();
+    fitTeardowns.length = 0;
     const list = visibleAvatars();
     if (list.length === 0) {
       grid.replaceChildren(el('p', { class: 'avatar-select__empty', text: UI.avatar.empty }));
@@ -136,6 +145,10 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
             el('span', { class: 'avatar-thumb__name', text: displayName(avatar) }),
           ],
         );
+        // 七海のカードだけ、v23 の人物合成・soft・frost を載せる。
+        attachCardReferenceV23(card, avatar.id);
+        // 七海だけ、合成座標の候補 fit-v3 を当てる。
+        if (avatar.id === 'middle-f-01') fitTeardowns.push(fitNanamiV3(card));
         card.addEventListener('click', () => {
           pendingId = avatar.id;
           renderGrid();
@@ -194,6 +207,12 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
 
   // 画面を組み立ててから、いまの年代を印として載せる。
   renderTabs();
+
+  // 画面を捨てるときに、監視をすべて解除する。
+  screen.addEventListener('screen:destroy', () => {
+    for (const off of fitTeardowns) off();
+    fitTeardowns.length = 0;
+  });
 
   return screen;
 }

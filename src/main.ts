@@ -4,6 +4,10 @@ import './styles/title.css';
 import './styles/travel.css';
 import './styles/quiz.css';
 import './styles/avatar.css';
+// 七海（middle-f-01）の実機確認用候補。avatar.css のあとに読む。
+import './styles/reference-v23-card.css';
+// 合成座標の候補 fit-v3。上の v23 CSS の後に読む。
+import './styles/nanami-fit-v3.css';
 import './styles/chat.css';
 import './styles/karta.css';
 import { createApp } from './app/router';

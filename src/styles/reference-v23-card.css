@@ -1,0 +1,64 @@
+/*
+ * v23 のカード処理（七海の一時組み込み・ChatGPT制作物のまま）
+ *
+ * 受領物 kotoba-screen-reference-v23-compact.zip の card-integration.css から、
+ * @font-face（フォント本体の読み込み）だけを取り除いて写したもの。
+ * 書体を足さない指示のため、フォントは入れていない。
+ * 選択子・画素・ぼかしの強さ・範囲・色・不透明度は1つも変えていない。
+ * 画面全体の指定（apply-shell / shell-integration.css）は使っていない。
+ */
+/* Font faces embedded: no build-time public @import. */
+/* 今回の指示で使わない指定。中身はそのまま残し、コメントにして無効にしてある。
+   （画素・ぼかし・白の濃さには触れていない。外したのは配置と文字まわりだけ） */
+/* .screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .avatar-thumb__name{font-family:'M PLUS Rounded 1c',sans-serif} */
+/* v10. Load after avatar.css. Keep all small thumbnails and other people intact. */
+/* .screen--avatar-select .avatar-grid[data-reference-v23="true"]{grid-auto-rows:auto;align-content:start;grid-template-columns:repeat(4,minmax(0,1fr))} */
+/* .screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"]{aspect-ratio:1/1.3;height:auto;min-height:44px;border-width:2px;padding:0;gap:0;overflow:hidden;align-self:start} */
+/*
+ * 接続のための変更（見た目の指定ではない）。
+ *
+ * 受領のままだと .avatar-thumb が position:absolute になり、流れから外れる。
+ * 名前はカードの直接の子で、カードは縦並びの中央ぞろえなので、
+ * 中の箱が流れから外れると名前がカードの中央まで上がってしまう
+ * （実測：393x852 でカード上端から 110.4px → 55.7px）。
+ * 名前の位置はいまのアプリのままにする指示なので、position:absolute;inset:0 を外す。
+ * 中の箱は、いまのアプリの指定（width:100%;height:100%）でカードいっぱいのまま。
+ * 人物の置き場所（.avatar-thumb__face.has-image の position:absolute;inset:0）は
+ * カードを基準に決まるので、合成の見え方は変わらない（画素で照合する）。
+ */
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .avatar-thumb{padding:0;gap:0}
+/* 受領のままの指定：
+   .screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .avatar-thumb{position:absolute;inset:0;width:100%;height:100%;padding:0;gap:0} */
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .avatar-thumb__face.has-image{
+ position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;margin:0;
+ background:transparent;border-radius:0;box-shadow:none;overflow:visible;z-index:0;
+ mask-image:var(--reference-footprint-mask);-webkit-mask-image:var(--reference-footprint-mask);
+ mask-size:100% 100%;-webkit-mask-size:100% 100%;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-mode:alpha;
+}
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .reference-v23-scene{position:absolute;inset:0;mask-size:100% 100%;-webkit-mask-size:100% 100%;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat}
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .reference-v23-sharp{mask-image:var(--reference-center-mask);-webkit-mask-image:var(--reference-center-mask)}
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .reference-v23-soft{mask-image:var(--reference-rim-mask);-webkit-mask-image:var(--reference-rim-mask)}
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .reference-v23-soft-content{position:absolute;inset:0;filter:blur(clamp(1.1px,.40vw,2.2px))}
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .avatar-thumb__face.has-image .reference-v23-head{
+ position:absolute;inset:auto;left:0;top:2%;width:100%;height:auto;object-fit:contain;
+ border-radius:0;filter:none;opacity:1;
+ mask-image:url('/kotoba-journey/assets/avatars/reference-v23/head-blend.png');-webkit-mask-image:url('/kotoba-journey/assets/avatars/reference-v23/head-blend.png');
+ mask-size:100% 100%;-webkit-mask-size:100% 100%;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
+}
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .reference-v23-body{
+ position:absolute;left:-6%;top:2%;width:112%;height:112%;object-fit:contain;object-position:50% 0%;opacity:1;filter:none;border-radius:0;
+ mask-image:url('/kotoba-journey/assets/avatars/reference-v23/body-mask.png');-webkit-mask-image:url('/kotoba-journey/assets/avatars/reference-v23/body-mask.png');mask-size:100% 100%;-webkit-mask-size:100% 100%;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
+}
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .reference-v23-frost{
+ position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;background:rgba(255,255,255,.68);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+ mask-image:var(--reference-frost-mask);-webkit-mask-image:var(--reference-frost-mask);mask-size:100% 100%;-webkit-mask-size:100% 100%;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;
+}
+/* .screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"] .avatar-thumb__name{
+    position:absolute;top:calc(88.5% + 1.54px);bottom:auto;left:0;right:0;transform:translateY(-50%);
+    z-index:2;padding:0 2px;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;background:none;
+    filter:none;opacity:1;mask-image:none;-webkit-mask-image:none;text-shadow:0 1px 4px #ffffffd9;
+   } */
+
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"][data-reference-person="m"]{--reference-center-mask:url("/kotoba-journey/assets/avatars/reference-v23/center-m-mask.png");--reference-rim-mask:url("/kotoba-journey/assets/avatars/reference-v23/rim-m-mask.png");--reference-frost-mask:url("/kotoba-journey/assets/avatars/reference-v23/frost-m-mask.png");--reference-footprint-mask:url("/kotoba-journey/assets/avatars/reference-v23/footprint-m-mask.png");}
+
+.screen--avatar-select .avatar-list .avatar-card[data-reference-v23="true"][data-reference-person="f"]{--reference-center-mask:url("/kotoba-journey/assets/avatars/reference-v23/center-f-mask.png");--reference-rim-mask:url("/kotoba-journey/assets/avatars/reference-v23/rim-f-mask.png");--reference-frost-mask:url("/kotoba-journey/assets/avatars/reference-v23/frost-f-mask.png");--reference-footprint-mask:url("/kotoba-journey/assets/avatars/reference-v23/footprint-f-mask.png");}

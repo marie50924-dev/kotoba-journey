@@ -1,0 +1,36 @@
+/* 未採用 fit-v3。reduced v23 CS.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] の後。fit-v1/v2 は併用しない。 */
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .avatar-thumb__face.has-image,
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .reference-v23-frost {
+ inset:auto; left:50%; top:2px; right:auto; bottom:auto;
+ width:var(--nanami-stage-w); margin:0;
+ transform:translateX(-50%); transform-origin:top center;
+}
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .avatar-thumb__face.has-image { height:var(--nanami-stage-h); aspect-ratio:10 / 13; }
+/* 人物は10:13共通座標。frostだけ使用可能高さへ別レイヤーとして配置。 */
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .reference-v23-frost { height:var(--nanami-frost-h); }
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] {
+ --nanami-figure-fade:linear-gradient(to bottom,
+  #000 0px, #000 var(--nanami-figure-fade-start),
+  transparent var(--nanami-figure-fade-end),transparent 100%);
+ --nanami-frost-fade:linear-gradient(to bottom,
+  transparent 0px,transparent var(--nanami-frost-top-start),
+  #000 var(--nanami-frost-top-end),#000 var(--nanami-frost-bottom-start),
+  transparent var(--nanami-frost-bottom-end),transparent 100%);
+ --nanami-side-fade:linear-gradient(to right,
+  transparent 0%,#000 15%,#000 85%,transparent 100%);
+}
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .avatar-thumb__face.has-image {
+ -webkit-mask-image:var(--reference-footprint-mask),var(--nanami-figure-fade);
+ mask-image:var(--reference-footprint-mask),var(--nanami-figure-fade);
+ -webkit-mask-size:100% 100%;mask-size:100% 100%;
+ -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+ -webkit-mask-composite:source-in;mask-composite:intersect;
+}
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .reference-v23-frost {
+ -webkit-mask-image:var(--reference-frost-mask),var(--nanami-side-fade),var(--nanami-frost-fade);
+ mask-image:var(--reference-frost-mask),var(--nanami-side-fade),var(--nanami-frost-fade);
+ -webkit-mask-size:100% 100%;mask-size:100% 100%;
+ -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+ -webkit-mask-composite:source-in,source-in;
+ mask-composite:intersect,intersect;
+}
