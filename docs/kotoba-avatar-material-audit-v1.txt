@@ -129,3 +129,72 @@ IMG_5345(1)／IMG_5339(1)／IMG_5076(4)／IMG_5089）は、この作業環境に
 カード制作物（head/body-generated/マスク/attach-*.ts/*-integration.css）は、
 src/ にも public/ にも1つも入っていない。取り込みは保留のまま。
 確認版 Version 29 は維持。main への反映・正式公開も保留。
+
+
+9. 訂正と追加調査（2026-10-09）
+-------------------------------
+前回（第3〜4節）の次の2点を訂正する。
+
+(訂正1) 「胴体は男女各1枚の生成物で、男女それぞれ1枚を共用。個人別ではない」
+  → 誤り。胴体は人物ごとに作られている。
+  ・v13〜v23 の body-f.png は七海（middle-f-01）用、body-m.png は大地
+    （middle-m-01）用。組み込みコード attach-card.ts の対応表が、この2つの
+    人物IDへ直接結び付けている（ほかのIDでは何も起きない作りになっている）。
+  ・個人別カード一式9名には、それぞれ別の body-generated.png が入っている。
+    画素の寸法も人ごとに違う（1061x1482 〜 1101x1429）。
+  ・したがって、現存する個人別の補完胴体は 11人ぶん。
+      中学生・男子 8人（大地・冬馬・流星・樹・湊・駿・明・直樹）
+      中学生・女子 3人（七海・栞奈・莉子）
+    未制作は 69人。v22・v23 の README にある「78人胴体は未制作」は、
+    個人別カード9名を作る前（10-01〜02）の時点の数。
+
+(訂正2) 「七海の個人別カード一式は無い」
+  → 名前の付いた個別パッケージは無いが、七海のカード一式は素材セット
+    v13〜v23 の中に、大地と2人ぶんとして入っている。
+    原画 middle-f-01.png／七海用の補完胴体 body-f.png／f 用の
+    center・rim・frost・footprint マスク／body-mask・body-blend・head-blend／
+    組み込みコード（attach-card.ts・card-integration.css・compiled JS）。
+
+個人別カード一式の一覧（受領フォルダ名・版）
+  middle-m-01 神崎大地   素材セット v13〜v23 の中（body-m）
+  middle-f-01 一ノ瀬七海  素材セット v13〜v23 の中（body-f）
+  middle-m-02 成瀬冬馬   kotoba-toma-card-v1（＋ kotoba-toma-integration-v1）
+  middle-m-03 霧島流星   kotoba-ryusei-card-v1 / v2（＋ ryusei-integration-v2）
+  middle-m-04 荒川樹     kotoba-itsuki-card-v1
+  middle-m-05 佐伯湊     kotoba-minato-card-v1
+  middle-m-06 黒沢駿     kotoba-shun-card-v1
+  middle-m-07 雨宮明     kotoba-akira-card-v1
+  middle-m-08 藤本直樹   kotoba-naoki-card-v1 / v1-docfix
+  middle-f-02 森川栞奈   kotoba-kanna-card-v1 / v2
+  middle-f-03 花沢莉子   kotoba-riko-card-v1 / v2
+  （参考）elementary-f-03 百瀬陽菜 kotoba-hina-replacement-v1 は
+          差し替え用の原画1枚だけで、カード一式ではない。
+  七海の名前が付いたカードのパッケージは無い（上のとおり素材セットの中）。
+
+各一式の head.webp は、配信中の WebP とバイト一致（無改変コピー）を確認した。
+
+v22 → v23 の実ファイルの差分（ハッシュで照合）
+  v22 534ファイル／v23 531ファイル。内容が同じ 417／違う 100／
+  v22だけ 17／v23だけ 14。
+  素材で中身が変わったのは 6枚だけ。
+    center-f / center-m / frost-f / frost-m / rim-f / rim-m
+  変わっていない素材
+    middle-f-01.png・middle-m-01.png（原画）、body-f・body-m（補完胴体）、
+    body-mask・body-blend・head-blend、footprint マスク、背景、フォント。
+  コードは版番号と参照URL（reference-v22 → reference-v23、関数名 V22 → V23）
+  だけが違う。card-integration.css の 542行の違いも、すべてフォントの
+  参照URLの版番号だった。生成用の build-outline-guard.cjs だけは中身が変わっている
+  （v22 の白領域を広げる処理の向きが逆だったことの修正）。
+  残りの差は、ChatGPT側の独立確認ページの出力（outline-review/）と説明文書。
+  v22 にあって v23 に無いもの：previews/ の画面JPEG 11枚と before-v21/。
+  v23 にあって v22 に無いもの：mask-source-v22/、claude-v22-evidence/、before-v22/。
+  記録（README・RESOLUTION）の説明と、実ファイルの差分は一致していた。
+
+今回の提出（受領時のまま・中身は1バイトも変えていない）
+  kotoba-screen-reference-v23-compact.zip
+    sha256 33c554c3042292d9427c6f411ea6461c945281ce6039f7fcb296b064de98f208
+  kotoba-kanna-card-v2.zip（中学生・女子の例）
+    sha256 768dd9e02031640c5c9a81703bc8884d9d9ad8568cc8c237b4b0d5c81a8c2328
+
+今回の添付8枚は、Claude 側では受領していない。ChatGPT 側で受領・確認済みで
+あることと区別し、こちらが見た扱いにはしない。
