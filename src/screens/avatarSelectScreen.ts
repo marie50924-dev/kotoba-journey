@@ -1,8 +1,10 @@
 import { el, button } from '../app/dom';
 // 七海（middle-f-01）の実機確認用候補：v23 の人物合成を載せる。
 import { attachCardReferenceV23 } from '../components/attachReferenceV23';
-// 合成座標の候補 fit-v3。七海だけに当てる。
-import { fitNanamiV3 } from '../components/fitNanamiV3';
+// 七海（middle-f-01）の採用構成。一覧の行の高さ・胴体の表示・肩の接合。
+import { applyStructV1 } from '../components/fitNanamiStructV1';
+import { attachNanamiBodyExtensionV1 } from '../components/attachNanamiBodyExtensionV1';
+import { attachNanamiHeadSeamV11 } from '../components/attachNanamiHeadSeamV11';
 import { UI } from '../data/strings';
 import {
   AGE_GROUP_LABEL,
@@ -42,7 +44,7 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
     ?? AVATAR_AGE_GROUPS[0];
   let filter: PresentationFilter = 'all';
   let pendingId: string | null = ctx.records.get().selectedAvatarId;
-  // fit-v3 が返す解除関数の置き場。カードを作り直すときと画面を捨てるときに呼ぶ。
+  // 七海の層が返す解除関数の置き場。カードを作り直すときと画面を捨てるときに呼ぶ。
   const fitTeardowns: Array<() => void> = [];
 
   const grid = el('div', { class: 'avatar-grid', role: 'listbox', 'aria-label': UI.avatar.selectHeading });
@@ -147,8 +149,17 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
         );
         // 七海のカードだけ、v23 の人物合成・soft・frost を載せる。
         attachCardReferenceV23(card, avatar.id);
-        // 七海だけ、合成座標の候補 fit-v3 を当てる。
-        if (avatar.id === 'middle-f-01') fitTeardowns.push(fitNanamiV3(card));
+        /*
+         * 七海だけ、胴体の表示と肩の接合を足す。
+         * attachCardReferenceV23 の直後に、body-extension → head-seam の順で一度ずつ呼ぶ。
+         * 解除は head-seam → body-extension の順にするため、この順で積む
+         * （fitTeardowns は積んだ順に呼ばれる）。
+         */
+        if (avatar.id === 'middle-f-01') {
+          const offBody = attachNanamiBodyExtensionV1(card);
+          const offSeam = attachNanamiHeadSeamV11(card);
+          fitTeardowns.push(offSeam, offBody);
+        }
         card.addEventListener('click', () => {
           pendingId = avatar.id;
           renderGrid();
@@ -186,6 +197,13 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
   renderGrid();
   renderChosen();
 
+  /*
+   * カードが並んだあとに、一覧へ行の高さの規則を当てる（中学生の一覧だけ）。
+   * 一覧そのものを見張り続けるので、renderGrid の先頭で解除される
+   * fitTeardowns には入れない。画面を捨てるときにだけ解除する。
+   */
+  const structTeardown = applyStructV1(grid);
+
   const screen = screenShell(
     {
       title: UI.avatar.selectHeading,
@@ -210,6 +228,7 @@ export function avatarSelectScreen(ctx: AppContext): HTMLElement {
 
   // 画面を捨てるときに、監視をすべて解除する。
   screen.addEventListener('screen:destroy', () => {
+    structTeardown();
     for (const off of fitTeardowns) off();
     fitTeardowns.length = 0;
   });

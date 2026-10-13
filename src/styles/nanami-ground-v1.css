@@ -1,0 +1,11 @@
+/*
+ * 七海（middle-f-01）のカードの地色（採用）
+ *
+ * 未選択のときだけ、淡い青灰色にして人物の輪郭をカードの面へなじませる。
+ * 選択中は :not([aria-selected="true"]) で外れ、共通の選択色へ戻る。
+ * 値は比較で決めたもの。ここで再調整しない。
+ * struct-v1 の後に読む。
+ */
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"]:not([aria-selected="true"]) {
+  background: linear-gradient(180deg, rgba(148,170,191,.28) 0%, rgba(148,170,191,.34) 100%);
+}

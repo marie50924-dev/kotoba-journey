@@ -1,0 +1,20 @@
+/*
+ * 七海（middle-f-01）の胴体表示 body-extension-v1（採用）
+ * struct-v1 と地色の後に読む。くもりの層は併用しない。
+ */
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"][data-body-extension-v1="true"] .avatar-thumb__face.has-image {
+  z-index: 1;
+}
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-body-extension-v1="true"] > .nanami-body-extension-v1 {
+  position: absolute;
+  left: var(--body-ext-left);
+  top: var(--body-ext-top);
+  width: var(--body-ext-width);
+  height: var(--body-ext-height);
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* 新しい追加層だけの下端フェード。原画や既存PNGは変更しない。 */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 var(--body-ext-fade-start), transparent var(--body-ext-fade-end));
+  mask-image: linear-gradient(to bottom, #000 0, #000 var(--body-ext-fade-start), transparent var(--body-ext-fade-end));
+}

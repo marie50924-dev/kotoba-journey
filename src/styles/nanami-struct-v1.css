@@ -1,0 +1,42 @@
+/*
+ * 七海（middle-f-01）のカードの構成 struct-v1（採用）
+ *
+ *   1. 七海の head 画像の表示幅を、同じ一覧の通常人物と同じ thumb 幅へ戻す。
+ *      available による縮小は外す。
+ *   2. 人物ステージは 幅:高さ = 10:13 を維持する。
+ *   3. カードの高さは 人物ステージ＋名前＋余白が収まる高さを確保する。
+ *      必要高さ = thumb幅 × 1.3 ＋ 名前の高さ ＋ 上下の境界幅 ＋ 5px。現在より低くしない。
+ *   4. 行の高さをそろえるため、中学生16枚へ同じ高さの規則を当てる。
+ *      カード幅・列数・横の間隔は変えない。
+ *
+ * soft・frost は出さない。fit-v3 の追加フェードも使わない（fit-v3 は不採用）。
+ * 原画・補完胴体・既存マスク（footprint / center / head-blend / body-mask）は変えていない。
+ *
+ * reference-v23-card.css の後に読む。
+ */
+
+/* 1・2. 人物ステージ：幅は thumb 幅いっぱい、高さは幅×1.3（10:13） */
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .avatar-thumb__face.has-image {
+ inset: auto;
+ left: 0; top: 2px; right: auto; bottom: auto;
+ width: 100%; height: auto;
+ margin: 0; aspect-ratio: 10 / 13;
+ transform: none;
+ /* 下端フェードは足さず、footprint マスクだけを使う */
+ -webkit-mask-image: var(--reference-footprint-mask);
+ mask-image: var(--reference-footprint-mask);
+ -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+ -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+ -webkit-mask-composite: source-over; mask-composite: add;
+}
+
+/* ぼかした人物と端のくもりは出さない（素材は変えていない） */
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .reference-v23-soft,
+.screen--avatar-select .avatar-list .avatar-card[data-avatar-id="middle-f-01"][data-reference-v23="true"] .reference-v23-frost {
+ display: none;
+}
+
+/* 3・4. 行の高さ。カード幅・列数・横の間隔は変えない。 */
+.screen--avatar-select .avatar-list .avatar-grid[data-struct-v1="true"] {
+ grid-auto-rows: minmax(var(--struct-card-h, min-content), 1fr);
+}
